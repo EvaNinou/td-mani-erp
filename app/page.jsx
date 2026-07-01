@@ -8,6 +8,7 @@ export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
   const [crews, setCrews] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [projects, setProjects] = useState([]);
 
   const [newCustomer, setNewCustomer] = useState({
     name: '',
@@ -16,9 +17,18 @@ export default function Home() {
     notes: ''
   });
 
+  const [newProject, setNewProject] = useState({
+    title: '',
+    address: '',
+    area: '',
+    agreed_amount: '',
+    status: 'active'
+  });
+
   useEffect(() => {
     loadCrews();
     loadCustomers();
+    loadProjects();
   }, []);
 
   async function loadCrews() {
@@ -35,6 +45,15 @@ export default function Home() {
     setCustomers(data || []);
   }
 
+  async function loadProjects() {
+    const { data } = await supabase
+      .from('projects')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    setProjects(data || []);
+  }
+
   async function addCustomer() {
     if (!newCustomer.name) {
       alert('Βάλε όνομα πελάτη');
@@ -43,14 +62,35 @@ export default function Home() {
 
     await supabase.from('customers').insert([newCustomer]);
 
-    setNewCustomer({
-      name: '',
-      phone: '',
+    setNewCustomer({ name: '', phone: '', area: '', notes: '' });
+    loadCustomers();
+  }
+
+  async function addProject() {
+    if (!newProject.title) {
+      alert('Βάλε τίτλο έργου');
+      return;
+    }
+
+    await supabase.from('projects').insert([{
+      code: 'PRJ-' + Date.now(),
+      title: newProject.title,
+      address: newProject.address,
+      area: newProject.area,
+      agreed_amount: Number(newProject.agreed_amount || 0),
+      status: newProject.status,
+      job_type: 'invoice'
+    }]);
+
+    setNewProject({
+      title: '',
+      address: '',
       area: '',
-      notes: ''
+      agreed_amount: '',
+      status: 'active'
     });
 
-    loadCustomers();
+    loadProjects();
   }
 
   return (
@@ -73,7 +113,7 @@ export default function Home() {
       </section>
 
       <section className="card">
-        <h2>Συνεργεία από Supabase</h2>
+        <h2>Συνεργεία</h2>
         {crews.map((crew) => (
           <p key={crew.id}><b>{crew.name}</b> — {crew.specialty}</p>
         ))}
@@ -81,49 +121,51 @@ export default function Home() {
 
       <section className="card">
         <h2>Νέος Πελάτης</h2>
-
-        <input
-          placeholder="Όνομα πελάτη"
-          value={newCustomer.name}
-          onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-        />
-
-        <input
-          placeholder="Τηλέφωνο"
-          value={newCustomer.phone}
-          onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-        />
-
-        <input
-          placeholder="Περιοχή"
-          value={newCustomer.area}
-          onChange={(e) => setNewCustomer({ ...newCustomer, area: e.target.value })}
-        />
-
-        <textarea
-          placeholder="Σημειώσεις"
-          value={newCustomer.notes}
-          onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })}
-        />
-
+        <input placeholder="Όνομα πελάτη" value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} />
+        <input placeholder="Τηλέφωνο" value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} />
+        <input placeholder="Περιοχή" value={newCustomer.area} onChange={(e) => setNewCustomer({ ...newCustomer, area: e.target.value })} />
+        <textarea placeholder="Σημειώσεις" value={newCustomer.notes} onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })} />
         <button onClick={addCustomer}>Αποθήκευση πελάτη</button>
       </section>
 
       <section className="card">
         <h2>Πελάτες</h2>
+        {customers.length === 0 ? <p>Δεν υπάρχουν πελάτες ακόμα.</p> : customers.map((customer) => (
+          <div key={customer.id} className="line">
+            <p><b>{customer.name}</b></p>
+            <p>{customer.phone}</p>
+            <p>{customer.area}</p>
+            <small>{customer.notes}</small>
+          </div>
+        ))}
+      </section>
 
-        {customers.length === 0 ? (
-          <p>Δεν υπάρχουν πελάτες ακόμα.</p>
-        ) : (
-          customers.map((customer) => (
-            <div key={customer.id} className="line">
-              <p><b>{customer.name}</b></p>
-              <p>{customer.phone}</p>
-              <p>{customer.area}</p>
-              <small>{customer.notes}</small>
-            </div>
-          ))
-        )}
+      <section className="card">
+        <h2>Νέο Έργο</h2>
+        <input placeholder="Τίτλος έργου" value={newProject.title} onChange={(e) => setNewProject({ ...newProject, title: e.target.value })} />
+        <input placeholder="Διεύθυνση" value={newProject.address} onChange={(e) => setNewProject({ ...newProject, address: e.target.value })} />
+        <input placeholder="Περιοχή" value={newProject.area} onChange={(e) => setNewProject({ ...newProject, area: e.target.value })} />
+        <input placeholder="Συμφωνηθέν ποσό" value={newProject.agreed_amount} onChange={(e) => setNewProject({ ...newProject, agreed_amount: e.target.value })} />
+
+        <select value={newProject.status} onChange={(e) => setNewProject({ ...newProject, status: e.target.value })}>
+          <option value="active">Ενεργό</option>
+          <option value="pending">Σε αναμονή</option>
+          <option value="completed">Ολοκληρωμένο</option>
+        </select>
+
+        <button onClick={addProject}>Αποθήκευση έργου</button>
+      </section>
+
+      <section className="card">
+        <h2>Έργα</h2>
+        {projects.length === 0 ? <p>Δεν υπάρχουν έργα ακόμα.</p> : projects.map((project) => (
+          <div key={project.id} className="line">
+            <p><b>{project.title}</b></p>
+            <p>{project.area}</p>
+            <p>{project.status}</p>
+            <p>{project.agreed_amount}€</p>
+          </div>
+        ))}
       </section>
     </main>
   );
