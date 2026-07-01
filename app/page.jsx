@@ -86,7 +86,35 @@ const [newQuote, setNewQuote] = useState({
   const { data } = await supabase.from('quotes').select('*');
   setQuotes(data || []);
 }
-  
+async function addQuote() {
+  if (!newQuote.description || !newQuote.subtotal) {
+    alert('Βάλε περιγραφή και ποσό προσφοράς');
+    return;
+  }
+
+  const subtotal = Number(newQuote.subtotal || 0);
+  const vat = newQuote.job_type === 'invoice' ? subtotal * 0.24 : 0;
+  const withholding = newQuote.job_type === 'invoice' ? subtotal * 0.03 : 0;
+  const total = subtotal + vat - withholding;
+
+  await supabase.from('quotes').insert([{
+    description: newQuote.description,
+    subtotal,
+    vat,
+    withholding,
+    total,
+    job_type: newQuote.job_type,
+    status: 'pending'
+  }]);
+
+  setNewQuote({
+    description: '',
+    subtotal: '',
+    job_type: 'invoice'
+  });
+
+  loadQuotes();
+}  
 
   async function addCustomer() {
     await supabase.from('customers').insert([newCustomer]);
