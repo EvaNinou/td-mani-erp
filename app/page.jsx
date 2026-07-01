@@ -254,6 +254,47 @@ async function addQuote() {
       </section>
 
       <section className="card">
+  <h2>Νέα Προσφορά</h2>
+
+  <textarea
+    placeholder="Περιγραφή προσφοράς"
+    value={newQuote.description}
+    onChange={(e) => setNewQuote({ ...newQuote, description: e.target.value })}
+  />
+
+  <input
+    placeholder="Καθαρή αξία"
+    value={newQuote.subtotal}
+    onChange={(e) => setNewQuote({ ...newQuote, subtotal: e.target.value })}
+  />
+
+  <select
+    value={newQuote.job_type}
+    onChange={(e) => setNewQuote({ ...newQuote, job_type: e.target.value })}
+  >
+    <option value="invoice">Τιμολόγιο με ΦΠΑ / Παρακράτηση</option>
+    <option value="cash">Μετρητά χωρίς ΦΠΑ</option>
+  </select>
+
+  <button onClick={addQuote}>Αποθήκευση προσφοράς</button>
+</section>
+
+<section className="card">
+  <h2>Προσφορές</h2>
+
+  {quotes.map((quote) => (
+    <div key={quote.id} className="line">
+      <p><b>{quote.description}</b></p>
+      <p>Καθαρή αξία: {quote.subtotal}€</p>
+      <p>ΦΠΑ: {quote.vat}€</p>
+      <p>Παρακράτηση: {quote.withholding}€</p>
+      <p><b>Πληρωτέο: {quote.total}€</b></p>
+      <small>{quote.job_type} — {quote.status}</small>
+    </div>
+  ))}
+</section>
+      
+      <section className="card">
         <h2>Νέο Υλικό</h2>
         <input placeholder="Υλικό" value={newInventory.item_name} onChange={(e) => setNewInventory({ ...newInventory, item_name: e.target.value })} />
         <input placeholder="Ποσότητα" value={newInventory.quantity} onChange={(e) => setNewInventory({ ...newInventory, quantity: e.target.value })} />
