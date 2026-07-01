@@ -10,6 +10,7 @@ export default function Home() {
   const [customers, setCustomers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [inventory, setInventory] = useState([]);
 
   const [newCustomer, setNewCustomer] = useState({
     name: '',
@@ -33,11 +34,19 @@ export default function Home() {
     notes: ''
   });
 
+  const [newInventory, setNewInventory] = useState({
+    item_name: '',
+    quantity: '',
+    min_quantity: '',
+    purchase_price: ''
+  });
+
   useEffect(() => {
     loadCrews();
     loadCustomers();
     loadProjects();
     loadPayments();
+    loadInventory();
   }, []);
 
   async function loadCrews() {
@@ -46,49 +55,32 @@ export default function Home() {
   }
 
   async function loadCustomers() {
-    const { data } = await supabase
-      .from('customers')
-      .select('*')
-      .order('created_at', { ascending: false });
-
+    const { data } = await supabase.from('customers').select('*');
     setCustomers(data || []);
   }
 
   async function loadProjects() {
-    const { data } = await supabase
-      .from('projects')
-      .select('*')
-      .order('created_at', { ascending: false });
-
+    const { data } = await supabase.from('projects').select('*');
     setProjects(data || []);
   }
 
   async function loadPayments() {
-    const { data } = await supabase
-      .from('payments')
-      .select('*')
-      .order('created_at', { ascending: false });
-
+    const { data } = await supabase.from('payments').select('*');
     setPayments(data || []);
   }
 
-  async function addCustomer() {
-    if (!newCustomer.name) {
-      alert('Βάλε όνομα πελάτη');
-      return;
-    }
+  async function loadInventory() {
+    const { data } = await supabase.from('inventory').select('*');
+    setInventory(data || []);
+  }
 
+  async function addCustomer() {
     await supabase.from('customers').insert([newCustomer]);
     setNewCustomer({ name: '', phone: '', area: '', notes: '' });
     loadCustomers();
   }
 
   async function addProject() {
-    if (!newProject.title) {
-      alert('Βάλε τίτλο έργου');
-      return;
-    }
-
     await supabase.from('projects').insert([{
       code: 'PRJ-' + Date.now(),
       title: newProject.title,
@@ -109,13 +101,7 @@ export default function Home() {
 
     loadProjects();
   }
-
-  async function addPayment() {
-    if (!newPayment.project_id || !newPayment.amount) {
-      alert('Διάλεξε έργο και βάλε ποσό');
-      return;
-    }
-
+async function addPayment() {
     await supabase.from('payments').insert([{
       project_id: newPayment.project_id,
       amount: Number(newPayment.amount),
@@ -132,6 +118,24 @@ export default function Home() {
     });
 
     loadPayments();
+  }
+
+  async function addInventory() {
+    await supabase.from('inventory').insert([{
+      item_name: newInventory.item_name,
+      quantity: Number(newInventory.quantity || 0),
+      min_quantity: Number(newInventory.min_quantity || 0),
+      purchase_price: Number(newInventory.purchase_price || 0)
+    }]);
+
+    setNewInventory({
+      item_name: '',
+      quantity: '',
+      min_quantity: '',
+      purchase_price: ''
+    });
+
+    loadInventory();
   }
 
   function getProjectPaid(projectId) {
@@ -168,24 +172,11 @@ export default function Home() {
 
       <section className="card">
         <h2>Νέος Πελάτης</h2>
-        <input placeholder="Όνομα πελάτη" value={newCustomer.
-          name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} />
+        <input placeholder="Όνομα πελάτη" value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} />
         <input placeholder="Τηλέφωνο" value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} />
         <input placeholder="Περιοχή" value={newCustomer.area} onChange={(e) => setNewCustomer({ ...newCustomer, area: e.target.value })} />
         <textarea placeholder="Σημειώσεις" value={newCustomer.notes} onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })} />
         <button onClick={addCustomer}>Αποθήκευση πελάτη</button>
-      </section>
-
-      <section className="card">
-        <h2>Πελάτες</h2>
-        {customers.length === 0 ? <p>Δεν υπάρχουν πελάτες ακόμα.</p> : customers.map((customer) => (
-          <div key={customer.id} className="line">
-            <p><b>{customer.name}</b></p>
-            <p>{customer.phone}</p>
-            <p>{customer.area}</p>
-            <small>{customer.notes}</small>
-          </div>
-        ))}
       </section>
 
       <section className="card">
@@ -194,19 +185,11 @@ export default function Home() {
         <input placeholder="Διεύθυνση" value={newProject.address} onChange={(e) => setNewProject({ ...newProject, address: e.target.value })} />
         <input placeholder="Περιοχή" value={newProject.area} onChange={(e) => setNewProject({ ...newProject, area: e.target.value })} />
         <input placeholder="Συμφωνηθέν ποσό" value={newProject.agreed_amount} onChange={(e) => setNewProject({ ...newProject, agreed_amount: e.target.value })} />
-
-        <select value={newProject.status} onChange={(e) => setNewProject({ ...newProject, status: e.target.value })}>
-          <option value="active">Ενεργό</option>
-          <option value="pending">Σε αναμονή</option>
-          <option value="completed">Ολοκληρωμένο</option>
-        </select>
-
         <button onClick={addProject}>Αποθήκευση έργου</button>
       </section>
 
       <section className="card">
         <h2>Νέα Πληρωμή</h2>
-
         <select value={newPayment.project_id} onChange={(e) => setNewPayment({ ...newPayment, project_id: e.target.value })}>
           <option value="">Διάλεξε έργο</option>
           {projects.map((project) => (
@@ -225,14 +208,33 @@ export default function Home() {
         </select>
 
         <textarea placeholder="Σημειώσεις" value={newPayment.notes} onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })} />
-
         <button onClick={addPayment}>Αποθήκευση πληρωμής</button>
       </section>
 
       <section className="card">
-        <h2>Έργα</h2>
+        <h2>Νέο Υλικό</h2>
+        <input placeholder="Υλικό" value={newInventory.item_name} onChange={(e) => setNewInventory({ ...newInventory, item_name: e.target.value })} />
+        <input placeholder="Ποσότητα" value={newInventory.quantity} onChange={(e) => setNewInventory({ ...newInventory, quantity: e.target.value })} />
+        <input placeholder="Ελάχιστο απόθεμα" value={newInventory.min_quantity} onChange={(e) => setNewInventory({ ...newInventory, min_quantity: e.target.value })} />
+        <input placeholder="Τιμή αγοράς" value={newInventory.purchase_price} onChange={(e) => setNewInventory({ ...newInventory, purchase_price: e.target.value })} />
+        <button onClick={addInventory}>Αποθήκευση υλικού</button>
+      </section>
 
-        {projects.length === 0 ? <p>Δεν υπάρχουν έργα ακόμα.</p> : projects.map((project) => {
+      <section className="card">
+        <h2>Πελάτες</h2>
+        {customers.map((customer) => (
+          <div key={customer.id} className="line">
+            <p><b>{customer.name}</b></p>
+            <p>{customer.phone}</p>
+            <p>{customer.area}</p>
+            <small>{customer.notes}</small>
+          </div>
+        ))}
+      </section>
+
+      <section className="card">
+        <h2>Έργα</h2>
+        {projects.map((project) => {
           const paid = getProjectPaid(project.id);
           const agreed = Number(project.agreed_amount || 0);
           const balance = agreed - paid;
@@ -251,9 +253,25 @@ export default function Home() {
       </section>
 
       <section className="card">
-        <h2>Πληρωμές</h2>
+        <h2>Αποθήκη</h2>
+        {inventory.map((item) => {
+          const lowStock = Number(item.quantity  0) <= Number(item.min_quantity  0);
 
-        {payments.length === 0 ? <p>Δεν υπάρχουν πληρωμές ακόμα.</p> : payments.map((payment) => (
+          return (
+            <div key={item.id} className="line">
+              <p><b>{item.item_name}</b></p>
+              <p>Ποσότητα: {item.quantity}</p>
+              <p>Ελάχιστο: {item.min_quantity}</p>
+              <p>Τιμή αγοράς: {item.purchase_price}€</p>
+              {lowStock && <p><b>⚠️ Χαμηλό απόθεμα</b></p>}
+            </div>
+          );
+        })}
+      </section>
+
+      <section className="card">
+        <h2>Πληρωμές</h2>
+        {payments.map((payment) => (
           <div key={payment.id} className="line">
             <p><b>{payment.amount}€</b> — {payment.method}</p>
             <small>{payment.notes}</small>
