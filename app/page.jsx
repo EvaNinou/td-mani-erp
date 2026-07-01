@@ -11,6 +11,13 @@ export default function Home() {
   const [projects, setProjects] = useState([]);
   const [payments, setPayments] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [quotes, setQuotes] = useState([]);
+
+const [newQuote, setNewQuote] = useState({
+  description: '',
+  subtotal: '',
+  job_type: 'invoice'
+});
 
   const [newCustomer, setNewCustomer] = useState({
     name: '',
@@ -47,6 +54,7 @@ export default function Home() {
     loadProjects();
     loadPayments();
     loadInventory();
+    loadQuotes();
   }, []);
 
   async function loadCrews() {
@@ -72,6 +80,10 @@ export default function Home() {
   async function loadInventory() {
     const { data } = await supabase.from('inventory').select('*');
     setInventory(data || []);
+    async function loadQuotes() {
+  const { data } = await supabase.from('quotes').select('*');
+  setQuotes(data || []);
+}
   }
 
   async function addCustomer() {
