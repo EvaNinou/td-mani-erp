@@ -101,7 +101,7 @@ export default function Home() {
 
     loadProjects();
   }
-async function addPayment() {
+  async function addPayment() {
     await supabase.from('payments').insert([{
       project_id: newPayment.project_id,
       amount: Number(newPayment.amount),
@@ -255,7 +255,7 @@ async function addPayment() {
       <section className="card">
         <h2>Αποθήκη</h2>
         {inventory.map((item) => {
-          const lowStock = Number(item.quantity  0) <= Number(item.min_quantity  0);
+          const lowStock = Number(item.quantity || 0) <= Number(item.min_quantity || 0);
 
           return (
             <div key={item.id} className="line">
