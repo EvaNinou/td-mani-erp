@@ -102,7 +102,7 @@ async function addQuote() {
     subtotal,
     vat,
     withholding,
-    total,
+    payble: total,
     job_type: newQuote.job_type,
     status: 'pending'
   }]);
