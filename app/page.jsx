@@ -1,11 +1,29 @@
 'use client';
 
-import { useState } from 'react';
-import { supabase } from './supabaseClient.js';
+import { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
 import './styles.css';
 
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
+  const [crews, setCrews] = useState([]);
+
+  useEffect(() => {
+    loadCrews();
+  }, []);
+
+  async function loadCrews() {
+    const { data, error } = await supabase
+      .from('crews')
+      .select('*');
+
+    if (error) {
+      console.log(error);
+      return;
+    }
+
+    setCrews(data || []);
+  }
 
   return (
     <main className="app">
@@ -21,21 +39,32 @@ export default function Home() {
 
       <section className="card">
         <h2>Επιλογή χρήστη</h2>
-        <button onClick={() => setSelectedUser('Mani Taulant')}>👷 Mani Taulant</button>
-        <button onClick={() => setSelectedUser('Εύα Νίνου')}>👩 Εύα Νίνου</button>
-        <p>Επιλεγμένος χρήστης: <b>{selectedUser}</b></p>
-      </section>
+        <button onClick={() => setSelectedUser('Mani Taulant')}>
+          👷 Mani Taulant
+        </button>
+        <button onClick={() => setSelectedUser('Εύα Νίνου')}>
+          👩 Εύα Νίνου
+        </button>
 
-      <section className="grid">
-        <div className="card"><b>42.500€</b><span>Έσοδα</span></div>
-        <div className="card"><b>18.200€</b><span>Κέρδος</span></div>
-        <div className="card"><b>8</b><span>Alerts</span></div>
-        <div className="card"><b>14</b><span>Έργα</span></div>
+        <p>
+          Επιλεγμένος χρήστης: <b>{selectedUser}</b>
+        </p>
       </section>
 
       <section className="card">
-        <h2>Production Starter</h2>
-        <p>Το UI είναι έτοιμο να συνδεθεί με Supabase database.</p>
+        <h2>Συνεργεία από Supabase</h2>
+
+        {crews.length === 0 ? (
+          <p>Loading crews...</p>
+        ) : (
+          crews.map((crew) => (
+            <div key={crew.id}>
+              <p>
+                <b>{crew.name}</b> — {crew.specialty}
+              </p>
+            </div>
+          ))
+        )}
       </section>
     </main>
   );
