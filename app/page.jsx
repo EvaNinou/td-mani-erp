@@ -81,6 +81,7 @@ const [newQuote, setNewQuote] = useState({
     const { data } = await supabase.from('inventory').select('*');
     setInventory(data || []);
     }
+  
     async function loadQuotes() {
   const { data } = await supabase.from('quotes').select('*');
   setQuotes(data || []);
