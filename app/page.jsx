@@ -288,7 +288,7 @@ async function addQuote() {
       <p>Καθαρή αξία: {quote.subtotal}€</p>
       <p>ΦΠΑ: {quote.vat}€</p>
       <p>Παρακράτηση: {quote.withholding}€</p>
-      <p><b>Πληρωτέο: {quote.total}€</b></p>
+      <p><b>Πληρωτέο: {quote.payable}€</b></p>
       <small>{quote.job_type} — {quote.status}</small>
     </div>
   ))}
