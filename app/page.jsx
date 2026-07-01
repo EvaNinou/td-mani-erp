@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from './supabaseClient.js';
 import './styles.css';
 
 export default function Home() {
