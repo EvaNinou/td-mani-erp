@@ -80,11 +80,12 @@ const [newQuote, setNewQuote] = useState({
   async function loadInventory() {
     const { data } = await supabase.from('inventory').select('*');
     setInventory(data || []);
+    }
     async function loadQuotes() {
   const { data } = await supabase.from('quotes').select('*');
   setQuotes(data || []);
 }
-  }
+  
 
   async function addCustomer() {
     await supabase.from('customers').insert([newCustomer]);
