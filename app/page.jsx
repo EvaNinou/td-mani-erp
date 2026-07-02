@@ -468,7 +468,7 @@ const totalQuotes = quotes.reduce(
           const paid = getProjectPaid(project.id);
 const agreed = Number(project.agreed_amount || 0);
 const expenses = getProjectExpenses(project.id);
-const balance = agreed - paid;
+const balance = agreed - paid - expenses;
 
           return (
             <div key={project.id} className="line">
@@ -477,6 +477,7 @@ const balance = agreed - paid;
               <p>Status: {project.status}</p>
               <p>Συμφωνία: {agreed}€</p>
               <p>Πληρώθηκε: {paid}€</p>
+              <p>Έξοδα: {expenses}€</p>
               <p><b>Υπόλοιπο: {balance}€</b></p>
             </div>
           );
