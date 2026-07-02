@@ -472,7 +472,7 @@ const expenses = getProjectExpenses(project.id);
 const balance = agreed - paid - expenses;
 
           return (
-            <div key={project.id} className="line">
+            <div key={project.id} className="line" onClick={() => setSelectedProject(project)}>
               <p><b>{project.title}</b></p>
               <p>{project.area}</p>
               <p>Status: {project.status}</p>
