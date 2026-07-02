@@ -558,6 +558,15 @@ const balance = agreed - paid - expenses;
               <p>Πληρώθηκε: {paid}€</p>
               <p>Έξοδα: {expenses}€</p>
               <p><b>Υπόλοιπο: {balance}€</b></p>
+              <button
+  onClick={(e) => {
+    e.stopPropagation();
+    deleteItem('projects', project.id);
+  }}
+>
+  🗑 Διαγραφή έργου
+</button>
+              
             </div>
           );
         })}
