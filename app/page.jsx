@@ -178,7 +178,30 @@ console.log('QUOTE RESULT:', data, error);
 
     loadPayments();
   }
+async function addExpense() {
+  if (!newExpense.project_id || !newExpense.title || !newExpense.amount) {
+    alert('Διάλεξε έργο, βάλε τίτλο και ποσό εξόδου');
+    return;
+  }
 
+  await supabase.from('expenses').insert([{
+    project_id: newExpense.project_id,
+    title: newExpense.title,
+    amount: Number(newExpense.amount || 0),
+    category: newExpense.category,
+    notes: newExpense.notes
+  }]);
+
+  setNewExpense({
+    project_id: '',
+    title: '',
+    amount: '',
+    category: 'Υλικά',
+    notes: ''
+  });
+
+  loadExpenses();
+}
   async function addInventory() {
     await supabase.from('inventory').insert([{
       item_name: newInventory.item_name,
