@@ -85,6 +85,11 @@ const [newQuote, setNewQuote] = useState({
     setPayments(data || []);
   }
 
+async function loadExpenses() {
+  const { data } = await supabase.from('expenses').select('*');
+  setExpenses(data || []);
+}
+  
   async function loadInventory() {
     const { data } = await supabase.from('inventory').select('*');
     setInventory(data || []);
