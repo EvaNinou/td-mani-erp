@@ -188,7 +188,29 @@ console.log('QUOTE RESULT:', data, error);
       .filter((p) => p.project_id === projectId)
       .reduce((sum, p) => sum + Number(p.amount || 0), 0);
   }
+const totalProjects = projects.length;
 
+const totalAgreed = projects.reduce(
+  (sum, project) => sum + Number(project.agreed_amount || 0),
+  0
+);
+
+const totalPaid = payments.reduce(
+  (sum, payment) => sum + Number(payment.amount || 0),
+  0
+);
+
+const totalBalance = totalAgreed - totalPaid;
+
+const lowStockCount = inventory.filter(
+  (item) => Number(item.quantity || 0) <= Number(item.min_quantity || 0)
+).length;
+
+const totalQuotes = quotes.reduce(
+  (sum, quote) => sum + Number(quote.payable || 0),
+  0
+);
+  
   return (
     <main className="app">
       <header className="top">
