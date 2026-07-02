@@ -484,7 +484,35 @@ const balance = agreed - paid - expenses;
           );
         })}
       </section>
+{selectedProject && (
+  <section className="card">
+    <h2>Ανάλυση Έργου</h2>
 
+    <p><b>{selectedProject.title}</b></p>
+    <p>Περιοχή: {selectedProject.area}</p>
+    <p>Status: {selectedProject.status}</p>
+
+    <hr />
+
+    <p>Συμφωνία: {Number(selectedProject.agreed_amount || 0)}€</p>
+    <p>Πληρωμές: {getProjectPaid(selectedProject.id)}€</p>
+    <p>Έξοδα: {getProjectExpenses(selectedProject.id)}€</p>
+    <p>
+      <b>
+        Καθαρό υπόλοιπο: {
+          Number(selectedProject.agreed_amount || 0)
+          - getProjectPaid(selectedProject.id)
+          - getProjectExpenses(selectedProject.id)
+        }€
+      </b>
+    </p>
+
+    <button onClick={() => setSelectedProject(null)}>
+      Κλείσιμο ανάλυσης
+    </button>
+  </section>
+)}
+      
       <section className="card">
   <h2>Έξοδα</h2>
 
