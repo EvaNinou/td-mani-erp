@@ -56,14 +56,15 @@ const [newQuote, setNewQuote] = useState({
     purchase_price: ''
   });
 
-  useEffect(() => {
-    loadCrews();
-    loadCustomers();
-    loadProjects();
-    loadPayments();
-    loadInventory();
-    loadQuotes();
-  }, []);
+ useEffect(() => {
+  loadCrews();
+  loadCustomers();
+  loadProjects();
+  loadPayments();
+  loadExpenses();
+  loadInventory();
+  loadQuotes();
+}, []);
 
   async function loadCrews() {
     const { data } = await supabase.from('crews').select('*');
