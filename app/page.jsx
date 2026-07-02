@@ -388,7 +388,11 @@ const totalQuotes = quotes.reduce(
   <h2>Προσφορές</h2>
 
   {quotes.map((quote) => (
-    <div key={quote.id} className="line">
+    <div
+  key={quote.id}
+  className="line"
+  onClick={() => setSelectedQuote(quote)}
+>
       <p><b>{quote.description}</b></p>
       <p>Καθαρή αξία: {quote.subtotal}€</p>
       <p>ΦΠΑ: {quote.vat}€</p>
