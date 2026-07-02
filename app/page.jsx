@@ -390,6 +390,50 @@ const totalQuotes = quotes.reduce(
     </div>
   ))}
 </section>
+
+      <section className="card">
+  <h2>Νέο Έξοδο</h2>
+
+  <select
+    value={newExpense.project_id}
+    onChange={(e) => setNewExpense({ ...newExpense, project_id: e.target.value })}
+  >
+    <option value="">Διάλεξε έργο</option>
+    {projects.map((project) => (
+      <option key={project.id} value={project.id}>{project.title}</option>
+    ))}
+  </select>
+
+  <input
+    placeholder="Τίτλος εξόδου"
+    value={newExpense.title}
+    onChange={(e) => setNewExpense({ ...newExpense, title: e.target.value })}
+  />
+
+  <input
+    placeholder="Ποσό εξόδου"
+    value={newExpense.amount}
+    onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+  />
+
+  <select
+    value={newExpense.category}
+    onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
+  >
+    <option value="Υλικά">Υλικά</option>
+    <option value="Συνεργείο">Συνεργείο</option>
+    <option value="Μεταφορικά">Μεταφορικά</option>
+    <option value="Άλλο">Άλλο</option>
+  </select>
+
+  <textarea
+    placeholder="Σημειώσεις"
+    value={newExpense.notes}
+    onChange={(e) => setNewExpense({ ...newExpense, notes: e.target.value })}
+  />
+
+  <button onClick={addExpense}>Αποθήκευση εξόδου</button>
+</section>
       
       <section className="card">
         <h2>Νέο Υλικό</h2>
