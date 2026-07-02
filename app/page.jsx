@@ -224,6 +224,41 @@ const totalQuotes = quotes.reduce(
       </header>
 
       <section className="card">
+  <h2>Dashboard</h2>
+
+  <div className="grid">
+    <div className="line">
+      <p><b>{totalProjects}</b></p>
+      <small>Έργα</small>
+    </div>
+
+    <div className="line">
+      <p><b>{totalAgreed}€</b></p>
+      <small>Συμφωνημένα</small>
+    </div>
+
+    <div className="line">
+      <p><b>{totalPaid}€</b></p>
+      <small>Πληρωμένα</small>
+    </div>
+
+    <div className="line">
+      <p><b>{totalBalance}€</b></p>
+      <small>Υπόλοιπα</small>
+    </div>
+
+    <div className="line">
+      <p><b>{totalQuotes}€</b></p>
+      <small>Προσφορές</small>
+    </div>
+
+    <div className="line">
+      <p><b>{lowStockCount}</b></p>
+      <small>Low stock alerts</small>
+    </div>
+  </div>
+</section>
+      <section className="card">
         <h2>Επιλογή χρήστη</h2>
         <button onClick={() => setSelectedUser('Mani Taulant')}>👷 Mani Taulant</button>
         <button onClick={() => setSelectedUser('Εύα Νίνου')}>👩 Εύα Νίνου</button>
