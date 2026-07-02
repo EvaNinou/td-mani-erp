@@ -252,10 +252,10 @@ const totalQuotes = quotes.reduce(
       <small>Προσφορές</small>
     </div>
 
-    <div className="line">
-      <p><b>{lowStockCount}</b></p>
-      <small>Low stock alerts</small>
-    </div>
+    <div className={lowStockCount > 0 ? "line alert" : "line"}>
+  <p><b>{lowStockCount}</b></p>
+  <small>Low stock alerts</small>
+</div>
   </div>
 </section>
       <section className="card">
