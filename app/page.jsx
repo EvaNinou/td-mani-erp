@@ -439,6 +439,15 @@ const totalQuotes = quotes.reduce(
       <p>Παρακράτηση: {quote.withholding}€</p>
       <p><b>Πληρωτέο: {quote.payable}€</b></p>
       <small>{quote.job_type} — {quote.status}</small>
+      <button
+  onClick={(e) => {
+    e.stopPropagation();
+    deleteItem('quotes', quote.id);
+  }}
+>
+  🗑 Διαγραφή
+</button>
+      
     </div>
   ))}
 </section>
