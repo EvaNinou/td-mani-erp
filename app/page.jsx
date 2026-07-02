@@ -466,8 +466,9 @@ const totalQuotes = quotes.reduce(
         <h2>Έργα</h2>
         {projects.map((project) => {
           const paid = getProjectPaid(project.id);
-          const agreed = Number(project.agreed_amount || 0);
-          const balance = agreed - paid;
+const agreed = Number(project.agreed_amount || 0);
+const expenses = getProjectExpenses(project.id);
+const balance = agreed - paid;
 
           return (
             <div key={project.id} className="line">
