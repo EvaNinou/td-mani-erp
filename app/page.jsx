@@ -247,6 +247,12 @@ const totalQuotes = quotes.reduce(
   (sum, quote) => sum + Number(quote.payable || 0),
   0
 );
+
+  function getProjectExpenses(projectId) {
+  return expenses
+    .filter((expense) => expense.project_id === projectId)
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+}
   
   return (
     <main className="app">
