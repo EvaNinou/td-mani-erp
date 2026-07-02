@@ -497,6 +497,15 @@ const balance = agreed - paid - expenses;
     <p>Συμφωνία: {Number(selectedProject.agreed_amount || 0)}€</p>
     <p>Πληρωμές: {getProjectPaid(selectedProject.id)}€</p>
     <p>Έξοδα: {getProjectExpenses(selectedProject.id)}€</p>
+    {expenses
+  .filter((expense) => expense.project_id === selectedProject.id)
+  .map((expense) => (
+    <div key={expense.id} className="line">
+      <p><b>{expense.title}</b> — {expense.amount}€</p>
+      <small>{expense.category}</small>
+    </div>
+))}
+    
     <p>
       <b>
         Καθαρό υπόλοιπο: {
