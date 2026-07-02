@@ -402,6 +402,30 @@ const totalQuotes = quotes.reduce(
     </div>
   ))}
 </section>
+      {selectedQuote && (
+  <section className="card">
+    <h2>Preview Προσφοράς</h2>
+
+    <p><b>TD MANI — ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</b></p>
+    <hr />
+
+    <p><b>Περιγραφή:</b> {selectedQuote.description}</p>
+    <p>Καθαρή αξία: {selectedQuote.subtotal}€</p>
+    <p>ΦΠΑ 24%: {selectedQuote.vat}€</p>
+    <p>Παρακράτηση 3%: {selectedQuote.withholding}€</p>
+    <p><b>Πληρωτέο: {selectedQuote.payable}€</b></p>
+    <p>Status: {selectedQuote.status}</p>
+
+    <button onClick={() => window.print()}>
+      Export / Print PDF
+    </button>
+
+    <button onClick={() => setSelectedQuote(null)}>
+      Κλείσιμο preview
+    </button>
+  </section>
+)}
+      
 
       <section className="card">
   <h2>Νέο Έξοδο</h2>
