@@ -522,22 +522,6 @@ const balance = agreed - paid - expenses;
   </section>
 )}
       
-      <section className="card">
-  <h2>Έξοδα</h2>
-
-  {expenses.length === 0 ? (
-    <p>Δεν υπάρχουν έξοδα ακόμα.</p>
-  ) : (
-    expenses.map((expense) => (
-      <div key={expense.id} className="line">
-        <p><b>{expense.title}</b></p>
-        <p>{expense.amount}€</p>
-        <p>{expense.category}</p>
-        <small>{expense.notes}</small>
-      </div>
-    ))
-  )}
-</section>
       
       <section className="card">
         <h2>Αποθήκη</h2>
