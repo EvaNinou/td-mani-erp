@@ -30,3 +30,8 @@ button{display:block;width:100%;border:0;border-radius:14px;padding:14px;margin:
 .line small {
   color: #666;
 }
+
+.alert {
+  border: 2px solid #ff4d4f;
+  background: #fff2f0;
+}
