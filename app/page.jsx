@@ -403,8 +403,8 @@ const totalQuotes = quotes.reduce(
   ))}
 </section>
       {selectedQuote && (
-  <section className="card">
-    <h2>Preview Προσφοράς</h2>
+  <section className="card print-area">
+  <h2>Preview Προσφοράς</h2>
 
     <p><b>TD MANI — ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</b></p>
     <hr />
