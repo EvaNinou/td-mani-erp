@@ -17,6 +17,8 @@ export default function Home() {
   const [quotes, setQuotes] = useState([]);
 
 const [newQuote, setNewQuote] = useState({
+  project_id: '',
+  work_type: '',
   description: '',
   subtotal: '',
   job_type: 'invoice'
