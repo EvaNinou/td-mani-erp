@@ -97,15 +97,17 @@ async function addQuote() {
   const withholding = newQuote.job_type === 'invoice' ? subtotal * 0.03 : 0;
   const total = subtotal + vat - withholding;
 
-  await supabase.from('quotes').insert([{
-    description: newQuote.description,
-    subtotal,
-    vat,
-    withholding,
-    payble: total,
-    job_type: newQuote.job_type,
-    status: 'pending'
-  }]);
+const { data, error } = await supabase.from('quotes').insert([{
+  description: newQuote.description,
+  subtotal,
+  vat,
+  withholding,
+  payable: total,
+  job_type: newQuote.job_type,
+  status: 'pending'
+}]);
+
+console.log('QUOTE RESULT:', data, error);
 
   setNewQuote({
     description: '',
