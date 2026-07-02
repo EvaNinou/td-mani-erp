@@ -262,6 +262,12 @@ const totalQuotes = quotes.reduce(
 
   if (!confirmDelete) return;
 
+    if (table === 'projects') {
+  await supabase.from('payments').delete().eq('project_id', id);
+  await supabase.from('expenses').delete().eq('project_id', id);
+  await supabase.from('quotes').delete().eq('project_id', id);
+}
+    
   const { error } = await supabase
     .from(table)
     .delete()
