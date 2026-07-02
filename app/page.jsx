@@ -257,7 +257,28 @@ const totalQuotes = quotes.reduce(
     .filter((expense) => expense.project_id === projectId)
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 }
-  
+  async function deleteItem(table, id) {
+  const confirmDelete = confirm('Σίγουρα θέλεις να το διαγράψεις;');
+
+  if (!confirmDelete) return;
+
+  const { error } = await supabase
+    .from(table)
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  loadCustomers();
+  loadProjects();
+  loadPayments();
+  loadExpenses();
+  loadInventory();
+  loadQuotes();
+}
   return (
     <main className="app">
       <header className="top">
