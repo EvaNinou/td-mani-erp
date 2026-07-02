@@ -9,6 +9,7 @@ export default function Home() {
   const [crews, setCrews] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState(null);
   const [payments, setPayments] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [inventory, setInventory] = useState([]);
