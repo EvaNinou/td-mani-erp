@@ -362,7 +362,24 @@ const totalQuotes = quotes.reduce(
 
       <section className="card">
   <h2>Νέα Προσφορά</h2>
+<select
+  value={newQuote.project_id}
+  onChange={(e) => setNewQuote({ ...newQuote, project_id: e.target.value })}
+>
+  <option value="">Διάλεξε έργο</option>
+  {projects.map((project) => (
+    <option key={project.id} value={project.id}>
+      {project.title}
+    </option>
+  ))}
+</select>
 
+<input
+  placeholder="Είδος εργασίας"
+  value={newQuote.work_type}
+  onChange={(e) => setNewQuote({ ...newQuote, work_type: e.target.value })}
+/>
+        
   <textarea
     placeholder="Περιγραφή προσφοράς"
     value={newQuote.description}
