@@ -98,6 +98,7 @@ async function addQuote() {
   const total = subtotal + vat - withholding;
 
 const { data, error } = await supabase.from('quotes').insert([{
+  quote_number: 'Q-' + Date.now(),
   description: newQuote.description,
   subtotal,
   vat,
