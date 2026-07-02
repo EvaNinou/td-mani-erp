@@ -35,3 +35,26 @@ button{display:block;width:100%;border:0;border-radius:14px;padding:14px;margin:
   border: 2px solid #ff4d4f;
   background: #fff2f0;
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none;
+  }
+
+  .print-area button {
+    display: none;
+  }
+}
