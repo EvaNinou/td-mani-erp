@@ -41,6 +41,13 @@ const [newQuote, setNewQuote] = useState({
     method: 'Μετρητά',
     notes: ''
   });
+  const [newExpense, setNewExpense] = useState({
+  project_id: '',
+  title: '',
+  amount: '',
+  category: 'Υλικά',
+  notes: ''
+});    
 
   const [newInventory, setNewInventory] = useState({
     item_name: '',
