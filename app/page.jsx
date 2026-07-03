@@ -283,6 +283,42 @@ const [taskSearch, setTaskSearch] = useState('');
     return { monthlyIncome, monthlyExpenses, monthlyProfit, activeProjects, completedProjects, overdueTasks };
   }, [payments, expenses, projects, tasks]);
 
+
+  const riskStats = useMemo(() => {
+    const riskyProjects = projects
+      .map((project) => {
+        const agreed = Number(project.agreed_amount || 0);
+        const paid = getProjectPaid(project.id);
+        const projectExpenses = getProjectExpenses(project.id);
+        const balance = agreed - paid - projectExpenses;
+
+        return {
+          ...project,
+          balance
+        };
+      })
+      .filter((project) => project.balance < 0);
+
+    const highBalanceProjects = projects
+      .map((project) => {
+        const agreed = Number(project.agreed_amount || 0);
+        const paid = getProjectPaid(project.id);
+        const projectExpenses = getProjectExpenses(project.id);
+        const balance = agreed - paid - projectExpenses;
+
+        return {
+          ...project,
+          balance
+        };
+      })
+      .filter((project) => project.balance > 5000);
+
+    return {
+      riskyProjects,
+      highBalanceProjects
+    };
+  }, [projects, payments, expenses]);
+
   const totals = useMemo(() => {
     const totalProjects = projects.length;
     const totalAgreed = projects.reduce((sum, project) => sum + Number(project.agreed_amount || 0), 0);
@@ -736,6 +772,42 @@ const [taskSearch, setTaskSearch] = useState('');
             <p><b>{dashboardStats.overdueTasks}</b></p><small>Overdue Tasks</small>
           </div>
         </div>
+      </section>
+
+      <section className="card">
+        <h2>🔔 Smart Alerts</h2>
+
+        {riskStats.riskyProjects.length === 0 && riskStats.highBalanceProjects.length === 0 ? (
+          <p>Δεν υπάρχουν alerts αυτή τη στιγμή.</p>
+        ) : (
+          <>
+            {riskStats.riskyProjects.length > 0 && (
+              <>
+                <h3>⚠️ Έργα με αρνητικό υπόλοιπο</h3>
+                {riskStats.riskyProjects.map((project) => (
+                  <div key={project.id} className="line alert">
+                    <p><b>{project.title}</b></p>
+                    <p>Πελάτης: {getCustomerName(project.customer_id)}</p>
+                    <p>Υπόλοιπο: {project.balance}€</p>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {riskStats.highBalanceProjects.length > 0 && (
+              <>
+                <h3>💰 Έργα με μεγάλο ανοιχτό υπόλοιπο</h3>
+                {riskStats.highBalanceProjects.map((project) => (
+                  <div key={project.id} className="line">
+                    <p><b>{project.title}</b></p>
+                    <p>Πελάτης: {getCustomerName(project.customer_id)}</p>
+                    <p>Υπόλοιπο: {project.balance}€</p>
+                  </div>
+                ))}
+              </>
+            )}
+          </>
+        )}
       </section>
 
       <section className="card">
