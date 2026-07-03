@@ -13,7 +13,7 @@ const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal
 const INITIAL_TASK = { project_id: '', title: '', task_date: '', task_time: '', status: 'pending', notes: '' };
 const INITIAL_DOCUMENT = { customer_id: '', project_id: '', title: '', document_type: 'Τιμολόγιο', file_url: '', notes: '' };
 const INITIAL_SUPPLIER = { name: '', afm: '', phone: '', email: '', address: '', notes: '' };
-const INITIAL_SUPPLIER_INVOICE = { supplier_id: '', project_id: '', invoice_date: '', invoice_number: '', description: '', net_amount: '', vat_amount: '', total_amount: '', notes: '' };
+const INITIAL_SUPPLIER_INVOICE = { supplier_id: '', project_id: '', expense_category: '', invoice_date: '', invoice_number: '', description: '', net_amount: '', vat_amount: '', total_amount: '', notes: '' };
 const INITIAL_SUPPLIER_PAYMENT = { supplier_id: '', supplier_invoice_id: '', payment_date: '', amount: '', method: 'Τράπεζα', notes: '' };
 
 const DEMO_USERS = [
@@ -303,6 +303,7 @@ hr {
 .page-documents .documents-section,
 .page-suppliers .suppliers-section,
 .page-inventory .inventory-section,
+.page-trash .trash-section,
 .page-settings .settings-section {
   display: block !important;
 }
@@ -542,16 +543,16 @@ const [supplierSearch, setSupplierSearch] = useState('');
   }
 
   function getCustomerProjects(customerId) {
-    return projects.filter((project) => project.customer_id === customerId);
+    return projects.filter((project) => project.customer_id === customerId && isActiveItem(project));
   }
 
   function getFilteredProjectsByCustomer(customerId) {
     if (!customerId) return [];
-    return projects.filter((project) => project.customer_id === customerId);
+    return projects.filter((project) => project.customer_id === customerId && isActiveItem(project));
   }
 
   function getUnassignedProjects() {
-    return projects.filter((project) => !project.customer_id);
+    return projects.filter((project) => !project.customer_id && isActiveItem(project));
   }
 
   function getProjectTitle(projectId) {
@@ -560,30 +561,30 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
   function getProjectPaid(projectId) {
     return payments
-      .filter((payment) => payment.project_id === projectId)
+      .filter((payment) => payment.project_id === projectId && isActiveItem(payment))
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   }
 
   function getProjectExpenses(projectId) {
     return expenses
-      .filter((expense) => expense.project_id === projectId)
+      .filter((expense) => expense.project_id === projectId && isActiveItem(expense))
       .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
   }
 
   function getProjectQuotes(projectId) {
-    return quotes.filter((quote) => quote.project_id === projectId);
+    return quotes.filter((quote) => quote.project_id === projectId && isActiveItem(quote));
   }
 
   function getProjectTasks(projectId) {
-    return tasks.filter((task) => task.project_id === projectId);
+    return tasks.filter((task) => task.project_id === projectId && isActiveItem(task));
   }
 
   function getProjectDocuments(projectId) {
-    return documents.filter((document) => document.project_id === projectId);
+    return documents.filter((document) => document.project_id === projectId && isActiveItem(document));
   }
 
   function getProjectSupplierInvoices(projectId) {
-    return supplierInvoices.filter((invoice) => invoice.project_id === projectId);
+    return supplierInvoices.filter((invoice) => invoice.project_id === projectId && isActiveItem(invoice));
   }
 
   function getSupplierName(supplierId) {
@@ -591,15 +592,15 @@ const [supplierSearch, setSupplierSearch] = useState('');
   }
 
   function getSupplierInvoices(supplierId) {
-    return supplierInvoices.filter((invoice) => invoice.supplier_id === supplierId);
+    return supplierInvoices.filter((invoice) => invoice.supplier_id === supplierId && isActiveItem(invoice));
   }
 
   function getSupplierPayments(supplierId) {
-    return supplierPayments.filter((payment) => payment.supplier_id === supplierId);
+    return supplierPayments.filter((payment) => payment.supplier_id === supplierId && isActiveItem(payment));
   }
 
   function getSupplierInvoicePayments(invoiceId) {
-    return supplierPayments.filter((payment) => payment.supplier_invoice_id === invoiceId);
+    return supplierPayments.filter((payment) => payment.supplier_invoice_id === invoiceId && isActiveItem(payment));
   }
 
   function getSupplierInvoicePaid(invoiceId) {
@@ -694,7 +695,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
   }
 
   function getProjectPayments(projectId) {
-    return payments.filter((payment) => payment.project_id === projectId);
+    return payments.filter((payment) => payment.project_id === projectId && isActiveItem(payment));
   }
 
   function getCustomerTotals(customerId) {
@@ -703,10 +704,10 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
     const agreed = customerProjects.reduce((sum, project) => sum + Number(project.agreed_amount || 0), 0);
     const paid = payments
-      .filter((payment) => projectIds.includes(payment.project_id))
+      .filter((payment) => projectIds.includes(payment.project_id) && isActiveItem(payment))
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
     const projectExpenses = expenses
-      .filter((expense) => projectIds.includes(expense.project_id))
+      .filter((expense) => projectIds.includes(expense.project_id) && isActiveItem(expense))
       .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
     return { agreed, paid, expenses: projectExpenses, balance: agreed - paid - projectExpenses };
@@ -725,7 +726,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
         expenses: projectExpenses,
         balance: agreed - paid - projectExpenses,
         payments: getProjectPayments(project.id),
-        projectExpensesList: expenses.filter((expense) => expense.project_id === project.id),
+        projectExpensesList: expenses.filter((expense) => expense.project_id === project.id && isActiveItem(expense)),
         projectQuotes: getProjectQuotes(project.id),
         projectTasks: getProjectTasks(project.id),
         projectDocuments: getProjectDocuments(project.id),
@@ -738,6 +739,15 @@ const [supplierSearch, setSupplierSearch] = useState('');
   function normalizeText(value) {
     return String(value || '').toLowerCase().trim();
   }
+
+  function isActiveItem(item) {
+    return !item?.is_deleted;
+  }
+
+  function isDeletedItem(item) {
+    return !!item?.is_deleted;
+  }
+
 
   function projectMatchesSearch(project, searchValue) {
     const search = normalizeText(searchValue);
@@ -798,18 +808,18 @@ const [supplierSearch, setSupplierSearch] = useState('');
   }
 
   const dashboardStats = useMemo(() => {
-    const monthlyIncome = payments.filter((payment) => isCurrentMonth(payment.created_at))
+    const monthlyIncome = payments.filter((payment) => isActiveItem(payment) && isCurrentMonth(payment.created_at))
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 
-    const monthlyExpenses = expenses.filter((expense) => isCurrentMonth(expense.created_at))
+    const monthlyExpenses = expenses.filter((expense) => isActiveItem(expense) && isCurrentMonth(expense.created_at))
       .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
     const monthlyProfit = monthlyIncome - monthlyExpenses;
-    const activeProjects = projects.filter((project) => project.status === 'active').length;
-    const completedProjects = projects.filter((project) => project.status === 'completed').length;
+    const activeProjects = projects.filter((project) => isActiveItem(project) && project.status === 'active').length;
+    const completedProjects = projects.filter((project) => isActiveItem(project) && project.status === 'completed').length;
     const today = new Date().toISOString().split('T')[0];
     const overdueTasks = tasks.filter((task) =>
-      task.status !== 'completed' && task.task_date && task.task_date < today
+      isActiveItem(task) && task.status !== 'completed' && task.task_date && task.task_date < today
     ).length;
 
     return { monthlyIncome, monthlyExpenses, monthlyProfit, activeProjects, completedProjects, overdueTasks };
@@ -817,7 +827,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
 
   const riskStats = useMemo(() => {
-    const riskyProjects = projects
+    const riskyProjects = projects.filter(isActiveItem)
       .map((project) => {
         const agreed = Number(project.agreed_amount || 0);
         const paid = getProjectPaid(project.id);
@@ -831,7 +841,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
       })
       .filter((project) => project.balance < 0);
 
-    const highBalanceProjects = projects
+    const highBalanceProjects = projects.filter(isActiveItem)
       .map((project) => {
         const agreed = Number(project.agreed_amount || 0);
         const paid = getProjectPaid(project.id);
@@ -852,14 +862,21 @@ const [supplierSearch, setSupplierSearch] = useState('');
   }, [projects, payments, expenses]);
 
   const totals = useMemo(() => {
-    const totalProjects = projects.length;
-    const totalAgreed = projects.reduce((sum, project) => sum + Number(project.agreed_amount || 0), 0);
-    const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-    const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    const activeProjectsList = projects.filter(isActiveItem);
+    const activePaymentsList = payments.filter(isActiveItem);
+    const activeExpensesList = expenses.filter(isActiveItem);
+    const activeInventoryList = inventory.filter(isActiveItem);
+    const activeQuotesList = quotes.filter(isActiveItem);
+    const activeTasksList = tasks.filter(isActiveItem);
+
+    const totalProjects = activeProjectsList.length;
+    const totalAgreed = activeProjectsList.reduce((sum, project) => sum + Number(project.agreed_amount || 0), 0);
+    const totalPaid = activePaymentsList.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const totalExpenses = activeExpensesList.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
     const totalBalance = totalAgreed - totalPaid - totalExpenses;
-    const lowStockCount = inventory.filter((item) => Number(item.quantity || 0) <= Number(item.min_quantity || 0)).length;
-    const totalQuotes = quotes.reduce((sum, quote) => sum + Number(quote.payable || 0), 0);
-    const pendingTasks = tasks.filter((task) => task.status !== 'completed').length;
+    const lowStockCount = activeInventoryList.filter((item) => Number(item.quantity || 0) <= Number(item.min_quantity || 0)).length;
+    const totalQuotes = activeQuotesList.reduce((sum, quote) => sum + Number(quote.payable || 0), 0);
+    const pendingTasks = activeTasksList.filter((task) => task.status !== 'completed').length;
     return { totalProjects, totalAgreed, totalPaid, totalExpenses, totalBalance, lowStockCount, totalQuotes, pendingTasks };
   }, [projects, payments, expenses, inventory, quotes, tasks]);
 
@@ -1146,8 +1163,8 @@ const [supplierSearch, setSupplierSearch] = useState('');
   }
 
   async function saveSupplierInvoice() {
-    if (!newSupplierInvoice.supplier_id || !newSupplierInvoice.project_id || !newSupplierInvoice.invoice_date || !newSupplierInvoice.net_amount) {
-      alert('Διάλεξε προμηθευτή, έργο, ημερομηνία και καθαρή αξία τιμολογίου');
+    if (!newSupplierInvoice.supplier_id || !newSupplierInvoice.invoice_date || !newSupplierInvoice.net_amount) {
+      alert('Διάλεξε προμηθευτή, ημερομηνία και καθαρή αξία τιμολογίου');
       return;
     }
 
@@ -1156,7 +1173,8 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
     const payload = {
       supplier_id: newSupplierInvoice.supplier_id,
-      project_id: newSupplierInvoice.project_id,
+      project_id: newSupplierInvoice.project_id || null,
+      expense_category: newSupplierInvoice.expense_category || null,
       invoice_date: newSupplierInvoice.invoice_date,
       invoice_number: newSupplierInvoice.invoice_number,
       description: newSupplierInvoice.description,
@@ -1187,10 +1205,10 @@ const [supplierSearch, setSupplierSearch] = useState('');
     }
 
     const expensePayload = {
-      project_id: newSupplierInvoice.project_id,
+      project_id: newSupplierInvoice.project_id || null,
       title: `Τιμολόγιο προμηθευτή: ${supplierName}${newSupplierInvoice.invoice_number ? ` (${newSupplierInvoice.invoice_number})` : ''}`,
       amount: total,
-      category: 'Προμηθευτής',
+      category: newSupplierInvoice.expense_category || 'Προμηθευτής',
       notes: newSupplierInvoice.description || newSupplierInvoice.notes || '',
       supplier_invoice_id: savedInvoiceId
     };
@@ -1364,6 +1382,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
     setNewSupplierInvoice({
       supplier_id: invoice.supplier_id || '',
       project_id: invoice.project_id || '',
+      expense_category: invoice.expense_category || '',
       invoice_date: invoice.invoice_date || '',
       invoice_number: invoice.invoice_number || '',
       description: invoice.description || '',
@@ -1418,11 +1437,32 @@ const [supplierSearch, setSupplierSearch] = useState('');
   }
 
   async function deleteItem(table, id) {
-    const confirmDelete = confirm('Σίγουρα θέλεις να το διαγράψεις;');
+    const confirmDelete = confirm('Να μεταφερθεί στον Κάδο;');
+    if (!confirmDelete) return;
+
+    const { error } = await supabase.from(table).update({ is_deleted: true }).eq('id', id);
+    if (error) return alert(error.message);
+
+    if (selectedProject?.id === id) setSelectedProject(null);
+    if (selectedQuote?.id === id) setSelectedQuote(null);
+    if (selectedCustomerReport?.id === id) setSelectedCustomerReport(null);
+
+    refreshAll();
+  }
+
+  async function restoreItem(table, id) {
+    const { error } = await supabase.from(table).update({ is_deleted: false }).eq('id', id);
+    if (error) return alert(error.message);
+
+    refreshAll();
+  }
+
+  async function permanentDeleteItem(table, id) {
+    const confirmDelete = confirm('Οριστική διαγραφή; Δεν θα μπορείς να το επαναφέρεις.');
     if (!confirmDelete) return;
 
     if (table === 'customers') {
-      const customerProjects = getCustomerProjects(id);
+      const customerProjects = projects.filter((project) => project.customer_id === id);
       const projectIds = customerProjects.map((project) => project.id);
 
       for (const projectId of projectIds) {
@@ -1464,11 +1504,9 @@ const [supplierSearch, setSupplierSearch] = useState('');
     const { error } = await supabase.from(table).delete().eq('id', id);
     if (error) return alert(error.message);
 
-    if (selectedProject?.id === id) setSelectedProject(null);
-    if (selectedQuote?.id === id) setSelectedQuote(null);
-    if (selectedCustomerReport?.id === id) setSelectedCustomerReport(null);
     refreshAll();
   }
+
 
 
   function loginUser() {
@@ -1565,6 +1603,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
         <button className={activePage === 'documents' ? 'active' : ''} onClick={() => setActivePage('documents')}>📁 Documents</button>
         <button className={activePage === 'suppliers' ? 'active' : ''} onClick={() => setActivePage('suppliers')}>🚚 Προμηθευτές</button>
         <button className={activePage === 'inventory' ? 'active' : ''} onClick={() => setActivePage('inventory')}>📦 Inventory</button>
+        <button className={activePage === 'trash' ? 'active' : ''} onClick={() => setActivePage('trash')}>🗑 Κάδος</button>
         <button className={activePage === 'settings' ? 'active' : ''} onClick={() => setActivePage('settings')}>⚙️ Settings</button>
       </nav>
 
@@ -1639,7 +1678,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
         <h2>{editingTaskId ? 'Επεξεργασία Task / Ραντεβού' : 'Νέο Task / Ραντεβού'}</h2>
         <select value={newTask.project_id} onChange={(e) => setNewTask({ ...newTask, project_id: e.target.value })}>
           <option value="">Διάλεξε έργο</option>
-          {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+          {projects.filter(isActiveItem).map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
         </select>
         <input placeholder="Τίτλος task / ραντεβού" value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} />
         <input type="date" value={newTask.task_date} onChange={(e) => setNewTask({ ...newTask, task_date: e.target.value })} />
@@ -1662,7 +1701,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
           onChange={(e) => setTaskSearch(e.target.value)}
         />
 
-        {tasks.length === 0 ? (
+        {tasks.filter(isActiveItem).length === 0 ? (
           <p>Δεν υπάρχουν tasks ακόμα.</p>
         ) : getVisibleTasks().length === 0 ? (
           <p>Δεν βρέθηκαν tasks με αυτή την αναζήτηση.</p>
@@ -1689,7 +1728,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
           onChange={(e) => setNewDocument({ ...newDocument, customer_id: e.target.value, project_id: '' })}
         >
           <option value="">Διάλεξε πελάτη</option>
-          {customers.map((customer) => (
+          {customers.filter(isActiveItem).map((customer) => (
             <option key={customer.id} value={customer.id}>{customer.name}</option>
           ))}
         </select>
@@ -1741,7 +1780,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
         <h2>{editingProjectId ? 'Επεξεργασία Έργου' : 'Νέο Έργο'}</h2>
         <select value={newProject.customer_id} onChange={(e) => setNewProject({ ...newProject, customer_id: e.target.value })}>
           <option value="">Διάλεξε πελάτη</option>
-          {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+          {customers.filter(isActiveItem).map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
         </select>
         <input placeholder="Τίτλος έργου" value={newProject.title} onChange={(e) => setNewProject({ ...newProject, title: e.target.value })} />
         <input placeholder="Διεύθυνση" value={newProject.address} onChange={(e) => setNewProject({ ...newProject, address: e.target.value })} />
@@ -1762,7 +1801,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
           onChange={(e) => setNewPayment({ ...newPayment, customer_id: e.target.value, project_id: '' })}
         >
           <option value="">Διάλεξε πελάτη</option>
-          {customers.map((customer) => (
+          {customers.filter(isActiveItem).map((customer) => (
             <option key={customer.id} value={customer.id}>{customer.name}</option>
           ))}
         </select>
@@ -1797,7 +1836,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
         <h2>{editingQuoteId ? 'Επεξεργασία Προσφοράς' : 'Νέα Προσφορά'}</h2>
         <select value={newQuote.project_id} onChange={(e) => setNewQuote({ ...newQuote, project_id: e.target.value })}>
           <option value="">Διάλεξε έργο</option>
-          {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+          {projects.filter(isActiveItem).map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
         </select>
         <input placeholder="Είδος εργασίας" value={newQuote.work_type} onChange={(e) => setNewQuote({ ...newQuote, work_type: e.target.value })} />
         <textarea placeholder="Περιγραφή προσφοράς" value={newQuote.description} onChange={(e) => setNewQuote({ ...newQuote, description: e.target.value })} />
@@ -1816,7 +1855,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
       <section className="card page-section finance-section">
         <h2>Προσφορές</h2>
-        {quotes.length === 0 ? <p>Δεν υπάρχουν προσφορές ακόμα.</p> : quotes.map((quote) => (
+        {quotes.filter(isActiveItem).length === 0 ? <p>Δεν υπάρχουν προσφορές ακόμα.</p> : quotes.filter(isActiveItem).map((quote) => (
           <div key={quote.id} className="line" onClick={() => setSelectedQuote(quote)}>
             <p><b>{quote.description}</b></p>
             <p>Έργο: {getProjectTitle(quote.project_id)}</p>
@@ -1905,10 +1944,10 @@ const [supplierSearch, setSupplierSearch] = useState('');
                 <p><b>Καθαρό υπόλοιπο έργου: {row.balance}€</b></p>
 
                 <h4>Πληρωμές</h4>
-                {row.payments.length === 0 ? (
+                {row.payments.filter(isActiveItem).length === 0 ? (
                   <p>Δεν υπάρχουν πληρωμές.</p>
                 ) : (
-                  row.payments.map((payment) => (
+                  row.payments.filter(isActiveItem).map((payment) => (
                     <p key={payment.id}>• {payment.payment_date || '-'} — {payment.amount}€ — {payment.method} {payment.notes ? `(${payment.notes})` : ''}</p>
                   ))
                 )}
@@ -1969,7 +2008,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
           onChange={(e) => setNewExpense({ ...newExpense, customer_id: e.target.value, project_id: '' })}
         >
           <option value="">Διάλεξε πελάτη</option>
-          {customers.map((customer) => (
+          {customers.filter(isActiveItem).map((customer) => (
             <option key={customer.id} value={customer.id}>{customer.name}</option>
           ))}
         </select>
@@ -2012,16 +2051,28 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
         <select value={newSupplierInvoice.supplier_id} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, supplier_id: e.target.value })}>
           <option value="">Διάλεξε προμηθευτή</option>
-          {suppliers.map((supplier) => (
+          {suppliers.filter(isActiveItem).map((supplier) => (
             <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
           ))}
         </select>
 
         <select value={newSupplierInvoice.project_id} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, project_id: e.target.value })}>
-          <option value="">Διάλεξε έργο</option>
-          {projects.map((project) => (
+          <option value="">Χωρίς έργο / Γενικό έξοδο</option>
+          {projects.filter(isActiveItem).map((project) => (
             <option key={project.id} value={project.id}>{project.title}</option>
           ))}
+        </select>
+
+        <select value={newSupplierInvoice.expense_category} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, expense_category: e.target.value })}>
+          <option value="">Χωρίς κατηγορία εξόδου</option>
+          <option value="Υλικά">Υλικά</option>
+          <option value="Εργατικά">Εργατικά</option>
+          <option value="Μεταφορικά">Μεταφορικά</option>
+          <option value="Εξοπλισμός">Εξοπλισμός</option>
+          <option value="Καύσιμα">Καύσιμα</option>
+          <option value="Ενοίκιο">Ενοίκιο</option>
+          <option value="ΔΕΗ / Νερό / Internet">ΔΕΗ / Νερό / Internet</option>
+          <option value="Γενικά έξοδα">Γενικά έξοδα</option>
         </select>
 
         <input type="date" value={newSupplierInvoice.invoice_date} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, invoice_date: e.target.value })} />
@@ -2048,7 +2099,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
           onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, supplier_id: e.target.value, supplier_invoice_id: '' })}
         >
           <option value="">Διάλεξε προμηθευτή</option>
-          {suppliers.map((supplier) => (
+          {suppliers.filter(isActiveItem).map((supplier) => (
             <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
           ))}
         </select>
@@ -2088,12 +2139,12 @@ const [supplierSearch, setSupplierSearch] = useState('');
           onChange={(e) => setSupplierSearch(e.target.value)}
         />
 
-        {suppliers.length === 0 ? (
+        {suppliers.filter(isActiveItem).length === 0 ? (
           <p>Δεν υπάρχουν προμηθευτές ακόμα.</p>
-        ) : getVisibleSuppliers().length === 0 ? (
+        ) : getVisibleSuppliers().filter(isActiveItem).length === 0 ? (
           <p>Δεν βρέθηκαν προμηθευτές ή τιμολόγια με αυτή την αναζήτηση.</p>
         ) : (
-          getVisibleSuppliers().map((supplier) => {
+          getVisibleSuppliers().filter(isActiveItem).map((supplier) => {
             const totals = getSupplierTotals(supplier.id);
             const analytics = getSupplierAnalytics(supplier.id);
             const isOpen = openSupplierId === supplier.id;
@@ -2127,7 +2178,8 @@ const [supplierSearch, setSupplierSearch] = useState('');
                         <div key={invoice.id} className="line">
                           <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.total_amount}€</b></p>
                           <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
-                          <p>Έργο: {getProjectTitle(invoice.project_id)}</p>
+                          <p>Έργο: {invoice.project_id ? getProjectTitle(invoice.project_id) : 'Χωρίς έργο / Γενικό έξοδο'}</p>
+                          <p>Κατηγορία εξόδου: {invoice.expense_category || '-'}</p>
                           <p>Περιγραφή: {invoice.description || '-'}</p>
                           <p>Καθαρή αξία: {invoice.net_amount || 0}€ | ΦΠΑ 24%: {invoice.vat_amount || 0}€</p>
                           <p>Πληρωμένα στο τιμολόγιο: {getSupplierInvoicePaid(invoice.id)}€</p>
@@ -2186,12 +2238,12 @@ const [supplierSearch, setSupplierSearch] = useState('');
           onChange={(e) => setProjectSearch(e.target.value)}
         />
 
-        {customers.length === 0 ? (
+        {customers.filter(isActiveItem).length === 0 ? (
           <p>Δεν υπάρχουν πελάτες ακόμα.</p>
-        ) : customers.filter(customerMatchesSearch).length === 0 ? (
+        ) : customers.filter(isActiveItem).filter(customerMatchesSearch).length === 0 ? (
           <p>Δεν βρέθηκαν πελάτες ή έργα με αυτή την αναζήτηση.</p>
         ) : (
-          customers.filter(customerMatchesSearch).map((customer) => {
+          customers.filter(isActiveItem).filter(customerMatchesSearch).map((customer) => {
             const customerProjects = getVisibleCustomerProjects(customer.id);
             const customerTotals = getCustomerTotals(customer.id);
             const isOpen = openCustomerId === customer.id;
@@ -2344,10 +2396,10 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
       <section className="card page-section documents-section">
         <h2>Αρχεία / Παραστατικά</h2>
-        {documents.length === 0 ? (
+        {documents.filter(isActiveItem).length === 0 ? (
           <p>Δεν υπάρχουν αρχεία ακόμα.</p>
         ) : (
-          documents.map((document) => (
+          documents.filter(isActiveItem).map((document) => (
             <div key={document.id} className="line">
               <p><b>{document.title}</b></p>
               <p>Έργο: {getProjectTitle(document.project_id)}</p>
@@ -2365,7 +2417,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
       <section className="card page-section inventory-section">
         <h2>Αποθήκη</h2>
-        {inventory.length === 0 ? <p>Δεν υπάρχουν υλικά ακόμα.</p> : inventory.map((item) => {
+        {inventory.filter(isActiveItem).length === 0 ? <p>Δεν υπάρχουν υλικά ακόμα.</p> : inventory.filter(isActiveItem).map((item) => {
           const lowStock = Number(item.quantity || 0) <= Number(item.min_quantity || 0);
 
           return (
@@ -2389,10 +2441,10 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
         {showPayments && (
           <>
-            {payments.length === 0 ? (
+            {payments.filter(isActiveItem).length === 0 ? (
               <p>Δεν υπάρχουν πληρωμές ακόμα.</p>
             ) : (
-              payments.map((payment) => (
+              payments.filter(isActiveItem).map((payment) => (
                 <div key={payment.id} className="line">
                   <p><b>{payment.amount}€</b> — {payment.method}</p>
                   <p>Έργο: {getProjectTitle(payment.project_id)}</p>
@@ -2406,6 +2458,112 @@ const [supplierSearch, setSupplierSearch] = useState('');
           </>
         )}
       </section>
+
+      <section className="card page-section trash-section">
+        <h2>🗑 Κάδος</h2>
+        <p>Εδώ εμφανίζονται όσα έχουν διαγραφεί προσωρινά. Μπορείς να τα επαναφέρεις ή να τα διαγράψεις οριστικά.</p>
+
+        <h3>Πελάτες</h3>
+        {customers.filter(isDeletedItem).length === 0 ? (
+          <p>Δεν υπάρχουν διαγραμμένοι πελάτες.</p>
+        ) : (
+          customers.filter(isDeletedItem).map((customer) => (
+            <div key={customer.id} className="line">
+              <p><b>{customer.name}</b></p>
+              <p>ΑΦΜ/Τηλ: {customer.phone || '-'}</p>
+              <button onClick={() => restoreItem('customers', customer.id)}>↩️ Επαναφορά</button>
+              <button onClick={() => permanentDeleteItem('customers', customer.id)}>❌ Οριστική διαγραφή</button>
+            </div>
+          ))
+        )}
+
+        <h3>Έργα</h3>
+        {projects.filter(isDeletedItem).length === 0 ? (
+          <p>Δεν υπάρχουν διαγραμμένα έργα.</p>
+        ) : (
+          projects.filter(isDeletedItem).map((project) => (
+            <div key={project.id} className="line">
+              <p><b>{project.title}</b></p>
+              <p>Πελάτης: {getCustomerName(project.customer_id)}</p>
+              <button onClick={() => restoreItem('projects', project.id)}>↩️ Επαναφορά</button>
+              <button onClick={() => permanentDeleteItem('projects', project.id)}>❌ Οριστική διαγραφή</button>
+            </div>
+          ))
+        )}
+
+        <h3>Προμηθευτές</h3>
+        {suppliers.filter(isDeletedItem).length === 0 ? (
+          <p>Δεν υπάρχουν διαγραμμένοι προμηθευτές.</p>
+        ) : (
+          suppliers.filter(isDeletedItem).map((supplier) => (
+            <div key={supplier.id} className="line">
+              <p><b>{supplier.name}</b></p>
+              <p>ΑΦΜ: {supplier.afm || '-'}</p>
+              <button onClick={() => restoreItem('suppliers', supplier.id)}>↩️ Επαναφορά</button>
+              <button onClick={() => permanentDeleteItem('suppliers', supplier.id)}>❌ Οριστική διαγραφή</button>
+            </div>
+          ))
+        )}
+
+        <h3>Τιμολόγια Προμηθευτών</h3>
+        {supplierInvoices.filter(isDeletedItem).length === 0 ? (
+          <p>Δεν υπάρχουν διαγραμμένα τιμολόγια προμηθευτών.</p>
+        ) : (
+          supplierInvoices.filter(isDeletedItem).map((invoice) => (
+            <div key={invoice.id} className="line">
+              <p><b>{getSupplierName(invoice.supplier_id)} — {invoice.total_amount}€</b></p>
+              <p>Τιμολόγιο: {invoice.invoice_number || '-'}</p>
+              <p>Έργο: {getProjectTitle(invoice.project_id)}</p>
+              <button onClick={() => restoreItem('supplier_invoices', invoice.id)}>↩️ Επαναφορά</button>
+              <button onClick={() => permanentDeleteItem('supplier_invoices', invoice.id)}>❌ Οριστική διαγραφή</button>
+            </div>
+          ))
+        )}
+
+        <h3>Πληρωμές / Έξοδα / Αρχεία</h3>
+        {[...payments.filter(isDeletedItem), ...expenses.filter(isDeletedItem), ...documents.filter(isDeletedItem), ...supplierPayments.filter(isDeletedItem)].length === 0 ? (
+          <p>Δεν υπάρχουν άλλες διαγραμμένες εγγραφές.</p>
+        ) : (
+          <>
+            {payments.filter(isDeletedItem).map((payment) => (
+              <div key={payment.id} className="line">
+                <p><b>Πληρωμή πελάτη: {payment.amount}€</b></p>
+                <p>Έργο: {getProjectTitle(payment.project_id)}</p>
+                <button onClick={() => restoreItem('payments', payment.id)}>↩️ Επαναφορά</button>
+                <button onClick={() => permanentDeleteItem('payments', payment.id)}>❌ Οριστική διαγραφή</button>
+              </div>
+            ))}
+
+            {expenses.filter(isDeletedItem).map((expense) => (
+              <div key={expense.id} className="line">
+                <p><b>Έξοδο: {expense.title}</b></p>
+                <p>{expense.amount}€ — {expense.category}</p>
+                <button onClick={() => restoreItem('expenses', expense.id)}>↩️ Επαναφορά</button>
+                <button onClick={() => permanentDeleteItem('expenses', expense.id)}>❌ Οριστική διαγραφή</button>
+              </div>
+            ))}
+
+            {supplierPayments.filter(isDeletedItem).map((payment) => (
+              <div key={payment.id} className="line">
+                <p><b>Πληρωμή προμηθευτή: {payment.amount}€</b></p>
+                <p>Προμηθευτής: {getSupplierName(payment.supplier_id)}</p>
+                <button onClick={() => restoreItem('supplier_payments', payment.id)}>↩️ Επαναφορά</button>
+                <button onClick={() => permanentDeleteItem('supplier_payments', payment.id)}>❌ Οριστική διαγραφή</button>
+              </div>
+            ))}
+
+            {documents.filter(isDeletedItem).map((document) => (
+              <div key={document.id} className="line">
+                <p><b>Αρχείο: {document.title}</b></p>
+                <p>Έργο: {getProjectTitle(document.project_id)}</p>
+                <button onClick={() => restoreItem('documents', document.id)}>↩️ Επαναφορά</button>
+                <button onClick={() => permanentDeleteItem('documents', document.id)}>❌ Οριστική διαγραφή</button>
+              </div>
+            ))}
+          </>
+        )}
+      </section>
+
     </main>
   );
 }
