@@ -11,7 +11,7 @@ const INITIAL_EXPENSE = { customer_id: '', project_id: '', title: '', amount: ''
 const INITIAL_INVENTORY = { item_name: '', quantity: '', min_quantity: '', purchase_price: '' };
 const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal: '', job_type: 'invoice', status: 'pending' };
 const INITIAL_TASK = { project_id: '', title: '', task_date: '', task_time: '', status: 'pending', notes: '' };
-const INITIAL_DOCUMENT = { project_id: '', title: '', document_type: 'Τιμολόγιο', file_url: '', notes: '' };
+const INITIAL_DOCUMENT = { customer_id: '', project_id: '', title: '', document_type: 'Τιμολόγιο', file_url: '', notes: '' };
 
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
@@ -52,6 +52,7 @@ const [taskSearch, setTaskSearch] = useState('');
   const [newQuote, setNewQuote] = useState(INITIAL_QUOTE);
   const [newTask, setNewTask] = useState(INITIAL_TASK);
   const [newDocument, setNewDocument] = useState(INITIAL_DOCUMENT);
+  const [documentFile, setDocumentFile] = useState(null);
 
   useEffect(() => {
     refreshAll();
@@ -485,22 +486,46 @@ const [taskSearch, setTaskSearch] = useState('');
 
     setNewTask(INITIAL_TASK);
     setNewDocument(INITIAL_DOCUMENT);
+    setDocumentFile(null);
     setEditingTaskId(null);
     setEditingDocumentId(null);
     loadTasks();
   }
 
   async function saveDocument() {
-    if (!newDocument.project_id || !newDocument.title.trim()) {
-      alert('Διάλεξε έργο και βάλε τίτλο αρχείου');
+    if (!newDocument.customer_id || !newDocument.project_id || !newDocument.title.trim()) {
+      alert('Διάλεξε πελάτη, έργο και βάλε τίτλο αρχείου');
       return;
+    }
+
+    let fileUrl = newDocument.file_url;
+
+    if (documentFile) {
+      const fileExt = documentFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+      const filePath = `${newDocument.project_id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, documentFile);
+
+      if (uploadError) {
+        alert(uploadError.message);
+        return;
+      }
+
+      const { data } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      fileUrl = data.publicUrl;
     }
 
     const payload = {
       project_id: newDocument.project_id,
       title: newDocument.title,
       document_type: newDocument.document_type,
-      file_url: newDocument.file_url,
+      file_url: fileUrl,
       notes: newDocument.notes
     };
 
@@ -512,6 +537,8 @@ const [taskSearch, setTaskSearch] = useState('');
     if (error) return alert(error.message);
 
     setNewDocument(INITIAL_DOCUMENT);
+    setDocumentFile(null);
+    setDocumentFile(null);
     setEditingDocumentId(null);
     loadDocuments();
   }
@@ -602,13 +629,17 @@ const [taskSearch, setTaskSearch] = useState('');
   }
 
   function editDocument(document) {
+    const project = projects.find((item) => item.id === document.project_id);
+
     setNewDocument({
+      customer_id: project?.customer_id || '',
       project_id: document.project_id || '',
       title: document.title || '',
       document_type: document.document_type || 'Τιμολόγιο',
       file_url: document.file_url || '',
       notes: document.notes || ''
     });
+    setDocumentFile(null);
     setEditingDocumentId(document.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -630,6 +661,7 @@ const [taskSearch, setTaskSearch] = useState('');
     setNewQuote(INITIAL_QUOTE);
     setNewTask(INITIAL_TASK);
     setNewDocument(INITIAL_DOCUMENT);
+    setDocumentFile(null);
   }
 
   async function deleteItem(table, id) {
@@ -767,9 +799,21 @@ const [taskSearch, setTaskSearch] = useState('');
       <section className="card">
         <h2>{editingDocumentId ? 'Επεξεργασία Αρχείου / Παραστατικού' : 'Νέο Αρχείο / Παραστατικό'}</h2>
 
+        <select
+          value={newDocument.customer_id}
+          onChange={(e) => setNewDocument({ ...newDocument, customer_id: e.target.value, project_id: '' })}
+        >
+          <option value="">Διάλεξε πελάτη</option>
+          {customers.map((customer) => (
+            <option key={customer.id} value={customer.id}>{customer.name}</option>
+          ))}
+        </select>
+
         <select value={newDocument.project_id} onChange={(e) => setNewDocument({ ...newDocument, project_id: e.target.value })}>
-          <option value="">Διάλεξε έργο</option>
-          {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+          <option value="">Διάλεξε έργο πελάτη</option>
+          {getFilteredProjectsByCustomer(newDocument.customer_id).map((project) => (
+            <option key={project.id} value={project.id}>{project.title}</option>
+          ))}
         </select>
 
         <input placeholder="Τίτλος αρχείου" value={newDocument.title} onChange={(e) => setNewDocument({ ...newDocument, title: e.target.value })} />
@@ -782,7 +826,18 @@ const [taskSearch, setTaskSearch] = useState('');
           <option value="Άλλο">Άλλο</option>
         </select>
 
-        <input placeholder="Link αρχείου / φωτογραφίας" value={newDocument.file_url} onChange={(e) => setNewDocument({ ...newDocument, file_url: e.target.value })} />
+        <input
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.webp"
+          onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
+        />
+
+        <input
+          placeholder="Ή βάλε link αρχείου / φωτογραφίας"
+          value={newDocument.file_url}
+          onChange={(e) => setNewDocument({ ...newDocument, file_url: e.target.value })}
+        />
+
         <textarea placeholder="Σημειώσεις" value={newDocument.notes} onChange={(e) => setNewDocument({ ...newDocument, notes: e.target.value })} />
 
         <button onClick={saveDocument}>{editingDocumentId ? 'Αποθήκευση αλλαγών αρχείου' : 'Αποθήκευση αρχείου'}</button>
