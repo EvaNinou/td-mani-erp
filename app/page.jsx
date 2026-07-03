@@ -14,7 +14,7 @@ const INITIAL_TASK = { project_id: '', title: '', task_date: '', task_time: '', 
 const INITIAL_DOCUMENT = { customer_id: '', project_id: '', title: '', document_type: 'Τιμολόγιο', file_url: '', notes: '' };
 const INITIAL_SUPPLIER = { name: '', afm: '', phone: '', email: '', address: '', notes: '' };
 const INITIAL_SUPPLIER_INVOICE = { supplier_id: '', project_id: '', invoice_date: '', invoice_number: '', description: '', net_amount: '', vat_amount: '', total_amount: '', notes: '' };
-const INITIAL_SUPPLIER_PAYMENT = { supplier_id: '', payment_date: '', amount: '', method: 'Τράπεζα', notes: '' };
+const INITIAL_SUPPLIER_PAYMENT = { supplier_id: '', supplier_invoice_id: '', payment_date: '', amount: '', method: 'Τράπεζα', notes: '' };
 
 const DEMO_USERS = [
   { email: 'eva@tdmani.gr', password: '1234', name: 'Εύα Νίνου', role: 'Admin' },
@@ -597,6 +597,37 @@ const [taskSearch, setTaskSearch] = useState('');
     return supplierPayments.filter((payment) => payment.supplier_id === supplierId);
   }
 
+  function getSupplierInvoicePayments(invoiceId) {
+    return supplierPayments.filter((payment) => payment.supplier_invoice_id === invoiceId);
+  }
+
+  function getSupplierInvoicePaid(invoiceId) {
+    return getSupplierInvoicePayments(invoiceId)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  }
+
+  function getSupplierInvoiceStatus(invoice) {
+    const paid = getSupplierInvoicePaid(invoice.id);
+    const total = Number(invoice.total_amount || 0);
+
+    if (paid <= 0) return 'Απλήρωτο';
+    if (paid < total) return 'Μερικώς πληρωμένο';
+    return 'Εξοφλημένο';
+  }
+
+  function calculateSupplierInvoiceValues(invoiceForm) {
+    const net = Number(invoiceForm.net_amount || 0);
+    const vat = net * 0.24;
+    const total = net + vat;
+
+    return {
+      net,
+      vat,
+      total
+    };
+  }
+
+
   function getSupplierTotals(supplierId) {
     const totalInvoices = getSupplierInvoices(supplierId)
       .reduce((sum, invoice) => sum + Number(invoice.total_amount || 0), 0);
@@ -1064,33 +1095,75 @@ const [taskSearch, setTaskSearch] = useState('');
   }
 
   async function saveSupplierInvoice() {
-    if (!newSupplierInvoice.supplier_id || !newSupplierInvoice.invoice_date || !newSupplierInvoice.total_amount) {
-      alert('Διάλεξε προμηθευτή, ημερομηνία και βάλε σύνολο τιμολογίου');
+    if (!newSupplierInvoice.supplier_id || !newSupplierInvoice.project_id || !newSupplierInvoice.invoice_date || !newSupplierInvoice.net_amount) {
+      alert('Διάλεξε προμηθευτή, έργο, ημερομηνία και καθαρή αξία τιμολογίου');
       return;
     }
 
+    const { net, vat, total } = calculateSupplierInvoiceValues(newSupplierInvoice);
+    const supplierName = getSupplierName(newSupplierInvoice.supplier_id);
+
     const payload = {
       supplier_id: newSupplierInvoice.supplier_id,
-      project_id: newSupplierInvoice.project_id || null,
+      project_id: newSupplierInvoice.project_id,
       invoice_date: newSupplierInvoice.invoice_date,
       invoice_number: newSupplierInvoice.invoice_number,
       description: newSupplierInvoice.description,
-      net_amount: Number(newSupplierInvoice.net_amount || 0),
-      vat_amount: Number(newSupplierInvoice.vat_amount || 0),
-      total_amount: Number(newSupplierInvoice.total_amount || 0),
+      net_amount: net,
+      vat_amount: vat,
+      total_amount: total,
       notes: newSupplierInvoice.notes
     };
 
-    const query = editingSupplierInvoiceId
-      ? supabase.from('supplier_invoices').update(payload).eq('id', editingSupplierInvoiceId)
-      : supabase.from('supplier_invoices').insert([payload]);
+    let savedInvoiceId = editingSupplierInvoiceId;
 
-    const { error } = await query;
-    if (error) return alert(error.message);
+    if (editingSupplierInvoiceId) {
+      const { error } = await supabase
+        .from('supplier_invoices')
+        .update(payload)
+        .eq('id', editingSupplierInvoiceId);
+
+      if (error) return alert(error.message);
+    } else {
+      const { data, error } = await supabase
+        .from('supplier_invoices')
+        .insert([payload])
+        .select()
+        .single();
+
+      if (error) return alert(error.message);
+      savedInvoiceId = data.id;
+    }
+
+    const expensePayload = {
+      project_id: newSupplierInvoice.project_id,
+      title: `Τιμολόγιο προμηθευτή: ${supplierName}${newSupplierInvoice.invoice_number ? ` (${newSupplierInvoice.invoice_number})` : ''}`,
+      amount: total,
+      category: 'Προμηθευτής',
+      notes: newSupplierInvoice.description || newSupplierInvoice.notes || '',
+      supplier_invoice_id: savedInvoiceId
+    };
+
+    const existingExpense = expenses.find((expense) => expense.supplier_invoice_id === savedInvoiceId);
+
+    if (existingExpense) {
+      const { error: expenseError } = await supabase
+        .from('expenses')
+        .update(expensePayload)
+        .eq('id', existingExpense.id);
+
+      if (expenseError) return alert(expenseError.message);
+    } else {
+      const { error: expenseError } = await supabase
+        .from('expenses')
+        .insert([expensePayload]);
+
+      if (expenseError) return alert(expenseError.message);
+    }
 
     setNewSupplierInvoice(INITIAL_SUPPLIER_INVOICE);
     setEditingSupplierInvoiceId(null);
-    loadSupplierInvoices();
+    await Promise.all([loadSupplierInvoices(), loadExpenses()]);
   }
 
   async function saveSupplierPayment() {
@@ -1101,6 +1174,7 @@ const [taskSearch, setTaskSearch] = useState('');
 
     const payload = {
       supplier_id: newSupplierPayment.supplier_id,
+      supplier_invoice_id: newSupplierPayment.supplier_invoice_id || null,
       payment_date: newSupplierPayment.payment_date,
       amount: Number(newSupplierPayment.amount || 0),
       method: newSupplierPayment.method,
@@ -1255,6 +1329,7 @@ const [taskSearch, setTaskSearch] = useState('');
   function editSupplierPayment(payment) {
     setNewSupplierPayment({
       supplier_id: payment.supplier_id || '',
+      supplier_invoice_id: payment.supplier_invoice_id || '',
       payment_date: payment.payment_date || '',
       amount: String(payment.amount || ''),
       method: payment.method || 'Τράπεζα',
@@ -1321,8 +1396,18 @@ const [taskSearch, setTaskSearch] = useState('');
     }
 
     if (table === 'suppliers') {
+      const invoicesToDelete = supplierInvoices.filter((invoice) => invoice.supplier_id === id);
+      for (const invoice of invoicesToDelete) {
+        await supabase.from('expenses').delete().eq('supplier_invoice_id', invoice.id);
+      }
+
       await supabase.from('supplier_invoices').delete().eq('supplier_id', id);
       await supabase.from('supplier_payments').delete().eq('supplier_id', id);
+    }
+
+    if (table === 'supplier_invoices') {
+      await supabase.from('expenses').delete().eq('supplier_invoice_id', id);
+      await supabase.from('supplier_payments').delete().eq('supplier_invoice_id', id);
     }
 
     const { error } = await supabase.from(table).delete().eq('id', id);
@@ -1791,7 +1876,7 @@ const [taskSearch, setTaskSearch] = useState('');
                   <p>Δεν υπάρχουν τιμολόγια προμηθευτών.</p>
                 ) : (
                   row.projectSupplierInvoices.map((invoice) => (
-                    <p key={invoice.id}>• {invoice.invoice_date || '-'} — {getSupplierName(invoice.supplier_id)} — {invoice.invoice_number || '-'} — {invoice.total_amount}€</p>
+                    <p key={invoice.id}>• {invoice.invoice_date || '-'} — {getSupplierName(invoice.supplier_id)} — {invoice.invoice_number || '-'} — {invoice.total_amount}€ — {getSupplierInvoiceStatus(invoice)}</p>
                   ))
                 )}
 
@@ -1891,7 +1976,7 @@ const [taskSearch, setTaskSearch] = useState('');
         </select>
 
         <select value={newSupplierInvoice.project_id} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, project_id: e.target.value })}>
-          <option value="">Σύνδεση με έργο (προαιρετικό)</option>
+          <option value="">Διάλεξε έργο</option>
           {projects.map((project) => (
             <option key={project.id} value={project.id}>{project.title}</option>
           ))}
@@ -1901,8 +1986,13 @@ const [taskSearch, setTaskSearch] = useState('');
         <input placeholder="Αριθμός τιμολογίου" value={newSupplierInvoice.invoice_number} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, invoice_number: e.target.value })} />
         <textarea placeholder="Περιγραφή" value={newSupplierInvoice.description} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, description: e.target.value })} />
         <input placeholder="Καθαρή αξία" value={newSupplierInvoice.net_amount} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, net_amount: e.target.value })} />
-        <input placeholder="ΦΠΑ" value={newSupplierInvoice.vat_amount} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, vat_amount: e.target.value })} />
-        <input placeholder="Σύνολο τιμολογίου" value={newSupplierInvoice.total_amount} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, total_amount: e.target.value })} />
+
+        <div className="line">
+          <p>ΦΠΑ 24%: <b>{calculateSupplierInvoiceValues(newSupplierInvoice).vat}€</b></p>
+          <p>Σύνολο: <b>{calculateSupplierInvoiceValues(newSupplierInvoice).total}€</b></p>
+          <small>Το τιμολόγιο θα περαστεί αυτόματα και στα έξοδα του έργου.</small>
+        </div>
+
         <textarea placeholder="Σημειώσεις" value={newSupplierInvoice.notes} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, notes: e.target.value })} />
 
         <button onClick={saveSupplierInvoice}>{editingSupplierInvoiceId ? 'Αποθήκευση αλλαγών τιμολογίου' : 'Αποθήκευση τιμολογίου'}</button>
@@ -1911,10 +2001,25 @@ const [taskSearch, setTaskSearch] = useState('');
       <section className="card page-section suppliers-section">
         <h2>{editingSupplierPaymentId ? 'Επεξεργασία Πληρωμής Προμηθευτή' : 'Νέα Πληρωμή Προμηθευτή'}</h2>
 
-        <select value={newSupplierPayment.supplier_id} onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, supplier_id: e.target.value })}>
+        <select
+          value={newSupplierPayment.supplier_id}
+          onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, supplier_id: e.target.value, supplier_invoice_id: '' })}
+        >
           <option value="">Διάλεξε προμηθευτή</option>
           {suppliers.map((supplier) => (
             <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+          ))}
+        </select>
+
+        <select
+          value={newSupplierPayment.supplier_invoice_id || ''}
+          onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, supplier_invoice_id: e.target.value })}
+        >
+          <option value="">Σύνδεση με τιμολόγιο (προαιρετικό)</option>
+          {getSupplierInvoices(newSupplierPayment.supplier_id).map((invoice) => (
+            <option key={invoice.id} value={invoice.id}>
+              {invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.total_amount}€ — {invoice.invoice_date || '-'}
+            </option>
           ))}
         </select>
 
@@ -1970,7 +2075,9 @@ const [taskSearch, setTaskSearch] = useState('');
                           <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
                           <p>Έργο: {getProjectTitle(invoice.project_id)}</p>
                           <p>Περιγραφή: {invoice.description || '-'}</p>
-                          <p>Καθαρή αξία: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€</p>
+                          <p>Καθαρή αξία: {invoice.net_amount || 0}€ | ΦΠΑ 24%: {invoice.vat_amount || 0}€</p>
+                          <p>Πληρωμένα στο τιμολόγιο: {getSupplierInvoicePaid(invoice.id)}€</p>
+                          <p>Status: <b>{getSupplierInvoiceStatus(invoice)}</b></p>
                           <small>{invoice.notes}</small>
                           <button onClick={() => editSupplierInvoice(invoice)}>✏️ Επεξεργασία τιμολογίου</button>
                           <button onClick={() => deleteItem('supplier_invoices', invoice.id)}>🗑 Διαγραφή τιμολογίου</button>
@@ -1986,6 +2093,7 @@ const [taskSearch, setTaskSearch] = useState('');
                         <div key={payment.id} className="line">
                           <p><b>{payment.amount}€</b> — {payment.method}</p>
                           <p>Ημερομηνία: {payment.payment_date || '-'}</p>
+                          <p>Τιμολόγιο: {payment.supplier_invoice_id ? (supplierInvoices.find((invoice) => invoice.id === payment.supplier_invoice_id)?.invoice_number || 'Συνδεδεμένο') : 'Γενική πληρωμή'}</p>
                           <small>{payment.notes}</small>
                           <button onClick={() => editSupplierPayment(payment)}>✏️ Επεξεργασία πληρωμής</button>
                           <button onClick={() => deleteItem('supplier_payments', payment.id)}>🗑 Διαγραφή πληρωμής</button>
@@ -2167,8 +2275,10 @@ const [taskSearch, setTaskSearch] = useState('');
                 <p>Τιμολόγιο: {invoice.invoice_number || '-'}</p>
                 <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
                 <p>Περιγραφή: {invoice.description || '-'}</p>
-                <p>Καθαρή αξία: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€</p>
+                <p>Καθαρή αξία: {invoice.net_amount || 0}€ | ΦΠΑ 24%: {invoice.vat_amount || 0}€</p>
                 <p><b>Σύνολο: {invoice.total_amount || 0}€</b></p>
+                <p>Πληρωμένα: {getSupplierInvoicePaid(invoice.id)}€</p>
+                <p>Status: <b>{getSupplierInvoiceStatus(invoice)}</b></p>
                 <button onClick={() => editSupplierInvoice(invoice)}>✏️ Επεξεργασία</button>
                 <button onClick={() => deleteItem('supplier_invoices', invoice.id)}>🗑 Διαγραφή</button>
               </div>
