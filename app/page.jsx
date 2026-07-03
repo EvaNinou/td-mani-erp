@@ -6,8 +6,8 @@ import './styles.css';
 
 const INITIAL_CUSTOMER = { name: '', phone: '', area: '', notes: '' };
 const INITIAL_PROJECT = { customer_id: '', title: '', address: '', area: '', agreed_amount: '', status: 'active' };
-const INITIAL_PAYMENT = { project_id: '', amount: '', method: 'Μετρητά', notes: '' };
-const INITIAL_EXPENSE = { project_id: '', title: '', amount: '', category: 'Υλικά', notes: '' };
+const INITIAL_PAYMENT = { customer_id: '', project_id: '', amount: '', method: 'Μετρητά', notes: '' };
+const INITIAL_EXPENSE = { customer_id: '', project_id: '', title: '', amount: '', category: 'Υλικά', notes: '' };
 const INITIAL_INVENTORY = { item_name: '', quantity: '', min_quantity: '', purchase_price: '' };
 const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal: '', job_type: 'invoice', status: 'pending' };
 const INITIAL_TASK = { project_id: '', title: '', task_date: '', task_time: '', status: 'pending', notes: '' };
@@ -107,6 +107,11 @@ export default function Home() {
   }
 
   function getCustomerProjects(customerId) {
+    return projects.filter((project) => project.customer_id === customerId);
+  }
+
+  function getFilteredProjectsByCustomer(customerId) {
+    if (!customerId) return [];
     return projects.filter((project) => project.customer_id === customerId);
   }
 
@@ -248,8 +253,8 @@ export default function Home() {
   }
 
   async function savePayment() {
-    if (!newPayment.project_id || !newPayment.amount) {
-      alert('Διάλεξε έργο και βάλε ποσό πληρωμής');
+    if (!newPayment.customer_id || !newPayment.project_id || !newPayment.amount) {
+      alert('Διάλεξε πελάτη, έργο και βάλε ποσό πληρωμής');
       return;
     }
 
@@ -274,8 +279,8 @@ export default function Home() {
   }
 
   async function saveExpense() {
-    if (!newExpense.project_id || !newExpense.title.trim() || !newExpense.amount) {
-      alert('Διάλεξε έργο, βάλε τίτλο και ποσό εξόδου');
+    if (!newExpense.customer_id || !newExpense.project_id || !newExpense.title.trim() || !newExpense.amount) {
+      alert('Διάλεξε πελάτη, έργο, τίτλο και ποσό εξόδου');
       return;
     }
 
@@ -403,7 +408,10 @@ export default function Home() {
   }
 
   function editPayment(payment) {
+    const project = projects.find((item) => item.id === payment.project_id);
+
     setNewPayment({
+      customer_id: project?.customer_id || '',
       project_id: payment.project_id || '',
       amount: String(payment.amount || ''),
       method: payment.method || 'Μετρητά',
@@ -414,7 +422,10 @@ export default function Home() {
   }
 
   function editExpense(expense) {
+    const project = projects.find((item) => item.id === expense.project_id);
+
     setNewExpense({
+      customer_id: project?.customer_id || '',
       project_id: expense.project_id || '',
       title: expense.title || '',
       amount: String(expense.amount || ''),
@@ -621,10 +632,23 @@ export default function Home() {
 
       <section className="card">
         <h2>{editingPaymentId ? 'Επεξεργασία Πληρωμής' : 'Νέα Πληρωμή'}</h2>
-        <select value={newPayment.project_id} onChange={(e) => setNewPayment({ ...newPayment, project_id: e.target.value })}>
-          <option value="">Διάλεξε έργο</option>
-          {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+        <select
+          value={newPayment.customer_id}
+          onChange={(e) => setNewPayment({ ...newPayment, customer_id: e.target.value, project_id: '' })}
+        >
+          <option value="">Διάλεξε πελάτη</option>
+          {customers.map((customer) => (
+            <option key={customer.id} value={customer.id}>{customer.name}</option>
+          ))}
         </select>
+
+        <select value={newPayment.project_id} onChange={(e) => setNewPayment({ ...newPayment, project_id: e.target.value })}>
+          <option value="">Διάλεξε έργο πελάτη</option>
+          {getFilteredProjectsByCustomer(newPayment.customer_id).map((project) => (
+            <option key={project.id} value={project.id}>{project.title}</option>
+          ))}
+        </select>
+
         <input placeholder="Ποσό πληρωμής" value={newPayment.amount} onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })} />
         <select value={newPayment.method} onChange={(e) => setNewPayment({ ...newPayment, method: e.target.value })}>
           <option value="Μετρητά">Μετρητά</option>
@@ -799,10 +823,23 @@ export default function Home() {
 
       <section className="card">
         <h2>{editingExpenseId ? 'Επεξεργασία Εξόδου' : 'Νέο Έξοδο'}</h2>
-        <select value={newExpense.project_id} onChange={(e) => setNewExpense({ ...newExpense, project_id: e.target.value })}>
-          <option value="">Διάλεξε έργο</option>
-          {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+        <select
+          value={newExpense.customer_id}
+          onChange={(e) => setNewExpense({ ...newExpense, customer_id: e.target.value, project_id: '' })}
+        >
+          <option value="">Διάλεξε πελάτη</option>
+          {customers.map((customer) => (
+            <option key={customer.id} value={customer.id}>{customer.name}</option>
+          ))}
         </select>
+
+        <select value={newExpense.project_id} onChange={(e) => setNewExpense({ ...newExpense, project_id: e.target.value })}>
+          <option value="">Διάλεξε έργο πελάτη</option>
+          {getFilteredProjectsByCustomer(newExpense.customer_id).map((project) => (
+            <option key={project.id} value={project.id}>{project.title}</option>
+          ))}
+        </select>
+
         <input placeholder="Τίτλος εξόδου" value={newExpense.title} onChange={(e) => setNewExpense({ ...newExpense, title: e.target.value })} />
         <input placeholder="Ποσό εξόδου" value={newExpense.amount} onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })} />
         <select value={newExpense.category} onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}>
