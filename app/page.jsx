@@ -11,6 +11,7 @@ const INITIAL_EXPENSE = { customer_id: '', project_id: '', title: '', amount: ''
 const INITIAL_INVENTORY = { item_name: '', quantity: '', min_quantity: '', purchase_price: '' };
 const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal: '', job_type: 'invoice', status: 'pending' };
 const INITIAL_TASK = { project_id: '', title: '', task_date: '', task_time: '', status: 'pending', notes: '' };
+const INITIAL_DOCUMENT = { project_id: '', title: '', document_type: 'Τιμολόγιο', file_url: '', notes: '' };
 
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
@@ -23,6 +24,7 @@ export default function Home() {
   const [inventory, setInventory] = useState([]);
   const [quotes, setQuotes] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [documents, setDocuments] = useState([]);
 
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedQuote, setSelectedQuote] = useState(null);
@@ -40,6 +42,7 @@ const [taskSearch, setTaskSearch] = useState('');
   const [editingInventoryId, setEditingInventoryId] = useState(null);
   const [editingQuoteId, setEditingQuoteId] = useState(null);
   const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editingDocumentId, setEditingDocumentId] = useState(null);
 
   const [newCustomer, setNewCustomer] = useState(INITIAL_CUSTOMER);
   const [newProject, setNewProject] = useState(INITIAL_PROJECT);
@@ -48,6 +51,7 @@ const [taskSearch, setTaskSearch] = useState('');
   const [newInventory, setNewInventory] = useState(INITIAL_INVENTORY);
   const [newQuote, setNewQuote] = useState(INITIAL_QUOTE);
   const [newTask, setNewTask] = useState(INITIAL_TASK);
+  const [newDocument, setNewDocument] = useState(INITIAL_DOCUMENT);
 
   useEffect(() => {
     refreshAll();
@@ -62,7 +66,8 @@ const [taskSearch, setTaskSearch] = useState('');
       loadExpenses(),
       loadInventory(),
       loadQuotes(),
-      loadTasks()
+      loadTasks(),
+      loadDocuments()
     ]);
   }
 
@@ -106,6 +111,11 @@ const [taskSearch, setTaskSearch] = useState('');
     setTasks(data || []);
   }
 
+  async function loadDocuments() {
+    const { data } = await supabase.from('documents').select('*').order('created_at', { ascending: false });
+    setDocuments(data || []);
+  }
+
   function getCustomerName(customerId) {
     return customers.find((customer) => customer.id === customerId)?.name || 'Χωρίς πελάτη';
   }
@@ -147,6 +157,10 @@ const [taskSearch, setTaskSearch] = useState('');
     return tasks.filter((task) => task.project_id === projectId);
   }
 
+  function getProjectDocuments(projectId) {
+    return documents.filter((document) => document.project_id === projectId);
+  }
+
   function getProjectPayments(projectId) {
     return payments.filter((payment) => payment.project_id === projectId);
   }
@@ -181,7 +195,8 @@ const [taskSearch, setTaskSearch] = useState('');
         payments: getProjectPayments(project.id),
         projectExpensesList: expenses.filter((expense) => expense.project_id === project.id),
         projectQuotes: getProjectQuotes(project.id),
-        projectTasks: getProjectTasks(project.id)
+        projectTasks: getProjectTasks(project.id),
+        projectDocuments: getProjectDocuments(project.id)
       };
     });
   }
@@ -469,8 +484,36 @@ const [taskSearch, setTaskSearch] = useState('');
     if (error) return alert(error.message);
 
     setNewTask(INITIAL_TASK);
+    setNewDocument(INITIAL_DOCUMENT);
     setEditingTaskId(null);
+    setEditingDocumentId(null);
     loadTasks();
+  }
+
+  async function saveDocument() {
+    if (!newDocument.project_id || !newDocument.title.trim()) {
+      alert('Διάλεξε έργο και βάλε τίτλο αρχείου');
+      return;
+    }
+
+    const payload = {
+      project_id: newDocument.project_id,
+      title: newDocument.title,
+      document_type: newDocument.document_type,
+      file_url: newDocument.file_url,
+      notes: newDocument.notes
+    };
+
+    const query = editingDocumentId
+      ? supabase.from('documents').update(payload).eq('id', editingDocumentId)
+      : supabase.from('documents').insert([payload]);
+
+    const { error } = await query;
+    if (error) return alert(error.message);
+
+    setNewDocument(INITIAL_DOCUMENT);
+    setEditingDocumentId(null);
+    loadDocuments();
   }
 
   function editCustomer(customer) {
@@ -558,6 +601,18 @@ const [taskSearch, setTaskSearch] = useState('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function editDocument(document) {
+    setNewDocument({
+      project_id: document.project_id || '',
+      title: document.title || '',
+      document_type: document.document_type || 'Τιμολόγιο',
+      file_url: document.file_url || '',
+      notes: document.notes || ''
+    });
+    setEditingDocumentId(document.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   function cancelEdits() {
     setEditingCustomerId(null);
     setEditingProjectId(null);
@@ -566,6 +621,7 @@ const [taskSearch, setTaskSearch] = useState('');
     setEditingInventoryId(null);
     setEditingQuoteId(null);
     setEditingTaskId(null);
+    setEditingDocumentId(null);
     setNewCustomer(INITIAL_CUSTOMER);
     setNewProject(INITIAL_PROJECT);
     setNewPayment(INITIAL_PAYMENT);
@@ -573,6 +629,7 @@ const [taskSearch, setTaskSearch] = useState('');
     setNewInventory(INITIAL_INVENTORY);
     setNewQuote(INITIAL_QUOTE);
     setNewTask(INITIAL_TASK);
+    setNewDocument(INITIAL_DOCUMENT);
   }
 
   async function deleteItem(table, id) {
@@ -588,6 +645,7 @@ const [taskSearch, setTaskSearch] = useState('');
         await supabase.from('expenses').delete().eq('project_id', projectId);
         await supabase.from('quotes').delete().eq('project_id', projectId);
         await supabase.from('tasks').delete().eq('project_id', projectId);
+        await supabase.from('documents').delete().eq('project_id', projectId);
       }
 
       await supabase.from('projects').delete().eq('customer_id', id);
@@ -598,6 +656,7 @@ const [taskSearch, setTaskSearch] = useState('');
       await supabase.from('expenses').delete().eq('project_id', id);
       await supabase.from('quotes').delete().eq('project_id', id);
       await supabase.from('tasks').delete().eq('project_id', id);
+      await supabase.from('documents').delete().eq('project_id', id);
     }
 
     const { error } = await supabase.from(table).delete().eq('id', id);
@@ -621,7 +680,7 @@ const [taskSearch, setTaskSearch] = useState('');
         </div>
       </header>
 
-      {(editingCustomerId || editingProjectId || editingPaymentId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId) && (
+      {(editingCustomerId || editingProjectId || editingPaymentId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId || editingDocumentId) && (
         <section className="card">
           <h2>✏️ Λειτουργία επεξεργασίας</h2>
           <p>Έχεις ανοίξει μια εγγραφή για αλλαγές. Κάνε τις αλλαγές στη φόρμα και πάτα αποθήκευση.</p>
@@ -703,6 +762,30 @@ const [taskSearch, setTaskSearch] = useState('');
             </div>
           ))
         )}
+      </section>
+
+      <section className="card">
+        <h2>{editingDocumentId ? 'Επεξεργασία Αρχείου / Παραστατικού' : 'Νέο Αρχείο / Παραστατικό'}</h2>
+
+        <select value={newDocument.project_id} onChange={(e) => setNewDocument({ ...newDocument, project_id: e.target.value })}>
+          <option value="">Διάλεξε έργο</option>
+          {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+        </select>
+
+        <input placeholder="Τίτλος αρχείου" value={newDocument.title} onChange={(e) => setNewDocument({ ...newDocument, title: e.target.value })} />
+
+        <select value={newDocument.document_type} onChange={(e) => setNewDocument({ ...newDocument, document_type: e.target.value })}>
+          <option value="Τιμολόγιο">Τιμολόγιο</option>
+          <option value="Απόδειξη">Απόδειξη</option>
+          <option value="Σύμβαση">Σύμβαση</option>
+          <option value="Φωτογραφία έργου">Φωτογραφία έργου</option>
+          <option value="Άλλο">Άλλο</option>
+        </select>
+
+        <input placeholder="Link αρχείου / φωτογραφίας" value={newDocument.file_url} onChange={(e) => setNewDocument({ ...newDocument, file_url: e.target.value })} />
+        <textarea placeholder="Σημειώσεις" value={newDocument.notes} onChange={(e) => setNewDocument({ ...newDocument, notes: e.target.value })} />
+
+        <button onClick={saveDocument}>{editingDocumentId ? 'Αποθήκευση αλλαγών αρχείου' : 'Αποθήκευση αρχείου'}</button>
       </section>
 
       <section className="card">
@@ -907,6 +990,15 @@ const [taskSearch, setTaskSearch] = useState('');
                 ) : (
                   row.projectTasks.map((task) => (
                     <p key={task.id}>• {task.task_date} {task.task_time || ''} — {task.title} — {task.status}</p>
+                  ))
+                )}
+
+                <h4>Αρχεία / Παραστατικά</h4>
+                {row.projectDocuments.length === 0 ? (
+                  <p>Δεν υπάρχουν αρχεία.</p>
+                ) : (
+                  row.projectDocuments.map((document) => (
+                    <p key={document.id}>• {document.document_type} — {document.title}</p>
                   ))
                 )}
 
@@ -1141,10 +1233,49 @@ const [taskSearch, setTaskSearch] = useState('');
             </div>
           ))}
 
+          <h3>Αρχεία / Παραστατικά έργου</h3>
+          {getProjectDocuments(selectedProject.id).length === 0 ? (
+            <p>Δεν υπάρχουν αρχεία για αυτό το έργο.</p>
+          ) : (
+            getProjectDocuments(selectedProject.id).map((document) => (
+              <div key={document.id} className="line">
+                <p><b>{document.title}</b></p>
+                <p>{document.document_type}</p>
+                {document.file_url && (
+                  <p><a href={document.file_url} target="_blank">Άνοιγμα αρχείου</a></p>
+                )}
+                <small>{document.notes}</small>
+                <button onClick={() => editDocument(document)}>✏️ Επεξεργασία</button>
+                <button onClick={() => deleteItem('documents', document.id)}>🗑 Διαγραφή αρχείου</button>
+              </div>
+            ))
+          )}
+
           <button onClick={() => window.print()}>📄 Export / Print PDF Ανάλυσης</button>
           <button onClick={() => setSelectedProject(null)}>Κλείσιμο ανάλυσης</button>
         </section>
       )}
+
+      <section className="card">
+        <h2>Αρχεία / Παραστατικά</h2>
+        {documents.length === 0 ? (
+          <p>Δεν υπάρχουν αρχεία ακόμα.</p>
+        ) : (
+          documents.map((document) => (
+            <div key={document.id} className="line">
+              <p><b>{document.title}</b></p>
+              <p>Έργο: {getProjectTitle(document.project_id)}</p>
+              <p>Τύπος: {document.document_type}</p>
+              {document.file_url && (
+                <p><a href={document.file_url} target="_blank">Άνοιγμα αρχείου</a></p>
+              )}
+              <small>{document.notes}</small>
+              <button onClick={() => editDocument(document)}>✏️ Επεξεργασία</button>
+              <button onClick={() => deleteItem('documents', document.id)}>🗑 Διαγραφή αρχείου</button>
+            </div>
+          ))
+        )}
+      </section>
 
       <section className="card">
         <h2>Αποθήκη</h2>
