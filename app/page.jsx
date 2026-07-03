@@ -28,7 +28,11 @@ export default function Home() {
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [selectedCustomerReport, setSelectedCustomerReport] = useState(null);
   const [openCustomerId, setOpenCustomerId] = useState(null);
-
+  
+const [customerSearch, setCustomerSearch] = useState('');
+const [projectSearch, setProjectSearch] = useState('');
+const [taskSearch, setTaskSearch] = useState('');
+  
   const [editingCustomerId, setEditingCustomerId] = useState(null);
   const [editingProjectId, setEditingProjectId] = useState(null);
   const [editingPaymentId, setEditingPaymentId] = useState(null);
