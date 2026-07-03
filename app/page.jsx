@@ -12,6 +12,9 @@ const INITIAL_INVENTORY = { item_name: '', quantity: '', min_quantity: '', purch
 const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal: '', job_type: 'invoice', status: 'pending' };
 const INITIAL_TASK = { project_id: '', title: '', task_date: '', task_time: '', status: 'pending', notes: '' };
 const INITIAL_DOCUMENT = { customer_id: '', project_id: '', title: '', document_type: 'Τιμολόγιο', file_url: '', notes: '' };
+const INITIAL_SUPPLIER = { name: '', afm: '', phone: '', email: '', address: '', notes: '' };
+const INITIAL_SUPPLIER_INVOICE = { supplier_id: '', project_id: '', invoice_date: '', invoice_number: '', description: '', net_amount: '', vat_amount: '', total_amount: '', notes: '' };
+const INITIAL_SUPPLIER_PAYMENT = { supplier_id: '', payment_date: '', amount: '', method: 'Τράπεζα', notes: '' };
 
 const DEMO_USERS = [
   { email: 'eva@tdmani.gr', password: '1234', name: 'Εύα Νίνου', role: 'Admin' },
@@ -298,6 +301,7 @@ hr {
 .page-finance .finance-section,
 .page-tasks .tasks-section,
 .page-documents .documents-section,
+.page-suppliers .suppliers-section,
 .page-inventory .inventory-section,
 .page-settings .settings-section {
   display: block !important;
@@ -411,12 +415,16 @@ export default function Home() {
   const [quotes, setQuotes] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [supplierInvoices, setSupplierInvoices] = useState([]);
+  const [supplierPayments, setSupplierPayments] = useState([]);
 
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [selectedCustomerReport, setSelectedCustomerReport] = useState(null);
   const [openCustomerId, setOpenCustomerId] = useState(null);
   const [showPayments, setShowPayments] = useState(false);
+  const [openSupplierId, setOpenSupplierId] = useState(null);
   
 const [customerSearch, setCustomerSearch] = useState('');
 const [projectSearch, setProjectSearch] = useState('');
@@ -430,6 +438,9 @@ const [taskSearch, setTaskSearch] = useState('');
   const [editingQuoteId, setEditingQuoteId] = useState(null);
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editingDocumentId, setEditingDocumentId] = useState(null);
+  const [editingSupplierId, setEditingSupplierId] = useState(null);
+  const [editingSupplierInvoiceId, setEditingSupplierInvoiceId] = useState(null);
+  const [editingSupplierPaymentId, setEditingSupplierPaymentId] = useState(null);
 
   const [newCustomer, setNewCustomer] = useState(INITIAL_CUSTOMER);
   const [newProject, setNewProject] = useState(INITIAL_PROJECT);
@@ -440,6 +451,9 @@ const [taskSearch, setTaskSearch] = useState('');
   const [newTask, setNewTask] = useState(INITIAL_TASK);
   const [newDocument, setNewDocument] = useState(INITIAL_DOCUMENT);
   const [documentFile, setDocumentFile] = useState(null);
+  const [newSupplier, setNewSupplier] = useState(INITIAL_SUPPLIER);
+  const [newSupplierInvoice, setNewSupplierInvoice] = useState(INITIAL_SUPPLIER_INVOICE);
+  const [newSupplierPayment, setNewSupplierPayment] = useState(INITIAL_SUPPLIER_PAYMENT);
 
   useEffect(() => {
     refreshAll();
@@ -455,7 +469,10 @@ const [taskSearch, setTaskSearch] = useState('');
       loadInventory(),
       loadQuotes(),
       loadTasks(),
-      loadDocuments()
+      loadDocuments(),
+      loadSuppliers(),
+      loadSupplierInvoices(),
+      loadSupplierPayments()
     ]);
   }
 
@@ -504,6 +521,21 @@ const [taskSearch, setTaskSearch] = useState('');
     setDocuments(data || []);
   }
 
+  async function loadSuppliers() {
+    const { data } = await supabase.from('suppliers').select('*').order('created_at', { ascending: false });
+    setSuppliers(data || []);
+  }
+
+  async function loadSupplierInvoices() {
+    const { data } = await supabase.from('supplier_invoices').select('*').order('invoice_date', { ascending: false });
+    setSupplierInvoices(data || []);
+  }
+
+  async function loadSupplierPayments() {
+    const { data } = await supabase.from('supplier_payments').select('*').order('payment_date', { ascending: false });
+    setSupplierPayments(data || []);
+  }
+
   function getCustomerName(customerId) {
     return customers.find((customer) => customer.id === customerId)?.name || 'Χωρίς πελάτη';
   }
@@ -549,6 +581,36 @@ const [taskSearch, setTaskSearch] = useState('');
     return documents.filter((document) => document.project_id === projectId);
   }
 
+  function getProjectSupplierInvoices(projectId) {
+    return supplierInvoices.filter((invoice) => invoice.project_id === projectId);
+  }
+
+  function getSupplierName(supplierId) {
+    return suppliers.find((supplier) => supplier.id === supplierId)?.name || 'Χωρίς προμηθευτή';
+  }
+
+  function getSupplierInvoices(supplierId) {
+    return supplierInvoices.filter((invoice) => invoice.supplier_id === supplierId);
+  }
+
+  function getSupplierPayments(supplierId) {
+    return supplierPayments.filter((payment) => payment.supplier_id === supplierId);
+  }
+
+  function getSupplierTotals(supplierId) {
+    const totalInvoices = getSupplierInvoices(supplierId)
+      .reduce((sum, invoice) => sum + Number(invoice.total_amount || 0), 0);
+
+    const totalPaid = getSupplierPayments(supplierId)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+
+    return {
+      totalInvoices,
+      totalPaid,
+      balance: totalInvoices - totalPaid
+    };
+  }
+
   function getProjectPayments(projectId) {
     return payments.filter((payment) => payment.project_id === projectId);
   }
@@ -584,7 +646,8 @@ const [taskSearch, setTaskSearch] = useState('');
         projectExpensesList: expenses.filter((expense) => expense.project_id === project.id),
         projectQuotes: getProjectQuotes(project.id),
         projectTasks: getProjectTasks(project.id),
-        projectDocuments: getProjectDocuments(project.id)
+        projectDocuments: getProjectDocuments(project.id),
+        projectSupplierInvoices: getProjectSupplierInvoices(project.id)
       };
     });
   }
@@ -913,6 +976,9 @@ const [taskSearch, setTaskSearch] = useState('');
     setDocumentFile(null);
     setEditingTaskId(null);
     setEditingDocumentId(null);
+    setEditingSupplierId(null);
+    setEditingSupplierInvoiceId(null);
+    setEditingSupplierPaymentId(null);
     loadTasks();
   }
 
@@ -964,7 +1030,93 @@ const [taskSearch, setTaskSearch] = useState('');
     setDocumentFile(null);
     setDocumentFile(null);
     setEditingDocumentId(null);
+    setEditingSupplierId(null);
+    setEditingSupplierInvoiceId(null);
+    setEditingSupplierPaymentId(null);
     loadDocuments();
+  }
+
+  async function saveSupplier() {
+    if (!newSupplier.name.trim()) {
+      alert('Βάλε όνομα / επωνυμία προμηθευτή');
+      return;
+    }
+
+    const payload = {
+      name: newSupplier.name,
+      afm: newSupplier.afm,
+      phone: newSupplier.phone,
+      email: newSupplier.email,
+      address: newSupplier.address,
+      notes: newSupplier.notes
+    };
+
+    const query = editingSupplierId
+      ? supabase.from('suppliers').update(payload).eq('id', editingSupplierId)
+      : supabase.from('suppliers').insert([payload]);
+
+    const { error } = await query;
+    if (error) return alert(error.message);
+
+    setNewSupplier(INITIAL_SUPPLIER);
+    setEditingSupplierId(null);
+    loadSuppliers();
+  }
+
+  async function saveSupplierInvoice() {
+    if (!newSupplierInvoice.supplier_id || !newSupplierInvoice.invoice_date || !newSupplierInvoice.total_amount) {
+      alert('Διάλεξε προμηθευτή, ημερομηνία και βάλε σύνολο τιμολογίου');
+      return;
+    }
+
+    const payload = {
+      supplier_id: newSupplierInvoice.supplier_id,
+      project_id: newSupplierInvoice.project_id || null,
+      invoice_date: newSupplierInvoice.invoice_date,
+      invoice_number: newSupplierInvoice.invoice_number,
+      description: newSupplierInvoice.description,
+      net_amount: Number(newSupplierInvoice.net_amount || 0),
+      vat_amount: Number(newSupplierInvoice.vat_amount || 0),
+      total_amount: Number(newSupplierInvoice.total_amount || 0),
+      notes: newSupplierInvoice.notes
+    };
+
+    const query = editingSupplierInvoiceId
+      ? supabase.from('supplier_invoices').update(payload).eq('id', editingSupplierInvoiceId)
+      : supabase.from('supplier_invoices').insert([payload]);
+
+    const { error } = await query;
+    if (error) return alert(error.message);
+
+    setNewSupplierInvoice(INITIAL_SUPPLIER_INVOICE);
+    setEditingSupplierInvoiceId(null);
+    loadSupplierInvoices();
+  }
+
+  async function saveSupplierPayment() {
+    if (!newSupplierPayment.supplier_id || !newSupplierPayment.payment_date || !newSupplierPayment.amount) {
+      alert('Διάλεξε προμηθευτή, ημερομηνία και ποσό πληρωμής');
+      return;
+    }
+
+    const payload = {
+      supplier_id: newSupplierPayment.supplier_id,
+      payment_date: newSupplierPayment.payment_date,
+      amount: Number(newSupplierPayment.amount || 0),
+      method: newSupplierPayment.method,
+      notes: newSupplierPayment.notes
+    };
+
+    const query = editingSupplierPaymentId
+      ? supabase.from('supplier_payments').update(payload).eq('id', editingSupplierPaymentId)
+      : supabase.from('supplier_payments').insert([payload]);
+
+    const { error } = await query;
+    if (error) return alert(error.message);
+
+    setNewSupplierPayment(INITIAL_SUPPLIER_PAYMENT);
+    setEditingSupplierPaymentId(null);
+    loadSupplierPayments();
   }
 
   function editCustomer(customer) {
@@ -1069,6 +1221,50 @@ const [taskSearch, setTaskSearch] = useState('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function editSupplier(supplier) {
+    setNewSupplier({
+      name: supplier.name || '',
+      afm: supplier.afm || '',
+      phone: supplier.phone || '',
+      email: supplier.email || '',
+      address: supplier.address || '',
+      notes: supplier.notes || ''
+    });
+    setEditingSupplierId(supplier.id);
+    setActivePage('suppliers');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function editSupplierInvoice(invoice) {
+    setNewSupplierInvoice({
+      supplier_id: invoice.supplier_id || '',
+      project_id: invoice.project_id || '',
+      invoice_date: invoice.invoice_date || '',
+      invoice_number: invoice.invoice_number || '',
+      description: invoice.description || '',
+      net_amount: String(invoice.net_amount || ''),
+      vat_amount: String(invoice.vat_amount || ''),
+      total_amount: String(invoice.total_amount || ''),
+      notes: invoice.notes || ''
+    });
+    setEditingSupplierInvoiceId(invoice.id);
+    setActivePage('suppliers');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function editSupplierPayment(payment) {
+    setNewSupplierPayment({
+      supplier_id: payment.supplier_id || '',
+      payment_date: payment.payment_date || '',
+      amount: String(payment.amount || ''),
+      method: payment.method || 'Τράπεζα',
+      notes: payment.notes || ''
+    });
+    setEditingSupplierPaymentId(payment.id);
+    setActivePage('suppliers');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   function cancelEdits() {
     setEditingCustomerId(null);
     setEditingProjectId(null);
@@ -1078,6 +1274,9 @@ const [taskSearch, setTaskSearch] = useState('');
     setEditingQuoteId(null);
     setEditingTaskId(null);
     setEditingDocumentId(null);
+    setEditingSupplierId(null);
+    setEditingSupplierInvoiceId(null);
+    setEditingSupplierPaymentId(null);
     setNewCustomer(INITIAL_CUSTOMER);
     setNewProject(INITIAL_PROJECT);
     setNewPayment(INITIAL_PAYMENT);
@@ -1087,6 +1286,9 @@ const [taskSearch, setTaskSearch] = useState('');
     setNewTask(INITIAL_TASK);
     setNewDocument(INITIAL_DOCUMENT);
     setDocumentFile(null);
+    setNewSupplier(INITIAL_SUPPLIER);
+    setNewSupplierInvoice(INITIAL_SUPPLIER_INVOICE);
+    setNewSupplierPayment(INITIAL_SUPPLIER_PAYMENT);
   }
 
   async function deleteItem(table, id) {
@@ -1103,6 +1305,7 @@ const [taskSearch, setTaskSearch] = useState('');
         await supabase.from('quotes').delete().eq('project_id', projectId);
         await supabase.from('tasks').delete().eq('project_id', projectId);
         await supabase.from('documents').delete().eq('project_id', projectId);
+        await supabase.from('supplier_invoices').delete().eq('project_id', projectId);
       }
 
       await supabase.from('projects').delete().eq('customer_id', id);
@@ -1114,6 +1317,12 @@ const [taskSearch, setTaskSearch] = useState('');
       await supabase.from('quotes').delete().eq('project_id', id);
       await supabase.from('tasks').delete().eq('project_id', id);
       await supabase.from('documents').delete().eq('project_id', id);
+      await supabase.from('supplier_invoices').delete().eq('project_id', id);
+    }
+
+    if (table === 'suppliers') {
+      await supabase.from('supplier_invoices').delete().eq('supplier_id', id);
+      await supabase.from('supplier_payments').delete().eq('supplier_id', id);
     }
 
     const { error } = await supabase.from(table).delete().eq('id', id);
@@ -1218,11 +1427,12 @@ const [taskSearch, setTaskSearch] = useState('');
         <button className={activePage === 'finance' ? 'active' : ''} onClick={() => setActivePage('finance')}>💰 Finance</button>
         <button className={activePage === 'tasks' ? 'active' : ''} onClick={() => setActivePage('tasks')}>📅 Tasks</button>
         <button className={activePage === 'documents' ? 'active' : ''} onClick={() => setActivePage('documents')}>📁 Documents</button>
+        <button className={activePage === 'suppliers' ? 'active' : ''} onClick={() => setActivePage('suppliers')}>🚚 Προμηθευτές</button>
         <button className={activePage === 'inventory' ? 'active' : ''} onClick={() => setActivePage('inventory')}>📦 Inventory</button>
         <button className={activePage === 'settings' ? 'active' : ''} onClick={() => setActivePage('settings')}>⚙️ Settings</button>
       </nav>
 
-      {(editingCustomerId || editingProjectId || editingPaymentId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId || editingDocumentId) && (
+      {(editingCustomerId || editingProjectId || editingPaymentId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId || editingDocumentId || editingSupplierId || editingSupplierInvoiceId || editingSupplierPaymentId) && (
         <section className="card">
           <h2>✏️ Λειτουργία επεξεργασίας</h2>
           <p>Έχεις ανοίξει μια εγγραφή για αλλαγές. Κάνε τις αλλαγές στη φόρμα και πάτα αποθήκευση.</p>
@@ -1576,6 +1786,15 @@ const [taskSearch, setTaskSearch] = useState('');
                   ))
                 )}
 
+                <h4>Τιμολόγια Προμηθευτών</h4>
+                {row.projectSupplierInvoices.length === 0 ? (
+                  <p>Δεν υπάρχουν τιμολόγια προμηθευτών.</p>
+                ) : (
+                  row.projectSupplierInvoices.map((invoice) => (
+                    <p key={invoice.id}>• {invoice.invoice_date || '-'} — {getSupplierName(invoice.supplier_id)} — {invoice.invoice_number || '-'} — {invoice.total_amount}€</p>
+                  ))
+                )}
+
                 <h4>Προσφορές</h4>
                 {row.projectQuotes.length === 0 ? (
                   <p>Δεν υπάρχουν προσφορές.</p>
@@ -1645,6 +1864,140 @@ const [taskSearch, setTaskSearch] = useState('');
         </select>
         <textarea placeholder="Σημειώσεις" value={newExpense.notes} onChange={(e) => setNewExpense({ ...newExpense, notes: e.target.value })} />
         <button onClick={saveExpense}>{editingExpenseId ? 'Αποθήκευση αλλαγών εξόδου' : 'Αποθήκευση εξόδου'}</button>
+      </section>
+
+
+      <section className="card page-section suppliers-section">
+        <h2>{editingSupplierId ? 'Επεξεργασία Προμηθευτή' : 'Νέος Προμηθευτής'}</h2>
+
+        <input placeholder="Ονοματεπώνυμο / Επωνυμία" value={newSupplier.name} onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })} />
+        <input placeholder="ΑΦΜ" value={newSupplier.afm} onChange={(e) => setNewSupplier({ ...newSupplier, afm: e.target.value })} />
+        <input placeholder="Τηλέφωνο" value={newSupplier.phone} onChange={(e) => setNewSupplier({ ...newSupplier, phone: e.target.value })} />
+        <input placeholder="Email" value={newSupplier.email} onChange={(e) => setNewSupplier({ ...newSupplier, email: e.target.value })} />
+        <input placeholder="Διεύθυνση" value={newSupplier.address} onChange={(e) => setNewSupplier({ ...newSupplier, address: e.target.value })} />
+        <textarea placeholder="Σημειώσεις" value={newSupplier.notes} onChange={(e) => setNewSupplier({ ...newSupplier, notes: e.target.value })} />
+
+        <button onClick={saveSupplier}>{editingSupplierId ? 'Αποθήκευση αλλαγών προμηθευτή' : 'Αποθήκευση προμηθευτή'}</button>
+      </section>
+
+      <section className="card page-section suppliers-section">
+        <h2>{editingSupplierInvoiceId ? 'Επεξεργασία Τιμολογίου Προμηθευτή' : 'Νέο Τιμολόγιο Προμηθευτή'}</h2>
+
+        <select value={newSupplierInvoice.supplier_id} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, supplier_id: e.target.value })}>
+          <option value="">Διάλεξε προμηθευτή</option>
+          {suppliers.map((supplier) => (
+            <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+          ))}
+        </select>
+
+        <select value={newSupplierInvoice.project_id} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, project_id: e.target.value })}>
+          <option value="">Σύνδεση με έργο (προαιρετικό)</option>
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>{project.title}</option>
+          ))}
+        </select>
+
+        <input type="date" value={newSupplierInvoice.invoice_date} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, invoice_date: e.target.value })} />
+        <input placeholder="Αριθμός τιμολογίου" value={newSupplierInvoice.invoice_number} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, invoice_number: e.target.value })} />
+        <textarea placeholder="Περιγραφή" value={newSupplierInvoice.description} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, description: e.target.value })} />
+        <input placeholder="Καθαρή αξία" value={newSupplierInvoice.net_amount} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, net_amount: e.target.value })} />
+        <input placeholder="ΦΠΑ" value={newSupplierInvoice.vat_amount} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, vat_amount: e.target.value })} />
+        <input placeholder="Σύνολο τιμολογίου" value={newSupplierInvoice.total_amount} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, total_amount: e.target.value })} />
+        <textarea placeholder="Σημειώσεις" value={newSupplierInvoice.notes} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, notes: e.target.value })} />
+
+        <button onClick={saveSupplierInvoice}>{editingSupplierInvoiceId ? 'Αποθήκευση αλλαγών τιμολογίου' : 'Αποθήκευση τιμολογίου'}</button>
+      </section>
+
+      <section className="card page-section suppliers-section">
+        <h2>{editingSupplierPaymentId ? 'Επεξεργασία Πληρωμής Προμηθευτή' : 'Νέα Πληρωμή Προμηθευτή'}</h2>
+
+        <select value={newSupplierPayment.supplier_id} onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, supplier_id: e.target.value })}>
+          <option value="">Διάλεξε προμηθευτή</option>
+          {suppliers.map((supplier) => (
+            <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+          ))}
+        </select>
+
+        <input type="date" value={newSupplierPayment.payment_date} onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, payment_date: e.target.value })} />
+        <input placeholder="Ποσό πληρωμής" value={newSupplierPayment.amount} onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, amount: e.target.value })} />
+        <select value={newSupplierPayment.method} onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, method: e.target.value })}>
+          <option value="Τράπεζα">Τράπεζα</option>
+          <option value="Μετρητά">Μετρητά</option>
+          <option value="IRIS">IRIS</option>
+          <option value="POS">POS</option>
+          <option value="Επιταγή">Επιταγή</option>
+        </select>
+        <textarea placeholder="Σημειώσεις" value={newSupplierPayment.notes} onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, notes: e.target.value })} />
+
+        <button onClick={saveSupplierPayment}>{editingSupplierPaymentId ? 'Αποθήκευση αλλαγών πληρωμής' : 'Αποθήκευση πληρωμής'}</button>
+      </section>
+
+      <section className="card page-section suppliers-section">
+        <h2>Προμηθευτές</h2>
+
+        {suppliers.length === 0 ? (
+          <p>Δεν υπάρχουν προμηθευτές ακόμα.</p>
+        ) : (
+          suppliers.map((supplier) => {
+            const totals = getSupplierTotals(supplier.id);
+            const isOpen = openSupplierId === supplier.id;
+
+            return (
+              <div key={supplier.id} className={totals.balance > 0 ? 'line alert' : 'line'}>
+                <div onClick={() => setOpenSupplierId(isOpen ? null : supplier.id)}>
+                  <p><b>{isOpen ? '▼' : '▶'} {supplier.name}</b></p>
+                  <p>ΑΦΜ: {supplier.afm || '-'}</p>
+                  <p>Τηλέφωνο: {supplier.phone || '-'}</p>
+                  <p>Email: {supplier.email || '-'}</p>
+                  <p>Σύνολο τιμολογίων: {totals.totalInvoices}€</p>
+                  <p>Πληρωμένα: {totals.totalPaid}€</p>
+                  <p><b>Υπόλοιπο: {totals.balance}€</b></p>
+                  <small>{supplier.notes}</small>
+                </div>
+
+                <button onClick={() => editSupplier(supplier)}>✏️ Επεξεργασία προμηθευτή</button>
+                <button onClick={() => deleteItem('suppliers', supplier.id)}>🗑 Διαγραφή προμηθευτή</button>
+
+                {isOpen && (
+                  <div>
+                    <h3>Τιμολόγια Προμηθευτή</h3>
+                    {getSupplierInvoices(supplier.id).length === 0 ? (
+                      <p>Δεν υπάρχουν τιμολόγια.</p>
+                    ) : (
+                      getSupplierInvoices(supplier.id).map((invoice) => (
+                        <div key={invoice.id} className="line">
+                          <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.total_amount}€</b></p>
+                          <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
+                          <p>Έργο: {getProjectTitle(invoice.project_id)}</p>
+                          <p>Περιγραφή: {invoice.description || '-'}</p>
+                          <p>Καθαρή αξία: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€</p>
+                          <small>{invoice.notes}</small>
+                          <button onClick={() => editSupplierInvoice(invoice)}>✏️ Επεξεργασία τιμολογίου</button>
+                          <button onClick={() => deleteItem('supplier_invoices', invoice.id)}>🗑 Διαγραφή τιμολογίου</button>
+                        </div>
+                      ))
+                    )}
+
+                    <h3>Πληρωμές Προμηθευτή</h3>
+                    {getSupplierPayments(supplier.id).length === 0 ? (
+                      <p>Δεν υπάρχουν πληρωμές.</p>
+                    ) : (
+                      getSupplierPayments(supplier.id).map((payment) => (
+                        <div key={payment.id} className="line">
+                          <p><b>{payment.amount}€</b> — {payment.method}</p>
+                          <p>Ημερομηνία: {payment.payment_date || '-'}</p>
+                          <small>{payment.notes}</small>
+                          <button onClick={() => editSupplierPayment(payment)}>✏️ Επεξεργασία πληρωμής</button>
+                          <button onClick={() => deleteItem('supplier_payments', payment.id)}>🗑 Διαγραφή πληρωμής</button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </section>
 
       <section className="card page-section inventory-section">
@@ -1803,6 +2156,24 @@ const [taskSearch, setTaskSearch] = useState('');
               <small>{task.status}</small>
             </div>
           ))}
+
+          <h3>Τιμολόγια Προμηθευτών έργου</h3>
+          {getProjectSupplierInvoices(selectedProject.id).length === 0 ? (
+            <p>Δεν υπάρχουν τιμολόγια προμηθευτών για αυτό το έργο.</p>
+          ) : (
+            getProjectSupplierInvoices(selectedProject.id).map((invoice) => (
+              <div key={invoice.id} className="line">
+                <p><b>{getSupplierName(invoice.supplier_id)}</b></p>
+                <p>Τιμολόγιο: {invoice.invoice_number || '-'}</p>
+                <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
+                <p>Περιγραφή: {invoice.description || '-'}</p>
+                <p>Καθαρή αξία: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€</p>
+                <p><b>Σύνολο: {invoice.total_amount || 0}€</b></p>
+                <button onClick={() => editSupplierInvoice(invoice)}>✏️ Επεξεργασία</button>
+                <button onClick={() => deleteItem('supplier_invoices', invoice.id)}>🗑 Διαγραφή</button>
+              </div>
+            ))
+          )}
 
           <h3>Αρχεία / Παραστατικά έργου</h3>
           {getProjectDocuments(selectedProject.id).length === 0 ? (
