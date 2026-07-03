@@ -774,7 +774,7 @@ const [taskSearch, setTaskSearch] = useState('');
       <main className={`app page-${activePage}`}>
         <section className="card login-card">
           <div className="brand">
-            <div className="logo"><img src="/td-logo.jpeg" alt="TD MANI" className="logo-img" /></div>
+            <div className="logo">TD</div>
             <div>
               <h1>T D MANI</h1>
               <p>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</p>
@@ -818,7 +818,7 @@ const [taskSearch, setTaskSearch] = useState('');
     <main className={`app page-${activePage}`}>
       <header className="top">
         <div className="brand">
-          <div className="logo"><img src="/td-logo.jpeg" alt="TD MANI" className="logo-img" /></div>
+          <div className="logo">TD</div>
           <div>
             <h1>T D MANI</h1>
             <p>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</p>
@@ -1110,7 +1110,7 @@ const [taskSearch, setTaskSearch] = useState('');
       {selectedQuote && (
         <section className="card print-area page-section finance-section">
           <div className="pdf-header">
-            <div className="logo pdf-logo"><img src="/td-logo.jpeg" alt="TD MANI" className="logo-img" /></div>
+            <div className="logo pdf-logo">TD</div>
             <div>
               <h2>TD MANI</h2>
               <p><b>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</b></p>
@@ -1139,7 +1139,7 @@ const [taskSearch, setTaskSearch] = useState('');
       {selectedCustomerReport && (
         <section className="card print-area page-section customers-section">
           <div className="pdf-header">
-            <div className="logo pdf-logo"><img src="/td-logo.jpeg" alt="TD MANI" className="logo-img" /></div>
+            <div className="logo pdf-logo">TD</div>
             <div>
               <h2>TD MANI</h2>
               <p><b>ΑΝΑΦΟΡΑ ΠΕΛΑΤΗ</b></p>
@@ -1361,7 +1361,7 @@ const [taskSearch, setTaskSearch] = useState('');
       {selectedProject && (
         <section className="card print-area page-section customers-section">
           <div className="pdf-header">
-            <div className="logo pdf-logo"><img src="/td-logo.jpeg" alt="TD MANI" className="logo-img" /></div>
+            <div className="logo pdf-logo">TD</div>
             <div>
               <h2>TD MANI</h2>
               <p><b>ΑΝΑΛΥΣΗ ΕΡΓΟΥ</b></p>
