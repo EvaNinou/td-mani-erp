@@ -6,7 +6,7 @@ import './styles.css';
 
 const INITIAL_CUSTOMER = { name: '', phone: '', area: '', notes: '' };
 const INITIAL_PROJECT = { customer_id: '', title: '', address: '', area: '', agreed_amount: '', status: 'active' };
-const INITIAL_PAYMENT = { customer_id: '', project_id: '', amount: '', method: 'Μετρητά', notes: '' };
+const INITIAL_PAYMENT = { customer_id: '', project_id: '', amount: '', payment_date: '', method: 'Μετρητά', notes: '' };
 const INITIAL_EXPENSE = { customer_id: '', project_id: '', title: '', amount: '', category: 'Υλικά', notes: '' };
 const INITIAL_INVENTORY = { item_name: '', quantity: '', min_quantity: '', purchase_price: '' };
 const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal: '', job_type: 'invoice', status: 'pending' };
@@ -38,6 +38,7 @@ export default function Home() {
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [selectedCustomerReport, setSelectedCustomerReport] = useState(null);
   const [openCustomerId, setOpenCustomerId] = useState(null);
+  const [showPayments, setShowPayments] = useState(false);
   
 const [customerSearch, setCustomerSearch] = useState('');
 const [projectSearch, setProjectSearch] = useState('');
@@ -406,6 +407,7 @@ const [taskSearch, setTaskSearch] = useState('');
     const payload = {
       project_id: newPayment.project_id,
       amount: Number(newPayment.amount || 0),
+      payment_date: newPayment.payment_date || null,
       method: newPayment.method,
       payment_type: 'income',
       notes: newPayment.notes
@@ -613,6 +615,7 @@ const [taskSearch, setTaskSearch] = useState('');
       customer_id: project?.customer_id || '',
       project_id: payment.project_id || '',
       amount: String(payment.amount || ''),
+      payment_date: payment.payment_date || '',
       method: payment.method || 'Μετρητά',
       notes: payment.notes || ''
     });
@@ -892,13 +895,6 @@ const [taskSearch, setTaskSearch] = useState('');
       </section>
 
       <section className="card">
-        <h2>Επιλογή χρήστη</h2>
-        <button onClick={() => setSelectedUser('Mani Taulant')}>👷 Mani Taulant</button>
-        <button onClick={() => setSelectedUser('Εύα Νίνου')}>👩 Εύα Νίνου</button>
-        <p>Επιλεγμένος χρήστης: <b>{selectedUser}</b></p>
-      </section>
-
-      <section className="card">
         <h2>Συνεργεία</h2>
         {crews.map((crew) => <p key={crew.id}><b>{crew.name}</b> — {crew.specialty}</p>)}
       </section>
@@ -1043,6 +1039,13 @@ const [taskSearch, setTaskSearch] = useState('');
         </select>
 
         <input placeholder="Ποσό πληρωμής" value={newPayment.amount} onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })} />
+
+        <input
+          type="date"
+          value={newPayment.payment_date}
+          onChange={(e) => setNewPayment({ ...newPayment, payment_date: e.target.value })}
+        />
+
         <select value={newPayment.method} onChange={(e) => setNewPayment({ ...newPayment, method: e.target.value })}>
           <option value="Μετρητά">Μετρητά</option>
           <option value="Τράπεζα">Τράπεζα</option>
@@ -1170,7 +1173,7 @@ const [taskSearch, setTaskSearch] = useState('');
                   <p>Δεν υπάρχουν πληρωμές.</p>
                 ) : (
                   row.payments.map((payment) => (
-                    <p key={payment.id}>• {payment.amount}€ — {payment.method} {payment.notes ? `(${payment.notes})` : ''}</p>
+                    <p key={payment.id}>• {payment.payment_date || '-'} — {payment.amount}€ — {payment.method} {payment.notes ? `(${payment.notes})` : ''}</p>
                   ))
                 )}
 
@@ -1344,37 +1347,6 @@ const [taskSearch, setTaskSearch] = useState('');
         )}
       </section>
 
-      <section className="card">
-        <h2>Ορφανά Έργα / Χωρίς Πελάτη</h2>
-
-        {getUnassignedProjects().filter((project) => projectMatchesSearch(project, projectSearch)).length === 0 ? (
-          <p>Δεν υπάρχουν έργα χωρίς πελάτη με αυτή την αναζήτηση.</p>
-        ) : (
-          getUnassignedProjects().filter((project) => projectMatchesSearch(project, projectSearch)).map((project) => {
-            const paid = getProjectPaid(project.id);
-            const agreed = Number(project.agreed_amount || 0);
-            const projectExpenses = getProjectExpenses(project.id);
-            const balance = agreed - paid - projectExpenses;
-
-            return (
-              <div key={project.id} className="line">
-                <p><b>{project.title}</b></p>
-                <p>{project.area}</p>
-                <p>Status: {project.status}</p>
-                <p>Συμφωνία: {agreed}€</p>
-                <p>Πληρώθηκε: {paid}€</p>
-                <p>Έξοδα: {projectExpenses}€</p>
-                <p><b>Καθαρό υπόλοιπο: {balance}€</b></p>
-
-                <button onClick={() => setSelectedProject(project)}>👁 Προβολή ανάλυσης</button>
-                <button onClick={() => editProject(project)}>✏️ Σύνδεση / Επεξεργασία έργου</button>
-                <button onClick={() => deleteItem('projects', project.id)}>🗑 Διαγραφή έργου</button>
-              </div>
-            );
-          })
-        )}
-      </section>
-
       {selectedProject && (
         <section className="card print-area">
           <div className="pdf-header">
@@ -1407,6 +1379,7 @@ const [taskSearch, setTaskSearch] = useState('');
           {getProjectPayments(selectedProject.id).map((payment) => (
             <div key={payment.id} className="line">
               <p><b>{payment.amount}€</b> — {payment.method}</p>
+              <p>Ημερομηνία: {payment.payment_date || '-'}</p>
               <small>{payment.notes}</small>
               <button onClick={() => editPayment(payment)}>✏️ Επεξεργασία</button>
               <button onClick={() => deleteItem('payments', payment.id)}>🗑 Διαγραφή πληρωμής</button>
@@ -1505,16 +1478,28 @@ const [taskSearch, setTaskSearch] = useState('');
       </section>
 
       <section className="card">
-        <h2>Πληρωμές</h2>
-        {payments.length === 0 ? <p>Δεν υπάρχουν πληρωμές ακόμα.</p> : payments.map((payment) => (
-          <div key={payment.id} className="line">
-            <p><b>{payment.amount}€</b> — {payment.method}</p>
-            <p>Έργο: {getProjectTitle(payment.project_id)}</p>
-            <small>{payment.notes}</small>
-            <button onClick={() => editPayment(payment)}>✏️ Επεξεργασία</button>
-            <button onClick={() => deleteItem('payments', payment.id)}>🗑 Διαγραφή πληρωμής</button>
-          </div>
-        ))}
+        <h2 onClick={() => setShowPayments(!showPayments)}>
+          💰 Πληρωμές {showPayments ? '▲' : '▼'}
+        </h2>
+
+        {showPayments && (
+          <>
+            {payments.length === 0 ? (
+              <p>Δεν υπάρχουν πληρωμές ακόμα.</p>
+            ) : (
+              payments.map((payment) => (
+                <div key={payment.id} className="line">
+                  <p><b>{payment.amount}€</b> — {payment.method}</p>
+                  <p>Έργο: {getProjectTitle(payment.project_id)}</p>
+                  <p>Ημερομηνία: {payment.payment_date || '-'}</p>
+                  <small>{payment.notes}</small>
+                  <button onClick={() => editPayment(payment)}>✏️ Επεξεργασία</button>
+                  <button onClick={() => deleteItem('payments', payment.id)}>🗑 Διαγραφή πληρωμής</button>
+                </div>
+              ))
+            )}
+          </>
+        )}
       </section>
     </main>
   );
