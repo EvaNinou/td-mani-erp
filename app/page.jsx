@@ -882,10 +882,9 @@ export default function Home() {
                 <p><b>Καθαρό υπόλοιπο: {customerTotals.balance}€</b></p>
               </div>
 
-              <button onClick={() => {
-  console.log(customer)
-  setSelectedCustomerReport(customer)
-}}> 📄 Export PDF Αναφορά</button>
+<button onClick={() => setSelectedCustomerReport(customer)}>
+  📄 Export PDF Αναφορά
+</button>
               <button onClick={() => editCustomer(customer)}>✏️ Επεξεργασία πελάτη</button>
               <button onClick={() => deleteItem('customers', customer.id)}>🗑 Διαγραφή πελάτη</button>
 
