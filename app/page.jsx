@@ -186,6 +186,61 @@ const [taskSearch, setTaskSearch] = useState('');
     });
   }
 
+
+  function normalizeText(value) {
+    return String(value || '').toLowerCase().trim();
+  }
+
+  function projectMatchesSearch(project, searchValue) {
+    const search = normalizeText(searchValue);
+    if (!search) return true;
+
+    return [
+      project.title,
+      project.area,
+      project.address,
+      project.status,
+      getCustomerName(project.customer_id)
+    ].some((value) => normalizeText(value).includes(search));
+  }
+
+  function customerMatchesSearch(customer) {
+    const search = normalizeText(customerSearch);
+    const customerTextMatches = !search || [
+      customer.name,
+      customer.phone,
+      customer.area,
+      customer.notes
+    ].some((value) => normalizeText(value).includes(search));
+
+    const projectTextMatches = !projectSearch || getCustomerProjects(customer.id)
+      .some((project) => projectMatchesSearch(project, projectSearch));
+
+    return customerTextMatches && projectTextMatches;
+  }
+
+  function getVisibleCustomerProjects(customerId) {
+    return getCustomerProjects(customerId).filter((project) => projectMatchesSearch(project, projectSearch));
+  }
+
+  function taskMatchesSearch(task) {
+    const search = normalizeText(taskSearch);
+    if (!search) return true;
+
+    return [
+      task.title,
+      task.status,
+      task.notes,
+      task.task_date,
+      task.task_time,
+      getProjectTitle(task.project_id)
+    ].some((value) => normalizeText(value).includes(search));
+  }
+
+  function getVisibleTasks() {
+    return tasks.filter(taskMatchesSearch);
+  }
+
   const totals = useMemo(() => {
     const totalProjects = projects.length;
     const totalAgreed = projects.reduce((sum, project) => sum + Number(project.agreed_amount || 0), 0);
@@ -594,17 +649,30 @@ const [taskSearch, setTaskSearch] = useState('');
 
       <section className="card">
         <h2>Calendar / Tasks</h2>
-        {tasks.length === 0 ? <p>Δεν υπάρχουν tasks ακόμα.</p> : tasks.map((task) => (
-          <div key={task.id} className={task.status === 'completed' ? 'line' : 'line alert'}>
-            <p><b>{task.title}</b></p>
-            <p>Έργο: {getProjectTitle(task.project_id)}</p>
-            <p>Ημερομηνία: {task.task_date} {task.task_time || ''}</p>
-            <p>Status: {task.status}</p>
-            <small>{task.notes}</small>
-            <button onClick={() => editTask(task)}>✏️ Επεξεργασία</button>
-            <button onClick={() => deleteItem('tasks', task.id)}>🗑 Διαγραφή task</button>
-          </div>
-        ))}
+
+        <input
+          placeholder="Αναζήτηση task / έργου / status..."
+          value={taskSearch}
+          onChange={(e) => setTaskSearch(e.target.value)}
+        />
+
+        {tasks.length === 0 ? (
+          <p>Δεν υπάρχουν tasks ακόμα.</p>
+        ) : getVisibleTasks().length === 0 ? (
+          <p>Δεν βρέθηκαν tasks με αυτή την αναζήτηση.</p>
+        ) : (
+          getVisibleTasks().map((task) => (
+            <div key={task.id} className={task.status === 'completed' ? 'line' : 'line alert'}>
+              <p><b>{task.title}</b></p>
+              <p>Έργο: {getProjectTitle(task.project_id)}</p>
+              <p>Ημερομηνία: {task.task_date} {task.task_time || ''}</p>
+              <p>Status: {task.status}</p>
+              <small>{task.notes}</small>
+              <button onClick={() => editTask(task)}>✏️ Επεξεργασία</button>
+              <button onClick={() => deleteItem('tasks', task.id)}>🗑 Διαγραφή task</button>
+            </div>
+          ))
+        )}
       </section>
 
       <section className="card">
@@ -867,73 +935,92 @@ const [taskSearch, setTaskSearch] = useState('');
 
       <section className="card">
         <h2>Πελάτες & Έργα</h2>
-        {customers.length === 0 ? <p>Δεν υπάρχουν πελάτες ακόμα.</p> : customers.map((customer) => {
-          const customerProjects = getCustomerProjects(customer.id);
-          const customerTotals = getCustomerTotals(customer.id);
-          const isOpen = openCustomerId === customer.id;
 
-          return (
-            <div key={customer.id} className="line">
-              <div onClick={() => setOpenCustomerId(isOpen ? null : customer.id)}>
-                <p><b>{isOpen ? '▼' : '▶'} {customer.name}</b></p>
-                <p>{customer.phone}</p>
-                <p>{customer.area}</p>
-                <small>{customer.notes}</small>
-                <p>Έργα: {customerProjects.length}</p>
-                <p>Συμφωνημένα: {customerTotals.agreed}€</p>
-                <p>Πληρωμένα: {customerTotals.paid}€</p>
-                <p>Έξοδα: {customerTotals.expenses}€</p>
-                <p><b>Καθαρό υπόλοιπο: {customerTotals.balance}€</b></p>
-              </div>
+        <input
+          placeholder="Αναζήτηση πελάτη..."
+          value={customerSearch}
+          onChange={(e) => setCustomerSearch(e.target.value)}
+        />
 
-              <button onClick={() => setSelectedCustomerReport(customer)}>📄 Export PDF Αναφορά</button>
-              <button onClick={() => editCustomer(customer)}>✏️ Επεξεργασία πελάτη</button>
-              <button onClick={() => deleteItem('customers', customer.id)}>🗑 Διαγραφή πελάτη</button>
+        <input
+          placeholder="Αναζήτηση έργου / περιοχής / διεύθυνσης..."
+          value={projectSearch}
+          onChange={(e) => setProjectSearch(e.target.value)}
+        />
 
-              {isOpen && (
-                <div>
-                  <h3>Έργα πελάτη</h3>
+        {customers.length === 0 ? (
+          <p>Δεν υπάρχουν πελάτες ακόμα.</p>
+        ) : customers.filter(customerMatchesSearch).length === 0 ? (
+          <p>Δεν βρέθηκαν πελάτες ή έργα με αυτή την αναζήτηση.</p>
+        ) : (
+          customers.filter(customerMatchesSearch).map((customer) => {
+            const customerProjects = getVisibleCustomerProjects(customer.id);
+            const customerTotals = getCustomerTotals(customer.id);
+            const isOpen = openCustomerId === customer.id;
 
-                  {customerProjects.length === 0 ? (
-                    <p>Δεν υπάρχουν έργα για αυτόν τον πελάτη.</p>
-                  ) : (
-                    customerProjects.map((project) => {
-                      const paid = getProjectPaid(project.id);
-                      const agreed = Number(project.agreed_amount || 0);
-                      const projectExpenses = getProjectExpenses(project.id);
-                      const balance = agreed - paid - projectExpenses;
-
-                      return (
-                        <div key={project.id} className="line">
-                          <p><b>{project.title}</b></p>
-                          <p>{project.area}</p>
-                          <p>Status: {project.status}</p>
-                          <p>Συμφωνία: {agreed}€</p>
-                          <p>Πληρώθηκε: {paid}€</p>
-                          <p>Έξοδα: {projectExpenses}€</p>
-                          <p><b>Καθαρό υπόλοιπο: {balance}€</b></p>
-
-                          <button onClick={() => setSelectedProject(project)}>👁 Προβολή ανάλυσης</button>
-                          <button onClick={() => editProject(project)}>✏️ Επεξεργασία έργου</button>
-                          <button onClick={() => deleteItem('projects', project.id)}>🗑 Διαγραφή έργου</button>
-                        </div>
-                      );
-                    })
-                  )}
+            return (
+              <div key={customer.id} className="line">
+                <div onClick={() => setOpenCustomerId(isOpen ? null : customer.id)}>
+                  <p><b>{isOpen ? '▼' : '▶'} {customer.name}</b></p>
+                  <p>{customer.phone}</p>
+                  <p>{customer.area}</p>
+                  <small>{customer.notes}</small>
+                  <p>Έργα: {getCustomerProjects(customer.id).length}</p>
+                  <p>Συμφωνημένα: {customerTotals.agreed}€</p>
+                  <p>Πληρωμένα: {customerTotals.paid}€</p>
+                  <p>Έξοδα: {customerTotals.expenses}€</p>
+                  <p><b>Καθαρό υπόλοιπο: {customerTotals.balance}€</b></p>
                 </div>
-              )}
-            </div>
-          );
-        })}
+
+                <button onClick={() => setSelectedCustomerReport(customer)}>📄 Export PDF Αναφορά</button>
+                <button onClick={() => editCustomer(customer)}>✏️ Επεξεργασία πελάτη</button>
+                <button onClick={() => deleteItem('customers', customer.id)}>🗑 Διαγραφή πελάτη</button>
+
+                {isOpen && (
+                  <div>
+                    <h3>Έργα πελάτη</h3>
+
+                    {customerProjects.length === 0 ? (
+                      <p>Δεν υπάρχουν έργα για αυτόν τον πελάτη με αυτή την αναζήτηση.</p>
+                    ) : (
+                      customerProjects.map((project) => {
+                        const paid = getProjectPaid(project.id);
+                        const agreed = Number(project.agreed_amount || 0);
+                        const projectExpenses = getProjectExpenses(project.id);
+                        const balance = agreed - paid - projectExpenses;
+
+                        return (
+                          <div key={project.id} className="line">
+                            <p><b>{project.title}</b></p>
+                            <p>{project.area}</p>
+                            <p>Status: {project.status}</p>
+                            <p>Συμφωνία: {agreed}€</p>
+                            <p>Πληρώθηκε: {paid}€</p>
+                            <p>Έξοδα: {projectExpenses}€</p>
+                            <p><b>Καθαρό υπόλοιπο: {balance}€</b></p>
+
+                            <button onClick={() => setSelectedProject(project)}>👁 Προβολή ανάλυσης</button>
+                            <button onClick={() => editProject(project)}>✏️ Επεξεργασία έργου</button>
+                            <button onClick={() => deleteItem('projects', project.id)}>🗑 Διαγραφή έργου</button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </section>
 
       <section className="card">
         <h2>Ορφανά Έργα / Χωρίς Πελάτη</h2>
 
-        {getUnassignedProjects().length === 0 ? (
-          <p>Δεν υπάρχουν έργα χωρίς πελάτη.</p>
+        {getUnassignedProjects().filter((project) => projectMatchesSearch(project, projectSearch)).length === 0 ? (
+          <p>Δεν υπάρχουν έργα χωρίς πελάτη με αυτή την αναζήτηση.</p>
         ) : (
-          getUnassignedProjects().map((project) => {
+          getUnassignedProjects().filter((project) => projectMatchesSearch(project, projectSearch)).map((project) => {
             const paid = getProjectPaid(project.id);
             const agreed = Number(project.agreed_amount || 0);
             const projectExpenses = getProjectExpenses(project.id);
