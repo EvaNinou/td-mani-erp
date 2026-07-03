@@ -13,8 +13,16 @@ const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal
 const INITIAL_TASK = { project_id: '', title: '', task_date: '', task_time: '', status: 'pending', notes: '' };
 const INITIAL_DOCUMENT = { customer_id: '', project_id: '', title: '', document_type: 'Τιμολόγιο', file_url: '', notes: '' };
 
+const DEMO_USERS = [
+  { email: 'eva@tdmani.gr', password: '1234', name: 'Εύα Νίνου', role: 'Admin' },
+  { email: 'mani@tdmani.gr', password: '1234', name: 'Mani Taulant', role: 'Admin' }
+];
+
+
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
   const [crews, setCrews] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -736,6 +744,72 @@ const [taskSearch, setTaskSearch] = useState('');
     refreshAll();
   }
 
+
+  function loginUser() {
+    const user = DEMO_USERS.find(
+      (item) => item.email === loginForm.email && item.password === loginForm.password
+    );
+
+    if (!user) {
+      alert('Λάθος email ή password');
+      return;
+    }
+
+    setCurrentUser(user);
+    setSelectedUser(user.name);
+    setLoginForm({ email: '', password: '' });
+  }
+
+  function logoutUser() {
+    setCurrentUser(null);
+    setSelectedUser('Mani Taulant');
+  }
+
+  if (!currentUser) {
+    return (
+      <main className="app">
+        <section className="card login-card">
+          <div className="brand">
+            <div className="logo">TD</div>
+            <div>
+              <h1>T D MANI</h1>
+              <p>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</p>
+            </div>
+          </div>
+
+          <h2>Σύνδεση ERP</h2>
+
+          <input
+            placeholder="Email"
+            value={loginForm.email}
+            onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+          />
+
+          <input
+            placeholder="Password"
+            type="password"
+            value={loginForm.password}
+            onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+          />
+
+          <button onClick={loginUser}>Σύνδεση</button>
+
+          <hr />
+
+          <p><b>Demo χρήστες:</b></p>
+          <button onClick={() => setLoginForm({ email: 'eva@tdmani.gr', password: '1234' })}>
+            👩 Εύα / Admin
+          </button>
+          <button onClick={() => setLoginForm({ email: 'mani@tdmani.gr', password: '1234' })}>
+            👷 Mani / Admin
+          </button>
+
+          <small>Demo login για δοκιμή. Στο τελικό ERP θα το αλλάξουμε σε Supabase Auth.</small>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="app">
       <header className="top">
@@ -745,6 +819,13 @@ const [taskSearch, setTaskSearch] = useState('');
             <h1>T D MANI</h1>
             <p>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</p>
           </div>
+        </div>
+
+        <div>
+          <p><b>{currentUser.name}</b></p>
+          <small>{currentUser.role}</small>
+          <br />
+          <button onClick={logoutUser}>Αποσύνδεση</button>
         </div>
       </header>
 
