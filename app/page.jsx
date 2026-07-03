@@ -10,6 +10,7 @@ const INITIAL_PAYMENT = { project_id: '', amount: '', method: 'Μετρητά', 
 const INITIAL_EXPENSE = { project_id: '', title: '', amount: '', category: 'Υλικά', notes: '' };
 const INITIAL_INVENTORY = { item_name: '', quantity: '', min_quantity: '', purchase_price: '' };
 const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal: '', job_type: 'invoice', status: 'pending' };
+const INITIAL_TASK = { project_id: '', title: '', task_date: '', task_time: '', status: 'pending', notes: '' };
 
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
@@ -21,6 +22,7 @@ export default function Home() {
   const [expenses, setExpenses] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [quotes, setQuotes] = useState([]);
+  const [tasks, setTasks] = useState([]);
 
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedQuote, setSelectedQuote] = useState(null);
@@ -31,6 +33,7 @@ export default function Home() {
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [editingInventoryId, setEditingInventoryId] = useState(null);
   const [editingQuoteId, setEditingQuoteId] = useState(null);
+  const [editingTaskId, setEditingTaskId] = useState(null);
 
   const [newCustomer, setNewCustomer] = useState(INITIAL_CUSTOMER);
   const [newProject, setNewProject] = useState(INITIAL_PROJECT);
@@ -38,6 +41,7 @@ export default function Home() {
   const [newExpense, setNewExpense] = useState(INITIAL_EXPENSE);
   const [newInventory, setNewInventory] = useState(INITIAL_INVENTORY);
   const [newQuote, setNewQuote] = useState(INITIAL_QUOTE);
+  const [newTask, setNewTask] = useState(INITIAL_TASK);
 
   useEffect(() => {
     refreshAll();
@@ -51,7 +55,8 @@ export default function Home() {
       loadPayments(),
       loadExpenses(),
       loadInventory(),
-      loadQuotes()
+      loadQuotes(),
+      loadTasks()
     ]);
   }
 
@@ -90,6 +95,11 @@ export default function Home() {
     setQuotes(data || []);
   }
 
+  async function loadTasks() {
+    const { data } = await supabase.from('tasks').select('*').order('task_date', { ascending: true });
+    setTasks(data || []);
+  }
+
   function getProjectTitle(projectId) {
     return projects.find((project) => project.id === projectId)?.title || 'Χωρίς έργο';
   }
@@ -110,6 +120,10 @@ export default function Home() {
     return quotes.filter((quote) => quote.project_id === projectId);
   }
 
+  function getProjectTasks(projectId) {
+    return tasks.filter((task) => task.project_id === projectId);
+  }
+
   const totals = useMemo(() => {
     const totalProjects = projects.length;
     const totalAgreed = projects.reduce((sum, project) => sum + Number(project.agreed_amount || 0), 0);
@@ -118,9 +132,10 @@ export default function Home() {
     const totalBalance = totalAgreed - totalPaid - totalExpenses;
     const lowStockCount = inventory.filter((item) => Number(item.quantity || 0) <= Number(item.min_quantity || 0)).length;
     const totalQuotes = quotes.reduce((sum, quote) => sum + Number(quote.payable || 0), 0);
+    const pendingTasks = tasks.filter((task) => task.status !== 'completed').length;
 
-    return { totalProjects, totalAgreed, totalPaid, totalExpenses, totalBalance, lowStockCount, totalQuotes };
-  }, [projects, payments, expenses, inventory, quotes]);
+    return { totalProjects, totalAgreed, totalPaid, totalExpenses, totalBalance, lowStockCount, totalQuotes, pendingTasks };
+  }, [projects, payments, expenses, inventory, quotes, tasks]);
 
   function calculateQuoteValues(quoteForm) {
     const subtotal = Number(quoteForm.subtotal || 0);
@@ -309,13 +324,39 @@ export default function Home() {
     loadQuotes();
   }
 
+  async function saveTask() {
+    if (!newTask.project_id || !newTask.title.trim() || !newTask.task_date) {
+      alert('Διάλεξε έργο, βάλε τίτλο και ημερομηνία');
+      return;
+    }
+
+    const payload = {
+      project_id: newTask.project_id,
+      title: newTask.title,
+      task_date: newTask.task_date,
+      task_time: newTask.task_time || null,
+      status: newTask.status,
+      notes: newTask.notes
+    };
+
+    const query = editingTaskId
+      ? supabase.from('tasks').update(payload).eq('id', editingTaskId)
+      : supabase.from('tasks').insert([payload]);
+
+    const { error } = await query;
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setNewTask(INITIAL_TASK);
+    setEditingTaskId(null);
+    loadTasks();
+  }
+
   function editCustomer(customer) {
-    setNewCustomer({
-      name: customer.name || '',
-      phone: customer.phone || '',
-      area: customer.area || '',
-      notes: customer.notes || ''
-    });
+    setNewCustomer({ name: customer.name || '', phone: customer.phone || '', area: customer.area || '', notes: customer.notes || '' });
     setEditingCustomerId(customer.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -379,6 +420,19 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function editTask(task) {
+    setNewTask({
+      project_id: task.project_id || '',
+      title: task.title || '',
+      task_date: task.task_date || '',
+      task_time: task.task_time || '',
+      status: task.status || 'pending',
+      notes: task.notes || ''
+    });
+    setEditingTaskId(task.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   function cancelEdits() {
     setEditingCustomerId(null);
     setEditingProjectId(null);
@@ -386,6 +440,7 @@ export default function Home() {
     setEditingExpenseId(null);
     setEditingInventoryId(null);
     setEditingQuoteId(null);
+    setEditingTaskId(null);
 
     setNewCustomer(INITIAL_CUSTOMER);
     setNewProject(INITIAL_PROJECT);
@@ -393,6 +448,7 @@ export default function Home() {
     setNewExpense(INITIAL_EXPENSE);
     setNewInventory(INITIAL_INVENTORY);
     setNewQuote(INITIAL_QUOTE);
+    setNewTask(INITIAL_TASK);
   }
 
   async function deleteItem(table, id) {
@@ -403,6 +459,7 @@ export default function Home() {
       await supabase.from('payments').delete().eq('project_id', id);
       await supabase.from('expenses').delete().eq('project_id', id);
       await supabase.from('quotes').delete().eq('project_id', id);
+      await supabase.from('tasks').delete().eq('project_id', id);
     }
 
     const { error } = await supabase.from(table).delete().eq('id', id);
@@ -430,7 +487,7 @@ export default function Home() {
         </div>
       </header>
 
-      {(editingCustomerId || editingProjectId || editingPaymentId || editingExpenseId || editingInventoryId || editingQuoteId) && (
+      {(editingCustomerId || editingProjectId || editingPaymentId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId) && (
         <section className="card">
           <h2>✏️ Λειτουργία επεξεργασίας</h2>
           <p>Έχεις ανοίξει μια εγγραφή για αλλαγές. Κάνε τις αλλαγές στη φόρμα και πάτα αποθήκευση.</p>
@@ -447,10 +504,8 @@ export default function Home() {
           <div className="line"><p><b>{totals.totalExpenses}€</b></p><small>Έξοδα</small></div>
           <div className="line"><p><b>{totals.totalBalance}€</b></p><small>Καθαρό υπόλοιπο</small></div>
           <div className="line"><p><b>{totals.totalQuotes}€</b></p><small>Προσφορές</small></div>
-          <div className={totals.lowStockCount > 0 ? 'line alert' : 'line'}>
-            <p><b>{totals.lowStockCount}</b></p>
-            <small>Low stock alerts</small>
-          </div>
+          <div className={totals.pendingTasks > 0 ? 'line alert' : 'line'}><p><b>{totals.pendingTasks}</b></p><small>Tasks pending</small></div>
+          <div className={totals.lowStockCount > 0 ? 'line alert' : 'line'}><p><b>{totals.lowStockCount}</b></p><small>Low stock alerts</small></div>
         </div>
       </section>
 
@@ -463,8 +518,39 @@ export default function Home() {
 
       <section className="card">
         <h2>Συνεργεία</h2>
-        {crews.map((crew) => (
-          <p key={crew.id}><b>{crew.name}</b> — {crew.specialty}</p>
+        {crews.map((crew) => <p key={crew.id}><b>{crew.name}</b> — {crew.specialty}</p>)}
+      </section>
+
+      <section className="card">
+        <h2>{editingTaskId ? 'Επεξεργασία Task / Ραντεβού' : 'Νέο Task / Ραντεβού'}</h2>
+        <select value={newTask.project_id} onChange={(e) => setNewTask({ ...newTask, project_id: e.target.value })}>
+          <option value="">Διάλεξε έργο</option>
+          {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+        </select>
+        <input placeholder="Τίτλος task / ραντεβού" value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} />
+        <input type="date" value={newTask.task_date} onChange={(e) => setNewTask({ ...newTask, task_date: e.target.value })} />
+        <input type="time" value={newTask.task_time} onChange={(e) => setNewTask({ ...newTask, task_time: e.target.value })} />
+        <select value={newTask.status} onChange={(e) => setNewTask({ ...newTask, status: e.target.value })}>
+          <option value="pending">Pending</option>
+          <option value="in_progress">Σε εξέλιξη</option>
+          <option value="completed">Ολοκληρώθηκε</option>
+        </select>
+        <textarea placeholder="Σημειώσεις" value={newTask.notes} onChange={(e) => setNewTask({ ...newTask, notes: e.target.value })} />
+        <button onClick={saveTask}>{editingTaskId ? 'Αποθήκευση αλλαγών task' : 'Αποθήκευση task'}</button>
+      </section>
+
+      <section className="card">
+        <h2>Calendar / Tasks</h2>
+        {tasks.length === 0 ? <p>Δεν υπάρχουν tasks ακόμα.</p> : tasks.map((task) => (
+          <div key={task.id} className={task.status === 'completed' ? 'line' : 'line alert'}>
+            <p><b>{task.title}</b></p>
+            <p>Έργο: {getProjectTitle(task.project_id)}</p>
+            <p>Ημερομηνία: {task.task_date} {task.task_time || ''}</p>
+            <p>Status: {task.status}</p>
+            <small>{task.notes}</small>
+            <button onClick={() => editTask(task)}>✏️ Επεξεργασία</button>
+            <button onClick={() => deleteItem('tasks', task.id)}>🗑 Διαγραφή task</button>
+          </div>
         ))}
       </section>
 
@@ -677,6 +763,15 @@ export default function Home() {
             </div>
           ))}
 
+          <h3>Tasks έργου</h3>
+          {getProjectTasks(selectedProject.id).map((task) => (
+            <div key={task.id} className={task.status === 'completed' ? 'line' : 'line alert'}>
+              <p><b>{task.title}</b></p>
+              <p>{task.task_date} {task.task_time || ''}</p>
+              <small>{task.status}</small>
+            </div>
+          ))}
+
           <button onClick={() => setSelectedProject(null)}>Κλείσιμο ανάλυσης</button>
         </section>
       )}
@@ -715,4 +810,3 @@ export default function Home() {
     </main>
   );
 }
-
