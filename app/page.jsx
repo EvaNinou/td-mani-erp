@@ -5,7 +5,7 @@ import { supabase } from './supabaseClient.js';
 import './styles.css';
 
 const INITIAL_CUSTOMER = { name: '', phone: '', area: '', notes: '' };
-const INITIAL_PROJECT = { title: '', address: '', area: '', agreed_amount: '', status: 'active' };
+const INITIAL_PROJECT = { customer_id: '', title: '', address: '', area: '', agreed_amount: '', status: 'active' };
 const INITIAL_PAYMENT = { project_id: '', amount: '', method: 'Μετρητά', notes: '' };
 const INITIAL_EXPENSE = { project_id: '', title: '', amount: '', category: 'Υλικά', notes: '' };
 const INITIAL_INVENTORY = { item_name: '', quantity: '', min_quantity: '', purchase_price: '' };
@@ -100,6 +100,14 @@ export default function Home() {
     setTasks(data || []);
   }
 
+  function getCustomerName(customerId) {
+    return customers.find((customer) => customer.id === customerId)?.name || 'Χωρίς πελάτη';
+  }
+
+  function getCustomerProjects(customerId) {
+    return projects.filter((project) => project.customer_id === customerId);
+  }
+
   function getProjectTitle(projectId) {
     return projects.find((project) => project.id === projectId)?.title || 'Χωρίς έργο';
   }
@@ -122,6 +130,26 @@ export default function Home() {
 
   function getProjectTasks(projectId) {
     return tasks.filter((task) => task.project_id === projectId);
+  }
+
+  function getCustomerTotals(customerId) {
+    const customerProjects = getCustomerProjects(customerId);
+    const projectIds = customerProjects.map((project) => project.id);
+
+    const agreed = customerProjects.reduce((sum, project) => sum + Number(project.agreed_amount || 0), 0);
+    const paid = payments
+      .filter((payment) => projectIds.includes(payment.project_id))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const projectExpenses = expenses
+      .filter((expense) => projectIds.includes(expense.project_id))
+      .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+    return {
+      agreed,
+      paid,
+      expenses: projectExpenses,
+      balance: agreed - paid - projectExpenses
+    };
   }
 
   const totals = useMemo(() => {
@@ -169,12 +197,18 @@ export default function Home() {
   }
 
   async function saveProject() {
+    if (!newProject.customer_id) {
+      alert('Διάλεξε πελάτη για το έργο');
+      return;
+    }
+
     if (!newProject.title.trim()) {
       alert('Βάλε τίτλο έργου');
       return;
     }
 
     const payload = {
+      customer_id: newProject.customer_id,
       title: newProject.title,
       address: newProject.address,
       area: newProject.area,
@@ -356,13 +390,19 @@ export default function Home() {
   }
 
   function editCustomer(customer) {
-    setNewCustomer({ name: customer.name || '', phone: customer.phone || '', area: customer.area || '', notes: customer.notes || '' });
+    setNewCustomer({
+      name: customer.name || '',
+      phone: customer.phone || '',
+      area: customer.area || '',
+      notes: customer.notes || ''
+    });
     setEditingCustomerId(customer.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function editProject(project) {
     setNewProject({
+      customer_id: project.customer_id || '',
       title: project.title || '',
       address: project.address || '',
       area: project.area || '',
@@ -454,6 +494,20 @@ export default function Home() {
   async function deleteItem(table, id) {
     const confirmDelete = confirm('Σίγουρα θέλεις να το διαγράψεις;');
     if (!confirmDelete) return;
+
+    if (table === 'customers') {
+      const customerProjects = getCustomerProjects(id);
+      const projectIds = customerProjects.map((project) => project.id);
+
+      for (const projectId of projectIds) {
+        await supabase.from('payments').delete().eq('project_id', projectId);
+        await supabase.from('expenses').delete().eq('project_id', projectId);
+        await supabase.from('quotes').delete().eq('project_id', projectId);
+        await supabase.from('tasks').delete().eq('project_id', projectId);
+      }
+
+      await supabase.from('projects').delete().eq('customer_id', id);
+    }
 
     if (table === 'projects') {
       await supabase.from('payments').delete().eq('project_id', id);
@@ -565,6 +619,10 @@ export default function Home() {
 
       <section className="card">
         <h2>{editingProjectId ? 'Επεξεργασία Έργου' : 'Νέο Έργο'}</h2>
+        <select value={newProject.customer_id} onChange={(e) => setNewProject({ ...newProject, customer_id: e.target.value })}>
+          <option value="">Διάλεξε πελάτη</option>
+          {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+        </select>
         <input placeholder="Τίτλος έργου" value={newProject.title} onChange={(e) => setNewProject({ ...newProject, title: e.target.value })} />
         <input placeholder="Διεύθυνση" value={newProject.address} onChange={(e) => setNewProject({ ...newProject, address: e.target.value })} />
         <input placeholder="Περιοχή" value={newProject.area} onChange={(e) => setNewProject({ ...newProject, area: e.target.value })} />
@@ -692,16 +750,36 @@ export default function Home() {
 
       <section className="card">
         <h2>Πελάτες</h2>
-        {customers.length === 0 ? <p>Δεν υπάρχουν πελάτες ακόμα.</p> : customers.map((customer) => (
-          <div key={customer.id} className="line">
-            <p><b>{customer.name}</b></p>
-            <p>{customer.phone}</p>
-            <p>{customer.area}</p>
-            <small>{customer.notes}</small>
-            <button onClick={() => editCustomer(customer)}>✏️ Επεξεργασία</button>
-            <button onClick={() => deleteItem('customers', customer.id)}>🗑 Διαγραφή πελάτη</button>
-          </div>
-        ))}
+        {customers.length === 0 ? <p>Δεν υπάρχουν πελάτες ακόμα.</p> : customers.map((customer) => {
+          const customerProjects = getCustomerProjects(customer.id);
+          const customerTotals = getCustomerTotals(customer.id);
+
+          return (
+            <div key={customer.id} className="line">
+              <p><b>{customer.name}</b></p>
+              <p>{customer.phone}</p>
+              <p>{customer.area}</p>
+              <small>{customer.notes}</small>
+              <p>Έργα: {customerProjects.length}</p>
+              <p>Συμφωνημένα: {customerTotals.agreed}€</p>
+              <p>Πληρωμένα: {customerTotals.paid}€</p>
+              <p>Έξοδα: {customerTotals.expenses}€</p>
+              <p><b>Καθαρό υπόλοιπο: {customerTotals.balance}€</b></p>
+
+              {customerProjects.length > 0 && (
+                <div>
+                  <h3>Έργα πελάτη</h3>
+                  {customerProjects.map((project) => (
+                    <p key={project.id}>• {project.title} — {project.status}</p>
+                  ))}
+                </div>
+              )}
+
+              <button onClick={() => editCustomer(customer)}>✏️ Επεξεργασία</button>
+              <button onClick={() => deleteItem('customers', customer.id)}>🗑 Διαγραφή πελάτη</button>
+            </div>
+          );
+        })}
       </section>
 
       <section className="card">
@@ -715,6 +793,7 @@ export default function Home() {
           return (
             <div key={project.id} className="line" onClick={() => setSelectedProject(project)}>
               <p><b>{project.title}</b></p>
+              <p>Πελάτης: {getCustomerName(project.customer_id)}</p>
               <p>{project.area}</p>
               <p>Status: {project.status}</p>
               <p>Συμφωνία: {agreed}€</p>
@@ -732,6 +811,7 @@ export default function Home() {
         <section className="card">
           <h2>Ανάλυση Έργου</h2>
           <p><b>{selectedProject.title}</b></p>
+          <p>Πελάτης: {getCustomerName(selectedProject.customer_id)}</p>
           <p>Περιοχή: {selectedProject.area}</p>
           <p>Status: {selectedProject.status}</p>
           <hr />
