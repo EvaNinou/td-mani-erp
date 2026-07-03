@@ -882,9 +882,7 @@ export default function Home() {
                 <p><b>Καθαρό υπόλοιπο: {customerTotals.balance}€</b></p>
               </div>
 
-<button onClick={() => setSelectedCustomerReport(customer)}>
-  📄 Export PDF Αναφορά
-</button>
+              <button onClick={() => setSelectedCustomerReport(customer)}>📄 Export PDF Αναφορά</button>
               <button onClick={() => editCustomer(customer)}>✏️ Επεξεργασία πελάτη</button>
               <button onClick={() => deleteItem('customers', customer.id)}>🗑 Διαγραφή πελάτη</button>
 
@@ -957,7 +955,18 @@ export default function Home() {
       </section>
 
       {selectedProject && (
-        <section className="card">
+        <section className="card print-area">
+          <div className="pdf-header">
+            <div className="logo pdf-logo">TD</div>
+            <div>
+              <h2>TD MANI</h2>
+              <p><b>ΑΝΑΛΥΣΗ ΕΡΓΟΥ</b></p>
+              <small>Πλάκες, Μήλος 84800 | 6944705508 | Manitaulant@yahoo.com</small>
+            </div>
+          </div>
+
+          <hr />
+
           <h2>Ανάλυση Έργου</h2>
           <p><b>{selectedProject.title}</b></p>
           <p>Πελάτης: {getCustomerName(selectedProject.customer_id)}</p>
@@ -1011,6 +1020,7 @@ export default function Home() {
             </div>
           ))}
 
+          <button onClick={() => window.print()}>📄 Export / Print PDF Ανάλυσης</button>
           <button onClick={() => setSelectedProject(null)}>Κλείσιμο ανάλυσης</button>
         </section>
       )}
