@@ -1,32 +1,23 @@
 :root {
   --gold: #d6a84f;
-  --gold-soft: rgba(214, 168, 79, 0.16);
-  --gold-border: rgba(214, 168, 79, 0.34);
   --dark: #0d0d0f;
-  --dark-2: #141417;
-  --dark-3: #1d1d22;
   --card: rgba(29, 29, 34, 0.94);
   --text: #f5f1e8;
   --muted: #a8a29a;
   --danger: #ff6b5f;
-  --danger-bg: rgba(255, 107, 95, 0.12);
-  --border: rgba(255, 255, 255, 0.09);
+  --border: rgba(255, 255, 255, 0.10);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 body {
-  margin: 0;
+  margin: 0 !important;
   background:
-    radial-gradient(circle at top left, rgba(214, 168, 79, 0.12), transparent 32%),
-    linear-gradient(135deg, #070708 0%, #101014 48%, #0a0a0c 100%);
-  color: var(--text);
+    radial-gradient(circle at top left, rgba(214, 168, 79, 0.14), transparent 32%),
+    linear-gradient(135deg, #070708 0%, #101014 48%, #0a0a0c 100%) !important;
+  color: var(--text) !important;
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -47,7 +38,7 @@ body {
   gap: 14px;
   margin-bottom: 14px;
   padding: 14px 16px;
-  background: rgba(13, 13, 15, 0.92);
+  background: rgba(13, 13, 15, 0.94) !important;
   backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: 22px;
@@ -67,14 +58,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(214, 168, 79, 0.95), rgba(90, 66, 25, 0.95));
-  color: #101014;
-  border: 1px solid var(--gold-border);
+  background: linear-gradient(135deg, #d6a84f, #7a551d) !important;
+  color: #101014 !important;
+  border: 1px solid rgba(214, 168, 79, 0.4);
   border-radius: 16px;
   font-size: 24px;
   font-weight: 950;
   letter-spacing: -1px;
-  box-shadow: 0 12px 24px rgba(214, 168, 79, 0.12);
 }
 
 .pdf-logo {
@@ -82,13 +72,7 @@ body {
   height: 62px;
 }
 
-h1,
-h2,
-h3,
-h4,
-p {
-  margin-top: 0;
-}
+h1, h2, h3, h4, p { margin-top: 0; }
 
 h1 {
   margin-bottom: 4px;
@@ -117,18 +101,13 @@ h4 {
   font-size: 15px;
 }
 
-p {
-  color: var(--text);
-}
-
-small {
-  color: var(--muted);
-}
+p { color: var(--text); }
+small { color: var(--muted); }
 
 .card {
   margin: 14px 0;
   padding: 18px;
-  background: var(--card);
+  background: var(--card) !important;
   border: 1px solid var(--border);
   border-radius: 22px;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
@@ -149,7 +128,7 @@ small {
 .line {
   margin: 10px 0;
   padding: 16px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.028));
+  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.028)) !important;
   border: 1px solid var(--border);
   border-radius: 18px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 24px rgba(0,0,0,0.18);
@@ -163,9 +142,7 @@ small {
   line-height: 1.35;
 }
 
-.line p:last-child {
-  margin-bottom: 0;
-}
+.line p:last-child { margin-bottom: 0; }
 
 .line b {
   color: var(--gold);
@@ -174,17 +151,15 @@ small {
 
 .alert {
   border-color: rgba(255, 107, 95, 0.55);
-  background: linear-gradient(180deg, rgba(255, 107, 95, 0.13), rgba(255, 107, 95, 0.06));
+  background: linear-gradient(180deg, rgba(255,107,95,0.13), rgba(255,107,95,0.06)) !important;
 }
 
-input,
-select,
-textarea {
+input, select, textarea {
   width: 100%;
   margin: 7px 0;
   padding: 13px 14px;
-  background: rgba(255, 255, 255, 0.055);
-  color: var(--text);
+  background: rgba(255,255,255,0.055) !important;
+  color: var(--text) !important;
   border: 1px solid var(--border);
   border-radius: 14px;
   font-size: 15px;
@@ -196,16 +171,11 @@ select option {
   color: var(--text);
 }
 
-input::placeholder,
-textarea::placeholder {
-  color: #8f8a82;
-}
+input::placeholder, textarea::placeholder { color: #8f8a82; }
 
-input:focus,
-select:focus,
-textarea:focus {
+input:focus, select:focus, textarea:focus {
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(214, 168, 79, 0.13);
+  box-shadow: 0 0 0 3px rgba(214,168,79,0.13);
 }
 
 textarea {
@@ -219,29 +189,18 @@ button {
   min-width: 120px;
   margin: 7px 7px 7px 0;
   padding: 12px 15px;
-  border: 1px solid rgba(214, 168, 79, 0.28);
+  border: 1px solid rgba(214,168,79,0.28);
   border-radius: 14px;
-  background: linear-gradient(135deg, rgba(214, 168, 79, 0.95), rgba(121, 84, 28, 0.95));
-  color: #101014;
+  background: linear-gradient(135deg, #d6a84f, #7a551d) !important;
+  color: #101014 !important;
   font-size: 14px;
   font-weight: 900;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
-}
-
-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(214, 168, 79, 0.18);
-}
-
-button:active {
-  transform: translateY(0);
-  box-shadow: none;
 }
 
 button + button {
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--text);
+  background: rgba(255,255,255,0.07) !important;
+  color: var(--text) !important;
   border-color: var(--border);
 }
 
@@ -249,10 +208,6 @@ a {
   color: var(--gold);
   font-weight: 800;
   text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
 }
 
 hr {
@@ -270,7 +225,7 @@ hr {
 .signature-line {
   margin-top: 26px;
   padding-top: 16px;
-  border-top: 1px solid rgba(214, 168, 79, 0.55);
+  border-top: 1px solid rgba(214,168,79,0.55);
   width: 220px;
 }
 
@@ -284,16 +239,16 @@ hr {
   position: sticky;
   top: 92px;
   z-index: 24;
-  display: flex;
+  display: flex !important;
   gap: 8px;
   margin: 0 0 16px;
   padding: 10px;
   overflow-x: auto;
-  background: rgba(13, 13, 15, 0.88);
+  background: rgba(13,13,15,0.90) !important;
   backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: 18px;
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+  box-shadow: 0 14px 30px rgba(0,0,0,0.24);
 }
 
 .erp-nav button {
@@ -301,20 +256,20 @@ hr {
   min-width: max-content;
   margin: 0;
   padding: 10px 13px;
-  background: rgba(255, 255, 255, 0.055);
-  color: var(--text);
+  background: rgba(255,255,255,0.055) !important;
+  color: var(--text) !important;
   border: 1px solid var(--border);
   box-shadow: none;
 }
 
 .erp-nav button.active {
-  background: linear-gradient(135deg, rgba(214, 168, 79, 0.95), rgba(121, 84, 28, 0.95));
-  color: #101014;
-  border-color: var(--gold-border);
+  background: linear-gradient(135deg, #d6a84f, #7a551d) !important;
+  color: #101014 !important;
 }
 
+/* IMPORTANT: tab system */
 .page-section {
-  display: none;
+  display: none !important;
 }
 
 .page-dashboard .dashboard-section,
@@ -324,44 +279,23 @@ hr {
 .page-documents .documents-section,
 .page-inventory .inventory-section,
 .page-settings .settings-section {
-  display: block;
+  display: block !important;
 }
 
 @media (max-width: 900px) {
-  .app {
-    padding: 12px;
-  }
-
-  .top {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .card {
-    padding: 16px;
-    border-radius: 20px;
-  }
-
-  h1 {
-    font-size: 21px;
-  }
-
-  h2 {
-    font-size: 19px;
-  }
+  .app { padding: 12px; }
+  .top { align-items: flex-start; flex-direction: column; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card { padding: 16px; border-radius: 20px; }
+  h1 { font-size: 21px; }
+  h2 { font-size: 19px; }
 }
 
 @media (max-width: 560px) {
-  .app {
-    padding: 10px;
-  }
+  .app { padding: 10px; }
 
   .top {
-    position: static;
+    position: static !important;
     padding: 13px;
     border-radius: 18px;
   }
@@ -379,13 +313,8 @@ hr {
     font-size: 14px;
   }
 
-  .grid {
-    grid-template-columns: 1fr;
-  }
-
-  .brand {
-    width: 100%;
-  }
+  .grid { grid-template-columns: 1fr; }
+  .brand { width: 100%; }
 
   .logo {
     width: 58px;
@@ -405,32 +334,21 @@ hr {
     border-radius: 16px;
   }
 
-  input,
-  select,
-  textarea,
-  button {
-    font-size: 16px;
-  }
+  input, select, textarea, button { font-size: 16px; }
 
   button {
     width: 100%;
     margin-right: 0;
   }
-
-  .pdf-header {
-    align-items: flex-start;
-  }
 }
 
 @media print {
   body {
-    background: white;
-    color: #111;
+    background: white !important;
+    color: #111 !important;
   }
 
-  body * {
-    visibility: hidden;
-  }
+  body * { visibility: hidden; }
 
   .print-area,
   .print-area * {
@@ -450,11 +368,7 @@ hr {
   }
 
   .print-area button,
-  .erp-nav {
-    display: none;
-  }
+  .erp-nav { display: none !important; }
 
-  .page-section {
-    display: block;
-  }
+  .page-section { display: block !important; }
 }
