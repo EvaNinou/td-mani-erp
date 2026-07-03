@@ -109,6 +109,10 @@ export default function Home() {
     return projects.filter((project) => project.customer_id === customerId);
   }
 
+  function getUnassignedProjects() {
+    return projects.filter((project) => !project.customer_id);
+  }
+
   function getProjectTitle(projectId) {
     return projects.find((project) => project.id === projectId)?.title || 'Χωρίς έργο';
   }
@@ -765,6 +769,37 @@ export default function Home() {
             </div>
           );
         })}
+      </section>
+
+      <section className="card">
+        <h2>Ορφανά Έργα / Χωρίς Πελάτη</h2>
+
+        {getUnassignedProjects().length === 0 ? (
+          <p>Δεν υπάρχουν έργα χωρίς πελάτη.</p>
+        ) : (
+          getUnassignedProjects().map((project) => {
+            const paid = getProjectPaid(project.id);
+            const agreed = Number(project.agreed_amount || 0);
+            const projectExpenses = getProjectExpenses(project.id);
+            const balance = agreed - paid - projectExpenses;
+
+            return (
+              <div key={project.id} className="line">
+                <p><b>{project.title}</b></p>
+                <p>{project.area}</p>
+                <p>Status: {project.status}</p>
+                <p>Συμφωνία: {agreed}€</p>
+                <p>Πληρώθηκε: {paid}€</p>
+                <p>Έξοδα: {projectExpenses}€</p>
+                <p><b>Καθαρό υπόλοιπο: {balance}€</b></p>
+
+                <button onClick={() => setSelectedProject(project)}>👁 Προβολή ανάλυσης</button>
+                <button onClick={() => editProject(project)}>✏️ Σύνδεση / Επεξεργασία έργου</button>
+                <button onClick={() => deleteItem('projects', project.id)}>🗑 Διαγραφή έργου</button>
+              </div>
+            );
+          })
+        )}
       </section>
 
       {selectedProject && (
