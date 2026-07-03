@@ -429,6 +429,7 @@ export default function Home() {
 const [customerSearch, setCustomerSearch] = useState('');
 const [projectSearch, setProjectSearch] = useState('');
 const [taskSearch, setTaskSearch] = useState('');
+const [supplierSearch, setSupplierSearch] = useState('');
   
   const [editingCustomerId, setEditingCustomerId] = useState(null);
   const [editingProjectId, setEditingProjectId] = useState(null);
@@ -640,6 +641,56 @@ const [taskSearch, setTaskSearch] = useState('');
       totalPaid,
       balance: totalInvoices - totalPaid
     };
+  }
+
+  function getSupplierAnalytics(supplierId) {
+    const invoices = getSupplierInvoices(supplierId);
+    const totals = getSupplierTotals(supplierId);
+    const invoiceCount = invoices.length;
+    const averageInvoice = invoiceCount > 0 ? totals.totalInvoices / invoiceCount : 0;
+
+    const sortedInvoices = [...invoices].sort((a, b) =>
+      String(b.invoice_date || '').localeCompare(String(a.invoice_date || ''))
+    );
+
+    return {
+      ...totals,
+      invoiceCount,
+      averageInvoice,
+      lastPurchaseDate: sortedInvoices[0]?.invoice_date || '-'
+    };
+  }
+
+  function supplierMatchesSearch(supplier) {
+    const search = normalizeText(supplierSearch);
+    if (!search) return true;
+
+    const supplierInvoicesList = getSupplierInvoices(supplier.id);
+
+    const supplierTextMatches = [
+      supplier.name,
+      supplier.afm,
+      supplier.phone,
+      supplier.email,
+      supplier.address,
+      supplier.notes
+    ].some((value) => normalizeText(value).includes(search));
+
+    const invoiceTextMatches = supplierInvoicesList.some((invoice) =>
+      [
+        invoice.invoice_number,
+        invoice.description,
+        invoice.invoice_date,
+        invoice.total_amount,
+        getProjectTitle(invoice.project_id)
+      ].some((value) => normalizeText(value).includes(search))
+    );
+
+    return supplierTextMatches || invoiceTextMatches;
+  }
+
+  function getVisibleSuppliers() {
+    return suppliers.filter(supplierMatchesSearch);
   }
 
   function getProjectPayments(projectId) {
@@ -1871,15 +1922,6 @@ const [taskSearch, setTaskSearch] = useState('');
                   ))
                 )}
 
-                <h4>Τιμολόγια Προμηθευτών</h4>
-                {row.projectSupplierInvoices.length === 0 ? (
-                  <p>Δεν υπάρχουν τιμολόγια προμηθευτών.</p>
-                ) : (
-                  row.projectSupplierInvoices.map((invoice) => (
-                    <p key={invoice.id}>• {invoice.invoice_date || '-'} — {getSupplierName(invoice.supplier_id)} — {invoice.invoice_number || '-'} — {invoice.total_amount}€ — {getSupplierInvoiceStatus(invoice)}</p>
-                  ))
-                )}
-
                 <h4>Προσφορές</h4>
                 {row.projectQuotes.length === 0 ? (
                   <p>Δεν υπάρχουν προσφορές.</p>
@@ -2040,11 +2082,20 @@ const [taskSearch, setTaskSearch] = useState('');
       <section className="card page-section suppliers-section">
         <h2>Προμηθευτές</h2>
 
+        <input
+          placeholder="Αναζήτηση με ΑΦΜ / όνομα / αριθμό τιμολογίου..."
+          value={supplierSearch}
+          onChange={(e) => setSupplierSearch(e.target.value)}
+        />
+
         {suppliers.length === 0 ? (
           <p>Δεν υπάρχουν προμηθευτές ακόμα.</p>
+        ) : getVisibleSuppliers().length === 0 ? (
+          <p>Δεν βρέθηκαν προμηθευτές ή τιμολόγια με αυτή την αναζήτηση.</p>
         ) : (
-          suppliers.map((supplier) => {
+          getVisibleSuppliers().map((supplier) => {
             const totals = getSupplierTotals(supplier.id);
+            const analytics = getSupplierAnalytics(supplier.id);
             const isOpen = openSupplierId === supplier.id;
 
             return (
@@ -2054,9 +2105,12 @@ const [taskSearch, setTaskSearch] = useState('');
                   <p>ΑΦΜ: {supplier.afm || '-'}</p>
                   <p>Τηλέφωνο: {supplier.phone || '-'}</p>
                   <p>Email: {supplier.email || '-'}</p>
-                  <p>Σύνολο τιμολογίων: {totals.totalInvoices}€</p>
-                  <p>Πληρωμένα: {totals.totalPaid}€</p>
-                  <p><b>Υπόλοιπο: {totals.balance}€</b></p>
+                  <p>Συνολικές αγορές: {analytics.totalInvoices}€</p>
+                  <p>Πληρωμένα: {analytics.totalPaid}€</p>
+                  <p><b>Υπόλοιπο: {analytics.balance}€</b></p>
+                  <p>Αριθμός τιμολογίων: {analytics.invoiceCount}</p>
+                  <p>Μέση αξία τιμολογίου: {analytics.averageInvoice.toFixed(2)}€</p>
+                  <p>Τελευταία αγορά: {analytics.lastPurchaseDate}</p>
                   <small>{supplier.notes}</small>
                 </div>
 
@@ -2264,26 +2318,6 @@ const [taskSearch, setTaskSearch] = useState('');
               <small>{task.status}</small>
             </div>
           ))}
-
-          <h3>Τιμολόγια Προμηθευτών έργου</h3>
-          {getProjectSupplierInvoices(selectedProject.id).length === 0 ? (
-            <p>Δεν υπάρχουν τιμολόγια προμηθευτών για αυτό το έργο.</p>
-          ) : (
-            getProjectSupplierInvoices(selectedProject.id).map((invoice) => (
-              <div key={invoice.id} className="line">
-                <p><b>{getSupplierName(invoice.supplier_id)}</b></p>
-                <p>Τιμολόγιο: {invoice.invoice_number || '-'}</p>
-                <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
-                <p>Περιγραφή: {invoice.description || '-'}</p>
-                <p>Καθαρή αξία: {invoice.net_amount || 0}€ | ΦΠΑ 24%: {invoice.vat_amount || 0}€</p>
-                <p><b>Σύνολο: {invoice.total_amount || 0}€</b></p>
-                <p>Πληρωμένα: {getSupplierInvoicePaid(invoice.id)}€</p>
-                <p>Status: <b>{getSupplierInvoiceStatus(invoice)}</b></p>
-                <button onClick={() => editSupplierInvoice(invoice)}>✏️ Επεξεργασία</button>
-                <button onClick={() => deleteItem('supplier_invoices', invoice.id)}>🗑 Διαγραφή</button>
-              </div>
-            ))
-          )}
 
           <h3>Αρχεία / Παραστατικά έργου</h3>
           {getProjectDocuments(selectedProject.id).length === 0 ? (
