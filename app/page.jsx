@@ -26,6 +26,7 @@ export default function Home() {
 
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedQuote, setSelectedQuote] = useState(null);
+  const [selectedCustomerReport, setSelectedCustomerReport] = useState(null);
   const [openCustomerId, setOpenCustomerId] = useState(null);
 
   const [editingCustomerId, setEditingCustomerId] = useState(null);
@@ -154,6 +155,26 @@ export default function Home() {
       .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
     return { agreed, paid, expenses: projectExpenses, balance: agreed - paid - projectExpenses };
+  }
+
+  function getCustomerReportRows(customerId) {
+    return getCustomerProjects(customerId).map((project) => {
+      const agreed = Number(project.agreed_amount || 0);
+      const paid = getProjectPaid(project.id);
+      const projectExpenses = getProjectExpenses(project.id);
+
+      return {
+        project,
+        agreed,
+        paid,
+        expenses: projectExpenses,
+        balance: agreed - paid - projectExpenses,
+        payments: getProjectPayments(project.id),
+        projectExpensesList: expenses.filter((expense) => expense.project_id === project.id),
+        projectQuotes: getProjectQuotes(project.id),
+        projectTasks: getProjectTasks(project.id)
+      };
+    });
   }
 
   const totals = useMemo(() => {
@@ -488,6 +509,7 @@ export default function Home() {
 
     if (selectedProject?.id === id) setSelectedProject(null);
     if (selectedQuote?.id === id) setSelectedQuote(null);
+    if (selectedCustomerReport?.id === id) setSelectedCustomerReport(null);
     refreshAll();
   }
 
@@ -683,6 +705,98 @@ export default function Home() {
         </section>
       )}
 
+      {selectedCustomerReport && (
+        <section className="card print-area">
+          <div className="pdf-header">
+            <div className="logo pdf-logo">TD</div>
+            <div>
+              <h2>TD MANI</h2>
+              <p><b>ΑΝΑΦΟΡΑ ΠΕΛΑΤΗ</b></p>
+              <small>Πλάκες, Μήλος 84800 | 6944705508 | Manitaulant@yahoo.com</small>
+            </div>
+          </div>
+
+          <hr />
+
+          <h2>{selectedCustomerReport.name}</h2>
+          <p><b>Τηλέφωνο:</b> {selectedCustomerReport.phone || '-'}</p>
+          <p><b>Περιοχή:</b> {selectedCustomerReport.area || '-'}</p>
+          <p><b>Σημειώσεις:</b> {selectedCustomerReport.notes || '-'}</p>
+
+          <hr />
+
+          <h3>Σύνολα πελάτη</h3>
+          <p>Συμφωνημένα: {getCustomerTotals(selectedCustomerReport.id).agreed}€</p>
+          <p>Πληρωμένα: {getCustomerTotals(selectedCustomerReport.id).paid}€</p>
+          <p>Έξοδα: {getCustomerTotals(selectedCustomerReport.id).expenses}€</p>
+          <p><b>Καθαρό υπόλοιπο: {getCustomerTotals(selectedCustomerReport.id).balance}€</b></p>
+
+          <hr />
+
+          <h3>Έργα πελάτη</h3>
+          {getCustomerReportRows(selectedCustomerReport.id).length === 0 ? (
+            <p>Δεν υπάρχουν έργα για αυτόν τον πελάτη.</p>
+          ) : (
+            getCustomerReportRows(selectedCustomerReport.id).map((row) => (
+              <div key={row.project.id} className="report-block">
+                <h3>{row.project.title}</h3>
+                <p><b>Περιοχή:</b> {row.project.area || '-'}</p>
+                <p><b>Διεύθυνση:</b> {row.project.address || '-'}</p>
+                <p><b>Status:</b> {row.project.status}</p>
+                <p>Συμφωνία: {row.agreed}€</p>
+                <p>Πληρωμές: {row.paid}€</p>
+                <p>Έξοδα: {row.expenses}€</p>
+                <p><b>Καθαρό υπόλοιπο έργου: {row.balance}€</b></p>
+
+                <h4>Πληρωμές</h4>
+                {row.payments.length === 0 ? (
+                  <p>Δεν υπάρχουν πληρωμές.</p>
+                ) : (
+                  row.payments.map((payment) => (
+                    <p key={payment.id}>• {payment.amount}€ — {payment.method} {payment.notes ? `(${payment.notes})` : ''}</p>
+                  ))
+                )}
+
+                <h4>Έξοδα</h4>
+                {row.projectExpensesList.length === 0 ? (
+                  <p>Δεν υπάρχουν έξοδα.</p>
+                ) : (
+                  row.projectExpensesList.map((expense) => (
+                    <p key={expense.id}>• {expense.title} — {expense.amount}€ — {expense.category}</p>
+                  ))
+                )}
+
+                <h4>Προσφορές</h4>
+                {row.projectQuotes.length === 0 ? (
+                  <p>Δεν υπάρχουν προσφορές.</p>
+                ) : (
+                  row.projectQuotes.map((quote) => (
+                    <p key={quote.id}>• {quote.quote_number} — {quote.work_type} — {quote.payable}€ — {quote.status}</p>
+                  ))
+                )}
+
+                <h4>Tasks</h4>
+                {row.projectTasks.length === 0 ? (
+                  <p>Δεν υπάρχουν tasks.</p>
+                ) : (
+                  row.projectTasks.map((task) => (
+                    <p key={task.id}>• {task.task_date} {task.task_time || ''} — {task.title} — {task.status}</p>
+                  ))
+                )}
+
+                <hr />
+              </div>
+            ))
+          )}
+
+          <p><b>Υπογραφή / Σφραγίδα</b></p>
+          <p className="signature-line">T D MANI</p>
+
+          <button onClick={() => window.print()}>Export / Print PDF</button>
+          <button onClick={() => setSelectedCustomerReport(null)}>Κλείσιμο αναφοράς</button>
+        </section>
+      )}
+
       <section className="card">
         <h2>{editingExpenseId ? 'Επεξεργασία Εξόδου' : 'Νέο Έξοδο'}</h2>
         <select value={newExpense.project_id} onChange={(e) => setNewExpense({ ...newExpense, project_id: e.target.value })}>
@@ -731,6 +845,7 @@ export default function Home() {
                 <p><b>Καθαρό υπόλοιπο: {customerTotals.balance}€</b></p>
               </div>
 
+              <button onClick={() => setSelectedCustomerReport(customer)}>📄 Export PDF Αναφορά</button>
               <button onClick={() => editCustomer(customer)}>✏️ Επεξεργασία πελάτη</button>
               <button onClick={() => deleteItem('customers', customer.id)}>🗑 Διαγραφή πελάτη</button>
 
@@ -895,4 +1010,3 @@ export default function Home() {
     </main>
   );
 }
-
