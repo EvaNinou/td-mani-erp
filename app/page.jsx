@@ -9,7 +9,7 @@ const INITIAL_PROJECT = { title: '', address: '', area: '', agreed_amount: '', s
 const INITIAL_PAYMENT = { project_id: '', amount: '', method: 'Μετρητά', notes: '' };
 const INITIAL_EXPENSE = { project_id: '', title: '', amount: '', category: 'Υλικά', notes: '' };
 const INITIAL_INVENTORY = { item_name: '', quantity: '', min_quantity: '', purchase_price: '' };
-const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal: '', job_type: 'invoice' };
+const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal: '', job_type: 'invoice', status: 'pending' };
 
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
@@ -24,6 +24,13 @@ export default function Home() {
 
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedQuote, setSelectedQuote] = useState(null);
+
+  const [editingCustomerId, setEditingCustomerId] = useState(null);
+  const [editingProjectId, setEditingProjectId] = useState(null);
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
+  const [editingInventoryId, setEditingInventoryId] = useState(null);
+  const [editingQuoteId, setEditingQuoteId] = useState(null);
 
   const [newCustomer, setNewCustomer] = useState(INITIAL_CUSTOMER);
   const [newProject, setNewProject] = useState(INITIAL_PROJECT);
@@ -115,37 +122,57 @@ export default function Home() {
     return { totalProjects, totalAgreed, totalPaid, totalExpenses, totalBalance, lowStockCount, totalQuotes };
   }, [projects, payments, expenses, inventory, quotes]);
 
-  async function addCustomer() {
+  function calculateQuoteValues(quoteForm) {
+    const subtotal = Number(quoteForm.subtotal || 0);
+    const vat = quoteForm.job_type === 'invoice' ? subtotal * 0.24 : 0;
+    const withholding = quoteForm.job_type === 'invoice' ? subtotal * 0.03 : 0;
+    const payable = subtotal + vat - withholding;
+
+    return { subtotal, vat, withholding, payable };
+  }
+
+  async function saveCustomer() {
     if (!newCustomer.name.trim()) {
       alert('Βάλε όνομα πελάτη');
       return;
     }
 
-    const { error } = await supabase.from('customers').insert([newCustomer]);
+    const query = editingCustomerId
+      ? supabase.from('customers').update(newCustomer).eq('id', editingCustomerId)
+      : supabase.from('customers').insert([newCustomer]);
+
+    const { error } = await query;
+
     if (error) {
       alert(error.message);
       return;
     }
 
     setNewCustomer(INITIAL_CUSTOMER);
+    setEditingCustomerId(null);
     loadCustomers();
   }
 
-  async function addProject() {
+  async function saveProject() {
     if (!newProject.title.trim()) {
       alert('Βάλε τίτλο έργου');
       return;
     }
 
-    const { error } = await supabase.from('projects').insert([{
-      code: 'PRJ-' + Date.now(),
+    const payload = {
       title: newProject.title,
       address: newProject.address,
       area: newProject.area,
       agreed_amount: Number(newProject.agreed_amount || 0),
       status: newProject.status,
       job_type: 'invoice'
-    }]);
+    };
+
+    const query = editingProjectId
+      ? supabase.from('projects').update(payload).eq('id', editingProjectId)
+      : supabase.from('projects').insert([{ code: 'PRJ-' + Date.now(), ...payload }]);
+
+    const { error } = await query;
 
     if (error) {
       alert(error.message);
@@ -153,22 +180,29 @@ export default function Home() {
     }
 
     setNewProject(INITIAL_PROJECT);
+    setEditingProjectId(null);
     loadProjects();
   }
 
-  async function addPayment() {
+  async function savePayment() {
     if (!newPayment.project_id || !newPayment.amount) {
       alert('Διάλεξε έργο και βάλε ποσό πληρωμής');
       return;
     }
 
-    const { error } = await supabase.from('payments').insert([{
+    const payload = {
       project_id: newPayment.project_id,
       amount: Number(newPayment.amount || 0),
       method: newPayment.method,
       payment_type: 'income',
       notes: newPayment.notes
-    }]);
+    };
+
+    const query = editingPaymentId
+      ? supabase.from('payments').update(payload).eq('id', editingPaymentId)
+      : supabase.from('payments').insert([payload]);
+
+    const { error } = await query;
 
     if (error) {
       alert(error.message);
@@ -176,22 +210,29 @@ export default function Home() {
     }
 
     setNewPayment(INITIAL_PAYMENT);
+    setEditingPaymentId(null);
     loadPayments();
   }
 
-  async function addExpense() {
+  async function saveExpense() {
     if (!newExpense.project_id || !newExpense.title.trim() || !newExpense.amount) {
       alert('Διάλεξε έργο, βάλε τίτλο και ποσό εξόδου');
       return;
     }
 
-    const { error } = await supabase.from('expenses').insert([{
+    const payload = {
       project_id: newExpense.project_id,
       title: newExpense.title,
       amount: Number(newExpense.amount || 0),
       category: newExpense.category,
       notes: newExpense.notes
-    }]);
+    };
+
+    const query = editingExpenseId
+      ? supabase.from('expenses').update(payload).eq('id', editingExpenseId)
+      : supabase.from('expenses').insert([payload]);
+
+    const { error } = await query;
 
     if (error) {
       alert(error.message);
@@ -199,21 +240,28 @@ export default function Home() {
     }
 
     setNewExpense(INITIAL_EXPENSE);
+    setEditingExpenseId(null);
     loadExpenses();
   }
 
-  async function addInventory() {
+  async function saveInventory() {
     if (!newInventory.item_name.trim()) {
       alert('Βάλε όνομα υλικού');
       return;
     }
 
-    const { error } = await supabase.from('inventory').insert([{
+    const payload = {
       item_name: newInventory.item_name,
       quantity: Number(newInventory.quantity || 0),
       min_quantity: Number(newInventory.min_quantity || 0),
       purchase_price: Number(newInventory.purchase_price || 0)
-    }]);
+    };
+
+    const query = editingInventoryId
+      ? supabase.from('inventory').update(payload).eq('id', editingInventoryId)
+      : supabase.from('inventory').insert([payload]);
+
+    const { error } = await query;
 
     if (error) {
       alert(error.message);
@@ -221,22 +269,19 @@ export default function Home() {
     }
 
     setNewInventory(INITIAL_INVENTORY);
+    setEditingInventoryId(null);
     loadInventory();
   }
 
-  async function addQuote() {
+  async function saveQuote() {
     if (!newQuote.project_id || !newQuote.work_type.trim() || !newQuote.description.trim() || !newQuote.subtotal) {
       alert('Διάλεξε έργο, βάλε είδος εργασίας, περιγραφή και ποσό προσφοράς');
       return;
     }
 
-    const subtotal = Number(newQuote.subtotal || 0);
-    const vat = newQuote.job_type === 'invoice' ? subtotal * 0.24 : 0;
-    const withholding = newQuote.job_type === 'invoice' ? subtotal * 0.03 : 0;
-    const payable = subtotal + vat - withholding;
+    const { subtotal, vat, withholding, payable } = calculateQuoteValues(newQuote);
 
-    const { error } = await supabase.from('quotes').insert([{
-      quote_number: 'Q-' + Date.now(),
+    const payload = {
       project_id: newQuote.project_id,
       work_type: newQuote.work_type,
       description: newQuote.description,
@@ -245,8 +290,14 @@ export default function Home() {
       withholding,
       payable,
       job_type: newQuote.job_type,
-      status: 'pending'
-    }]);
+      status: newQuote.status || 'pending'
+    };
+
+    const query = editingQuoteId
+      ? supabase.from('quotes').update(payload).eq('id', editingQuoteId)
+      : supabase.from('quotes').insert([{ quote_number: 'Q-' + Date.now(), ...payload }]);
+
+    const { error } = await query;
 
     if (error) {
       alert(error.message);
@@ -254,7 +305,94 @@ export default function Home() {
     }
 
     setNewQuote(INITIAL_QUOTE);
+    setEditingQuoteId(null);
     loadQuotes();
+  }
+
+  function editCustomer(customer) {
+    setNewCustomer({
+      name: customer.name || '',
+      phone: customer.phone || '',
+      area: customer.area || '',
+      notes: customer.notes || ''
+    });
+    setEditingCustomerId(customer.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function editProject(project) {
+    setNewProject({
+      title: project.title || '',
+      address: project.address || '',
+      area: project.area || '',
+      agreed_amount: String(project.agreed_amount || ''),
+      status: project.status || 'active'
+    });
+    setEditingProjectId(project.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function editPayment(payment) {
+    setNewPayment({
+      project_id: payment.project_id || '',
+      amount: String(payment.amount || ''),
+      method: payment.method || 'Μετρητά',
+      notes: payment.notes || ''
+    });
+    setEditingPaymentId(payment.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function editExpense(expense) {
+    setNewExpense({
+      project_id: expense.project_id || '',
+      title: expense.title || '',
+      amount: String(expense.amount || ''),
+      category: expense.category || 'Υλικά',
+      notes: expense.notes || ''
+    });
+    setEditingExpenseId(expense.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function editInventory(item) {
+    setNewInventory({
+      item_name: item.item_name || '',
+      quantity: String(item.quantity || ''),
+      min_quantity: String(item.min_quantity || ''),
+      purchase_price: String(item.purchase_price || '')
+    });
+    setEditingInventoryId(item.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function editQuote(quote) {
+    setNewQuote({
+      project_id: quote.project_id || '',
+      work_type: quote.work_type || '',
+      description: quote.description || '',
+      subtotal: String(quote.subtotal || ''),
+      job_type: quote.job_type || 'invoice',
+      status: quote.status || 'pending'
+    });
+    setEditingQuoteId(quote.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function cancelEdits() {
+    setEditingCustomerId(null);
+    setEditingProjectId(null);
+    setEditingPaymentId(null);
+    setEditingExpenseId(null);
+    setEditingInventoryId(null);
+    setEditingQuoteId(null);
+
+    setNewCustomer(INITIAL_CUSTOMER);
+    setNewProject(INITIAL_PROJECT);
+    setNewPayment(INITIAL_PAYMENT);
+    setNewExpense(INITIAL_EXPENSE);
+    setNewInventory(INITIAL_INVENTORY);
+    setNewQuote(INITIAL_QUOTE);
   }
 
   async function deleteItem(table, id) {
@@ -292,6 +430,14 @@ export default function Home() {
         </div>
       </header>
 
+      {(editingCustomerId || editingProjectId || editingPaymentId || editingExpenseId || editingInventoryId || editingQuoteId) && (
+        <section className="card">
+          <h2>✏️ Λειτουργία επεξεργασίας</h2>
+          <p>Έχεις ανοίξει μια εγγραφή για αλλαγές. Κάνε τις αλλαγές στη φόρμα και πάτα αποθήκευση.</p>
+          <button onClick={cancelEdits}>Ακύρωση επεξεργασίας</button>
+        </section>
+      )}
+
       <section className="card">
         <h2>Dashboard</h2>
         <div className="grid">
@@ -323,16 +469,16 @@ export default function Home() {
       </section>
 
       <section className="card">
-        <h2>Νέος Πελάτης</h2>
+        <h2>{editingCustomerId ? 'Επεξεργασία Πελάτη' : 'Νέος Πελάτης'}</h2>
         <input placeholder="Όνομα πελάτη" value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} />
         <input placeholder="Τηλέφωνο" value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} />
         <input placeholder="Περιοχή" value={newCustomer.area} onChange={(e) => setNewCustomer({ ...newCustomer, area: e.target.value })} />
         <textarea placeholder="Σημειώσεις" value={newCustomer.notes} onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })} />
-        <button onClick={addCustomer}>Αποθήκευση πελάτη</button>
+        <button onClick={saveCustomer}>{editingCustomerId ? 'Αποθήκευση αλλαγών πελάτη' : 'Αποθήκευση πελάτη'}</button>
       </section>
 
       <section className="card">
-        <h2>Νέο Έργο</h2>
+        <h2>{editingProjectId ? 'Επεξεργασία Έργου' : 'Νέο Έργο'}</h2>
         <input placeholder="Τίτλος έργου" value={newProject.title} onChange={(e) => setNewProject({ ...newProject, title: e.target.value })} />
         <input placeholder="Διεύθυνση" value={newProject.address} onChange={(e) => setNewProject({ ...newProject, address: e.target.value })} />
         <input placeholder="Περιοχή" value={newProject.area} onChange={(e) => setNewProject({ ...newProject, area: e.target.value })} />
@@ -342,11 +488,11 @@ export default function Home() {
           <option value="pending">Σε αναμονή</option>
           <option value="completed">Ολοκληρωμένο</option>
         </select>
-        <button onClick={addProject}>Αποθήκευση έργου</button>
+        <button onClick={saveProject}>{editingProjectId ? 'Αποθήκευση αλλαγών έργου' : 'Αποθήκευση έργου'}</button>
       </section>
 
       <section className="card">
-        <h2>Νέα Πληρωμή</h2>
+        <h2>{editingPaymentId ? 'Επεξεργασία Πληρωμής' : 'Νέα Πληρωμή'}</h2>
         <select value={newPayment.project_id} onChange={(e) => setNewPayment({ ...newPayment, project_id: e.target.value })}>
           <option value="">Διάλεξε έργο</option>
           {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
@@ -360,11 +506,11 @@ export default function Home() {
           <option value="Επιταγή">Επιταγή</option>
         </select>
         <textarea placeholder="Σημειώσεις" value={newPayment.notes} onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })} />
-        <button onClick={addPayment}>Αποθήκευση πληρωμής</button>
+        <button onClick={savePayment}>{editingPaymentId ? 'Αποθήκευση αλλαγών πληρωμής' : 'Αποθήκευση πληρωμής'}</button>
       </section>
 
       <section className="card">
-        <h2>Νέα Προσφορά</h2>
+        <h2>{editingQuoteId ? 'Επεξεργασία Προσφοράς' : 'Νέα Προσφορά'}</h2>
         <select value={newQuote.project_id} onChange={(e) => setNewQuote({ ...newQuote, project_id: e.target.value })}>
           <option value="">Διάλεξε έργο</option>
           {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
@@ -376,7 +522,12 @@ export default function Home() {
           <option value="invoice">Τιμολόγιο με ΦΠΑ / Παρακράτηση</option>
           <option value="cash">Μετρητά χωρίς ΦΠΑ</option>
         </select>
-        <button onClick={addQuote}>Αποθήκευση προσφοράς</button>
+        <select value={newQuote.status} onChange={(e) => setNewQuote({ ...newQuote, status: e.target.value })}>
+          <option value="pending">Pending</option>
+          <option value="accepted">Accepted</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <button onClick={saveQuote}>{editingQuoteId ? 'Αποθήκευση αλλαγών προσφοράς' : 'Αποθήκευση προσφοράς'}</button>
       </section>
 
       <section className="card">
@@ -391,9 +542,8 @@ export default function Home() {
             <p>Παρακράτηση: {quote.withholding}€</p>
             <p><b>Πληρωτέο: {quote.payable}€</b></p>
             <small>{quote.quote_number} — {quote.job_type} — {quote.status}</small>
-            <button onClick={(e) => { e.stopPropagation(); deleteItem('quotes', quote.id); }}>
-              🗑 Διαγραφή
-            </button>
+            <button onClick={(e) => { e.stopPropagation(); editQuote(quote); }}>✏️ Επεξεργασία</button>
+            <button onClick={(e) => { e.stopPropagation(); deleteItem('quotes', quote.id); }}>🗑 Διαγραφή</button>
           </div>
         ))}
       </section>
@@ -428,7 +578,7 @@ export default function Home() {
       )}
 
       <section className="card">
-        <h2>Νέο Έξοδο</h2>
+        <h2>{editingExpenseId ? 'Επεξεργασία Εξόδου' : 'Νέο Έξοδο'}</h2>
         <select value={newExpense.project_id} onChange={(e) => setNewExpense({ ...newExpense, project_id: e.target.value })}>
           <option value="">Διάλεξε έργο</option>
           {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
@@ -442,16 +592,16 @@ export default function Home() {
           <option value="Άλλο">Άλλο</option>
         </select>
         <textarea placeholder="Σημειώσεις" value={newExpense.notes} onChange={(e) => setNewExpense({ ...newExpense, notes: e.target.value })} />
-        <button onClick={addExpense}>Αποθήκευση εξόδου</button>
+        <button onClick={saveExpense}>{editingExpenseId ? 'Αποθήκευση αλλαγών εξόδου' : 'Αποθήκευση εξόδου'}</button>
       </section>
 
       <section className="card">
-        <h2>Νέο Υλικό</h2>
+        <h2>{editingInventoryId ? 'Επεξεργασία Υλικού' : 'Νέο Υλικό'}</h2>
         <input placeholder="Υλικό" value={newInventory.item_name} onChange={(e) => setNewInventory({ ...newInventory, item_name: e.target.value })} />
         <input placeholder="Ποσότητα" value={newInventory.quantity} onChange={(e) => setNewInventory({ ...newInventory, quantity: e.target.value })} />
         <input placeholder="Ελάχιστο απόθεμα" value={newInventory.min_quantity} onChange={(e) => setNewInventory({ ...newInventory, min_quantity: e.target.value })} />
         <input placeholder="Τιμή αγοράς" value={newInventory.purchase_price} onChange={(e) => setNewInventory({ ...newInventory, purchase_price: e.target.value })} />
-        <button onClick={addInventory}>Αποθήκευση υλικού</button>
+        <button onClick={saveInventory}>{editingInventoryId ? 'Αποθήκευση αλλαγών υλικού' : 'Αποθήκευση υλικού'}</button>
       </section>
 
       <section className="card">
@@ -462,6 +612,7 @@ export default function Home() {
             <p>{customer.phone}</p>
             <p>{customer.area}</p>
             <small>{customer.notes}</small>
+            <button onClick={() => editCustomer(customer)}>✏️ Επεξεργασία</button>
             <button onClick={() => deleteItem('customers', customer.id)}>🗑 Διαγραφή πελάτη</button>
           </div>
         ))}
@@ -484,9 +635,8 @@ export default function Home() {
               <p>Πληρώθηκε: {paid}€</p>
               <p>Έξοδα: {projectExpenses}€</p>
               <p><b>Καθαρό υπόλοιπο: {balance}€</b></p>
-              <button onClick={(e) => { e.stopPropagation(); deleteItem('projects', project.id); }}>
-                🗑 Διαγραφή έργου
-              </button>
+              <button onClick={(e) => { e.stopPropagation(); editProject(project); }}>✏️ Επεξεργασία</button>
+              <button onClick={(e) => { e.stopPropagation(); deleteItem('projects', project.id); }}>🗑 Διαγραφή έργου</button>
             </div>
           );
         })}
@@ -513,6 +663,7 @@ export default function Home() {
             <div key={expense.id} className="line">
               <p><b>{expense.title}</b> — {expense.amount}€</p>
               <small>{expense.category}</small>
+              <button onClick={() => editExpense(expense)}>✏️ Επεξεργασία</button>
               <button onClick={() => deleteItem('expenses', expense.id)}>🗑 Διαγραφή εξόδου</button>
             </div>
           ))}
@@ -542,6 +693,7 @@ export default function Home() {
               <p>Ελάχιστο: {item.min_quantity}</p>
               <p>Τιμή αγοράς: {item.purchase_price}€</p>
               {lowStock && <p><b>⚠️ Χαμηλό απόθεμα</b></p>}
+              <button onClick={() => editInventory(item)}>✏️ Επεξεργασία</button>
               <button onClick={() => deleteItem('inventory', item.id)}>🗑 Διαγραφή υλικού</button>
             </div>
           );
@@ -555,6 +707,7 @@ export default function Home() {
             <p><b>{payment.amount}€</b> — {payment.method}</p>
             <p>Έργο: {getProjectTitle(payment.project_id)}</p>
             <small>{payment.notes}</small>
+            <button onClick={() => editPayment(payment)}>✏️ Επεξεργασία</button>
             <button onClick={() => deleteItem('payments', payment.id)}>🗑 Διαγραφή πληρωμής</button>
           </div>
         ))}
