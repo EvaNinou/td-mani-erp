@@ -241,6 +241,32 @@ const [taskSearch, setTaskSearch] = useState('');
     return tasks.filter(taskMatchesSearch);
   }
 
+
+  function isCurrentMonth(dateString) {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    const now = new Date();
+    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  }
+
+  const dashboardStats = useMemo(() => {
+    const monthlyIncome = payments.filter((payment) => isCurrentMonth(payment.created_at))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+
+    const monthlyExpenses = expenses.filter((expense) => isCurrentMonth(expense.created_at))
+      .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+    const monthlyProfit = monthlyIncome - monthlyExpenses;
+    const activeProjects = projects.filter((project) => project.status === 'active').length;
+    const completedProjects = projects.filter((project) => project.status === 'completed').length;
+    const today = new Date().toISOString().split('T')[0];
+    const overdueTasks = tasks.filter((task) =>
+      task.status !== 'completed' && task.task_date && task.task_date < today
+    ).length;
+
+    return { monthlyIncome, monthlyExpenses, monthlyProfit, activeProjects, completedProjects, overdueTasks };
+  }, [payments, expenses, projects, tasks]);
+
   const totals = useMemo(() => {
     const totalProjects = projects.length;
     const totalAgreed = projects.reduce((sum, project) => sum + Number(project.agreed_amount || 0), 0);
@@ -604,16 +630,20 @@ const [taskSearch, setTaskSearch] = useState('');
       )}
 
       <section className="card">
-        <h2>Dashboard</h2>
+        <h2>Dashboard Analytics</h2>
         <div className="grid">
-          <div className="line"><p><b>{totals.totalProjects}</b></p><small>Έργα</small></div>
-          <div className="line"><p><b>{totals.totalAgreed}€</b></p><small>Συμφωνημένα</small></div>
-          <div className="line"><p><b>{totals.totalPaid}€</b></p><small>Πληρωμένα</small></div>
-          <div className="line"><p><b>{totals.totalExpenses}€</b></p><small>Έξοδα</small></div>
-          <div className="line"><p><b>{totals.totalBalance}€</b></p><small>Καθαρό υπόλοιπο</small></div>
-          <div className="line"><p><b>{totals.totalQuotes}€</b></p><small>Προσφορές</small></div>
-          <div className={totals.pendingTasks > 0 ? 'line alert' : 'line'}><p><b>{totals.pendingTasks}</b></p><small>Tasks pending</small></div>
-          <div className={totals.lowStockCount > 0 ? 'line alert' : 'line'}><p><b>{totals.lowStockCount}</b></p><small>Low stock alerts</small></div>
+          <div className="line"><p><b>{totals.totalProjects}</b></p><small>Συνολικά Έργα</small></div>
+          <div className="line"><p><b>{totals.totalBalance}€</b></p><small>Συνολικό Υπόλοιπο</small></div>
+          <div className="line"><p><b>{dashboardStats.monthlyIncome}€</b></p><small>Έσοδα Μήνα</small></div>
+          <div className="line"><p><b>{dashboardStats.monthlyExpenses}€</b></p><small>Έξοδα Μήνα</small></div>
+          <div className={dashboardStats.monthlyProfit >= 0 ? 'line' : 'line alert'}>
+            <p><b>{dashboardStats.monthlyProfit}€</b></p><small>Κέρδος Μήνα</small>
+          </div>
+          <div className="line"><p><b>{dashboardStats.activeProjects}</b></p><small>Active Projects</small></div>
+          <div className="line"><p><b>{dashboardStats.completedProjects}</b></p><small>Completed Projects</small></div>
+          <div className={dashboardStats.overdueTasks > 0 ? 'line alert' : 'line'}>
+            <p><b>{dashboardStats.overdueTasks}</b></p><small>Overdue Tasks</small>
+          </div>
         </div>
       </section>
 
