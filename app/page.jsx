@@ -21,6 +21,7 @@ const DEMO_USERS = [
 
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
+  const [activePage, setActivePage] = useState('dashboard');
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
@@ -770,7 +771,7 @@ const [taskSearch, setTaskSearch] = useState('');
 
   if (!currentUser) {
     return (
-      <main className="app">
+      <main className={`app page-${activePage}`}>
         <section className="card login-card">
           <div className="brand">
             <div className="logo">TD</div>
@@ -814,7 +815,7 @@ const [taskSearch, setTaskSearch] = useState('');
   }
 
   return (
-    <main className="app">
+    <main className={`app page-${activePage}`}>
       <header className="top">
         <div className="brand">
           <div className="logo">TD</div>
@@ -832,6 +833,16 @@ const [taskSearch, setTaskSearch] = useState('');
         </div>
       </header>
 
+      <nav className="erp-nav">
+        <button className={activePage === 'dashboard' ? 'active' : ''} onClick={() => setActivePage('dashboard')}>🏠 Dashboard</button>
+        <button className={activePage === 'customers' ? 'active' : ''} onClick={() => setActivePage('customers')}>👥 Πελάτες & Έργα</button>
+        <button className={activePage === 'finance' ? 'active' : ''} onClick={() => setActivePage('finance')}>💰 Finance</button>
+        <button className={activePage === 'tasks' ? 'active' : ''} onClick={() => setActivePage('tasks')}>📅 Tasks</button>
+        <button className={activePage === 'documents' ? 'active' : ''} onClick={() => setActivePage('documents')}>📁 Documents</button>
+        <button className={activePage === 'inventory' ? 'active' : ''} onClick={() => setActivePage('inventory')}>📦 Inventory</button>
+        <button className={activePage === 'settings' ? 'active' : ''} onClick={() => setActivePage('settings')}>⚙️ Settings</button>
+      </nav>
+
       {(editingCustomerId || editingProjectId || editingPaymentId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId || editingDocumentId) && (
         <section className="card">
           <h2>✏️ Λειτουργία επεξεργασίας</h2>
@@ -840,7 +851,7 @@ const [taskSearch, setTaskSearch] = useState('');
         </section>
       )}
 
-      <section className="card">
+      <section className="card page-section dashboard-section">
         <h2>Dashboard Analytics</h2>
         <div className="grid">
           <div className="line"><p><b>{totals.totalProjects}</b></p><small>Συνολικά Έργα</small></div>
@@ -858,7 +869,7 @@ const [taskSearch, setTaskSearch] = useState('');
         </div>
       </section>
 
-      <section className="card">
+      <section className="card page-section dashboard-section">
         <h2>🔔 Smart Alerts</h2>
 
         {riskStats.riskyProjects.length === 0 && riskStats.highBalanceProjects.length === 0 ? (
@@ -894,12 +905,12 @@ const [taskSearch, setTaskSearch] = useState('');
         )}
       </section>
 
-      <section className="card">
+      <section className="card page-section settings-section">
         <h2>Συνεργεία</h2>
         {crews.map((crew) => <p key={crew.id}><b>{crew.name}</b> — {crew.specialty}</p>)}
       </section>
 
-      <section className="card">
+      <section className="card page-section tasks-section">
         <h2>{editingTaskId ? 'Επεξεργασία Task / Ραντεβού' : 'Νέο Task / Ραντεβού'}</h2>
         <select value={newTask.project_id} onChange={(e) => setNewTask({ ...newTask, project_id: e.target.value })}>
           <option value="">Διάλεξε έργο</option>
@@ -917,7 +928,7 @@ const [taskSearch, setTaskSearch] = useState('');
         <button onClick={saveTask}>{editingTaskId ? 'Αποθήκευση αλλαγών task' : 'Αποθήκευση task'}</button>
       </section>
 
-      <section className="card">
+      <section className="card page-section tasks-section">
         <h2>Calendar / Tasks</h2>
 
         <input
@@ -945,7 +956,7 @@ const [taskSearch, setTaskSearch] = useState('');
         )}
       </section>
 
-      <section className="card">
+      <section className="card page-section documents-section">
         <h2>{editingDocumentId ? 'Επεξεργασία Αρχείου / Παραστατικού' : 'Νέο Αρχείο / Παραστατικό'}</h2>
 
         <select
@@ -992,7 +1003,7 @@ const [taskSearch, setTaskSearch] = useState('');
         <button onClick={saveDocument}>{editingDocumentId ? 'Αποθήκευση αλλαγών αρχείου' : 'Αποθήκευση αρχείου'}</button>
       </section>
 
-      <section className="card">
+      <section className="card page-section customers-section">
         <h2>{editingCustomerId ? 'Επεξεργασία Πελάτη' : 'Νέος Πελάτης'}</h2>
         <input placeholder="Όνομα πελάτη" value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} />
         <input placeholder="Τηλέφωνο" value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} />
@@ -1001,7 +1012,7 @@ const [taskSearch, setTaskSearch] = useState('');
         <button onClick={saveCustomer}>{editingCustomerId ? 'Αποθήκευση αλλαγών πελάτη' : 'Αποθήκευση πελάτη'}</button>
       </section>
 
-      <section className="card">
+      <section className="card page-section customers-section">
         <h2>{editingProjectId ? 'Επεξεργασία Έργου' : 'Νέο Έργο'}</h2>
         <select value={newProject.customer_id} onChange={(e) => setNewProject({ ...newProject, customer_id: e.target.value })}>
           <option value="">Διάλεξε πελάτη</option>
@@ -1019,7 +1030,7 @@ const [taskSearch, setTaskSearch] = useState('');
         <button onClick={saveProject}>{editingProjectId ? 'Αποθήκευση αλλαγών έργου' : 'Αποθήκευση έργου'}</button>
       </section>
 
-      <section className="card">
+      <section className="card page-section finance-section">
         <h2>{editingPaymentId ? 'Επεξεργασία Πληρωμής' : 'Νέα Πληρωμή'}</h2>
         <select
           value={newPayment.customer_id}
@@ -1057,7 +1068,7 @@ const [taskSearch, setTaskSearch] = useState('');
         <button onClick={savePayment}>{editingPaymentId ? 'Αποθήκευση αλλαγών πληρωμής' : 'Αποθήκευση πληρωμής'}</button>
       </section>
 
-      <section className="card">
+      <section className="card page-section finance-section">
         <h2>{editingQuoteId ? 'Επεξεργασία Προσφοράς' : 'Νέα Προσφορά'}</h2>
         <select value={newQuote.project_id} onChange={(e) => setNewQuote({ ...newQuote, project_id: e.target.value })}>
           <option value="">Διάλεξε έργο</option>
@@ -1078,7 +1089,7 @@ const [taskSearch, setTaskSearch] = useState('');
         <button onClick={saveQuote}>{editingQuoteId ? 'Αποθήκευση αλλαγών προσφοράς' : 'Αποθήκευση προσφοράς'}</button>
       </section>
 
-      <section className="card">
+      <section className="card page-section finance-section">
         <h2>Προσφορές</h2>
         {quotes.length === 0 ? <p>Δεν υπάρχουν προσφορές ακόμα.</p> : quotes.map((quote) => (
           <div key={quote.id} className="line" onClick={() => setSelectedQuote(quote)}>
@@ -1097,7 +1108,7 @@ const [taskSearch, setTaskSearch] = useState('');
       </section>
 
       {selectedQuote && (
-        <section className="card print-area">
+        <section className="card print-area page-section finance-section">
           <div className="pdf-header">
             <div className="logo pdf-logo">TD</div>
             <div>
@@ -1126,7 +1137,7 @@ const [taskSearch, setTaskSearch] = useState('');
       )}
 
       {selectedCustomerReport && (
-        <section className="card print-area">
+        <section className="card print-area page-section customers-section">
           <div className="pdf-header">
             <div className="logo pdf-logo">TD</div>
             <div>
@@ -1226,7 +1237,7 @@ const [taskSearch, setTaskSearch] = useState('');
         </section>
       )}
 
-      <section className="card">
+      <section className="card page-section finance-section">
         <h2>{editingExpenseId ? 'Επεξεργασία Εξόδου' : 'Νέο Έξοδο'}</h2>
         <select
           value={newExpense.customer_id}
@@ -1257,7 +1268,7 @@ const [taskSearch, setTaskSearch] = useState('');
         <button onClick={saveExpense}>{editingExpenseId ? 'Αποθήκευση αλλαγών εξόδου' : 'Αποθήκευση εξόδου'}</button>
       </section>
 
-      <section className="card">
+      <section className="card page-section inventory-section">
         <h2>{editingInventoryId ? 'Επεξεργασία Υλικού' : 'Νέο Υλικό'}</h2>
         <input placeholder="Υλικό" value={newInventory.item_name} onChange={(e) => setNewInventory({ ...newInventory, item_name: e.target.value })} />
         <input placeholder="Ποσότητα" value={newInventory.quantity} onChange={(e) => setNewInventory({ ...newInventory, quantity: e.target.value })} />
@@ -1266,7 +1277,7 @@ const [taskSearch, setTaskSearch] = useState('');
         <button onClick={saveInventory}>{editingInventoryId ? 'Αποθήκευση αλλαγών υλικού' : 'Αποθήκευση υλικού'}</button>
       </section>
 
-      <section className="card">
+      <section className="card page-section customers-section">
         <h2>Πελάτες & Έργα</h2>
 
         <input
@@ -1348,7 +1359,7 @@ const [taskSearch, setTaskSearch] = useState('');
       </section>
 
       {selectedProject && (
-        <section className="card print-area">
+        <section className="card print-area page-section customers-section">
           <div className="pdf-header">
             <div className="logo pdf-logo">TD</div>
             <div>
@@ -1437,7 +1448,7 @@ const [taskSearch, setTaskSearch] = useState('');
         </section>
       )}
 
-      <section className="card">
+      <section className="card page-section documents-section">
         <h2>Αρχεία / Παραστατικά</h2>
         {documents.length === 0 ? (
           <p>Δεν υπάρχουν αρχεία ακόμα.</p>
@@ -1458,7 +1469,7 @@ const [taskSearch, setTaskSearch] = useState('');
         )}
       </section>
 
-      <section className="card">
+      <section className="card page-section inventory-section">
         <h2>Αποθήκη</h2>
         {inventory.length === 0 ? <p>Δεν υπάρχουν υλικά ακόμα.</p> : inventory.map((item) => {
           const lowStock = Number(item.quantity || 0) <= Number(item.min_quantity || 0);
@@ -1477,7 +1488,7 @@ const [taskSearch, setTaskSearch] = useState('');
         })}
       </section>
 
-      <section className="card">
+      <section className="card page-section finance-section">
         <h2 onClick={() => setShowPayments(!showPayments)}>
           💰 Πληρωμές {showPayments ? '▲' : '▼'}
         </h2>
