@@ -12,7 +12,7 @@ const INITIAL_INVENTORY = { item_name: '', quantity: '', min_quantity: '', purch
 const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal: '', job_type: 'invoice', status: 'pending' };
 const INITIAL_TASK = { project_id: '', title: '', task_date: '', task_time: '', status: 'pending', notes: '' };
 const INITIAL_DOCUMENT = { customer_id: '', project_id: '', title: '', document_type: 'Τιμολόγιο', file_url: '', notes: '' };
-const INITIAL_CUSTOMER_INVOICE = { customer_id: '', project_id: '', invoice_date: '', invoice_number: '', description: '', net_amount: '', notes: '' };
+const INITIAL_CUSTOMER_INVOICE = { customer_id: '', project_id: '', invoice_date: '', invoice_number: '', description: '', net_amount: '', is_paid_on_issue: 'no', payment_date: '', payment_method: 'Τράπεζα', notes: '' };
 const INITIAL_SUPPLIER = { name: '', afm: '', phone: '', email: '', address: '', notes: '' };
 const INITIAL_SUPPLIER_INVOICE = { supplier_id: '', project_id: '', expense_category: '', invoice_date: '', invoice_number: '', description: '', net_amount: '', vat_amount: '', total_amount: '', notes: '' };
 const INITIAL_SUPPLIER_PAYMENT = { supplier_id: '', supplier_invoice_id: '', payment_date: '', amount: '', method: 'Τράπεζα', notes: '' };
@@ -435,6 +435,7 @@ const [projectSearch, setProjectSearch] = useState('');
 const [taskSearch, setTaskSearch] = useState('');
 const [supplierSearch, setSupplierSearch] = useState('');
 const [customerInvoiceSearch, setCustomerInvoiceSearch] = useState('');
+const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
   
   const [editingCustomerId, setEditingCustomerId] = useState(null);
   const [editingProjectId, setEditingProjectId] = useState(null);
@@ -767,6 +768,20 @@ const [customerInvoiceSearch, setCustomerInvoiceSearch] = useState('');
     return customerInvoices.filter(isActiveItem).filter(customerInvoiceMatchesSearch);
   }
 
+  function paymentCustomerMatchesSearch(customer) {
+    const search = normalizeText(paymentCustomerSearch);
+    if (!search) return true;
+
+    return [
+      customer.name,
+      customer.afm
+    ].some((value) => normalizeText(value).includes(search));
+  }
+
+  function getVisiblePaymentCustomers() {
+    return customers.filter(isActiveItem).filter(paymentCustomerMatchesSearch);
+  }
+
   function getProjectPayments(projectId) {
     return payments.filter((payment) => payment.project_id === projectId && isActiveItem(payment));
   }
@@ -1050,6 +1065,7 @@ const [customerInvoiceSearch, setCustomerInvoiceSearch] = useState('');
     }
 
     const { net, vat, withholding, total, receivable } = calculateCustomerInvoiceValues(newCustomerInvoice);
+    const isPaidOnIssue = newCustomerInvoice.is_paid_on_issue === 'yes';
 
     const payload = {
       customer_id: newCustomerInvoice.customer_id,
@@ -1062,19 +1078,75 @@ const [customerInvoiceSearch, setCustomerInvoiceSearch] = useState('');
       withholding_amount: withholding,
       total_amount: total,
       receivable_amount: receivable,
+      is_paid_on_issue: isPaidOnIssue,
+      payment_date: isPaidOnIssue ? (newCustomerInvoice.payment_date || newCustomerInvoice.invoice_date) : null,
+      payment_method: isPaidOnIssue ? newCustomerInvoice.payment_method : null,
       notes: newCustomerInvoice.notes
     };
 
-    const query = editingCustomerInvoiceId
-      ? supabase.from('customer_invoices').update(payload).eq('id', editingCustomerInvoiceId)
-      : supabase.from('customer_invoices').insert([payload]);
+    let savedInvoiceId = editingCustomerInvoiceId;
 
-    const { error } = await query;
-    if (error) return alert(error.message);
+    if (editingCustomerInvoiceId) {
+      const { error } = await supabase
+        .from('customer_invoices')
+        .update(payload)
+        .eq('id', editingCustomerInvoiceId);
+
+      if (error) return alert(error.message);
+    } else {
+      const { data, error } = await supabase
+        .from('customer_invoices')
+        .insert([payload])
+        .select()
+        .single();
+
+      if (error) return alert(error.message);
+      savedInvoiceId = data.id;
+    }
+
+    const existingAutoPayment = payments.find(
+      (payment) =>
+        payment.customer_invoice_id === savedInvoiceId &&
+        String(payment.notes || '').includes('Αυτόματη πληρωμή από τιμολόγιο εσόδου')
+    );
+
+    if (isPaidOnIssue) {
+      const paymentPayload = {
+        project_id: newCustomerInvoice.project_id || null,
+        customer_invoice_id: savedInvoiceId,
+        amount: receivable,
+        payment_date: newCustomerInvoice.payment_date || newCustomerInvoice.invoice_date,
+        method: newCustomerInvoice.payment_method,
+        payment_type: 'income',
+        notes: `Αυτόματη πληρωμή από τιμολόγιο εσόδου${newCustomerInvoice.invoice_number ? ` ${newCustomerInvoice.invoice_number}` : ''}`
+      };
+
+      if (existingAutoPayment) {
+        const { error: paymentError } = await supabase
+          .from('payments')
+          .update(paymentPayload)
+          .eq('id', existingAutoPayment.id);
+
+        if (paymentError) return alert(paymentError.message);
+      } else {
+        const { error: paymentError } = await supabase
+          .from('payments')
+          .insert([paymentPayload]);
+
+        if (paymentError) return alert(paymentError.message);
+      }
+    } else if (existingAutoPayment) {
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .update({ is_deleted: true })
+        .eq('id', existingAutoPayment.id);
+
+      if (paymentError) return alert(paymentError.message);
+    }
 
     setNewCustomerInvoice(INITIAL_CUSTOMER_INVOICE);
     setEditingCustomerInvoiceId(null);
-    loadCustomerInvoices();
+    await Promise.all([loadCustomerInvoices(), loadPayments()]);
   }
 
   async function saveExpense() {
@@ -1417,6 +1489,9 @@ const [customerInvoiceSearch, setCustomerInvoiceSearch] = useState('');
       invoice_number: invoice.invoice_number || '',
       description: invoice.description || '',
       net_amount: String(invoice.net_amount || ''),
+      is_paid_on_issue: invoice.is_paid_on_issue ? 'yes' : 'no',
+      payment_date: invoice.payment_date || invoice.invoice_date || '',
+      payment_method: invoice.payment_method || 'Τράπεζα',
       notes: invoice.notes || ''
     });
     setEditingCustomerInvoiceId(invoice.id);
@@ -1965,6 +2040,37 @@ const [customerInvoiceSearch, setCustomerInvoiceSearch] = useState('');
           <p>Καθαρό εισπρακτέο: <b>{calculateCustomerInvoiceValues(newCustomerInvoice).receivable}€</b></p>
         </div>
 
+        <select
+          value={newCustomerInvoice.is_paid_on_issue}
+          onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, is_paid_on_issue: e.target.value })}
+        >
+          <option value="no">Δεν πληρώθηκε με την έκδοση</option>
+          <option value="yes">Πληρώθηκε με την έκδοση</option>
+        </select>
+
+        {newCustomerInvoice.is_paid_on_issue === 'yes' && (
+          <>
+            <input
+              type="date"
+              value={newCustomerInvoice.payment_date}
+              onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, payment_date: e.target.value })}
+            />
+
+            <select
+              value={newCustomerInvoice.payment_method}
+              onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, payment_method: e.target.value })}
+            >
+              <option value="Μετρητά">Μετρητά</option>
+              <option value="Τράπεζα">Τράπεζα</option>
+              <option value="IRIS">IRIS</option>
+              <option value="POS">POS</option>
+              <option value="Επιταγή">Επιταγή</option>
+            </select>
+
+            <small>Θα δημιουργηθεί αυτόματα είσπραξη με το καθαρό εισπρακτέο ποσό.</small>
+          </>
+        )}
+
         <textarea placeholder="Σημειώσεις" value={newCustomerInvoice.notes} onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, notes: e.target.value })} />
 
         <button onClick={saveCustomerInvoice}>{editingCustomerInvoiceId ? 'Αποθήκευση αλλαγών τιμολογίου' : 'Αποθήκευση τιμολογίου'}</button>
@@ -1994,6 +2100,9 @@ const [customerInvoiceSearch, setCustomerInvoiceSearch] = useState('');
               <p>Σύνολο: {invoice.total_amount || 0}€</p>
               <p>Πληρωμένα: {getCustomerInvoicePaid(invoice.id)}€</p>
               <p>Status: <b>{getCustomerInvoiceStatus(invoice)}</b></p>
+              {invoice.is_paid_on_issue && (
+                <p>Πληρώθηκε με την έκδοση: {invoice.payment_date || '-'} — {invoice.payment_method || '-'}</p>
+              )}
               <small>{invoice.description || invoice.notes}</small>
               <button onClick={() => editCustomerInvoice(invoice)}>✏️ Επεξεργασία</button>
               <button onClick={() => deleteItem('customer_invoices', invoice.id)}>🗑 Διαγραφή τιμολογίου</button>
@@ -2004,17 +2113,23 @@ const [customerInvoiceSearch, setCustomerInvoiceSearch] = useState('');
 
       <section className="card page-section finance-section">
         <h2>{editingPaymentId ? 'Επεξεργασία Πληρωμής' : 'Νέα Πληρωμή'}</h2>
+        <input
+          placeholder="Αναζήτηση πελάτη με ΑΦΜ ή όνομα..."
+          value={paymentCustomerSearch}
+          onChange={(e) => setPaymentCustomerSearch(e.target.value)}
+        />
+
         <select
           value={newPayment.customer_id}
-          onChange={(e) => setNewPayment({ ...newPayment, customer_id: e.target.value, project_id: '' })}
+          onChange={(e) => setNewPayment({ ...newPayment, customer_id: e.target.value, project_id: '', customer_invoice_id: '' })}
         >
           <option value="">Διάλεξε πελάτη</option>
-          {customers.filter(isActiveItem).map((customer) => (
-            <option key={customer.id} value={customer.id}>{customer.name}</option>
+          {getVisiblePaymentCustomers().map((customer) => (
+            <option key={customer.id} value={customer.id}>{customer.name} — ΑΦΜ: {customer.afm || '-'}</option>
           ))}
         </select>
 
-        <select value={newPayment.project_id} onChange={(e) => setNewPayment({ ...newPayment, project_id: e.target.value })}>
+        <select value={newPayment.project_id} onChange={(e) => setNewPayment({ ...newPayment, project_id: e.target.value, customer_invoice_id: '' })}>
           <option value="">Διάλεξε έργο πελάτη</option>
           {getFilteredProjectsByCustomer(newPayment.customer_id).map((project) => (
             <option key={project.id} value={project.id}>{project.title}</option>
@@ -2693,6 +2808,7 @@ const [customerInvoiceSearch, setCustomerInvoiceSearch] = useState('');
                 <div key={payment.id} className="line">
                   <p><b>{payment.amount}€</b> — {payment.method}</p>
                   <p>Έργο: {getProjectTitle(payment.project_id)}</p>
+                  <p>Τιμολόγιο: {payment.customer_invoice_id ? (customerInvoices.find((invoice) => invoice.id === payment.customer_invoice_id)?.invoice_number || 'Συνδεδεμένο') : 'Χωρίς σύνδεση'}</p>
                   <p>Ημερομηνία: {payment.payment_date || '-'}</p>
                   <small>{payment.notes}</small>
                   <button onClick={() => editPayment(payment)}>✏️ Επεξεργασία</button>
