@@ -519,6 +519,84 @@ hr {
 
   .page-section { display: block !important; }
 }
+
+/* FINAL SIDEBAR OVERRIDE */
+@media (min-width: 901px) {
+  body {
+    overflow-x: hidden !important;
+  }
+
+  main.app.app-with-nav {
+    width: calc(100vw - 340px) !important;
+    max-width: calc(100vw - 340px) !important;
+    margin-left: 320px !important;
+    margin-right: 20px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  main.app.app-with-nav > header.top {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    transform: none !important;
+  }
+
+  main.app.app-with-nav > nav.main-nav {
+    position: fixed !important;
+    top: 18px !important;
+    left: 18px !important;
+    bottom: 18px !important;
+    width: 260px !important;
+    max-width: 260px !important;
+    height: auto !important;
+    z-index: 999 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    padding: 18px 14px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  main.app.app-with-nav > nav.main-nav button {
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    text-align: left !important;
+  }
+
+  main.app.app-with-nav > nav.main-nav .nav-more {
+    display: none !important;
+  }
+}
+
+@media (max-width: 900px) {
+  main.app.app-with-nav {
+    width: min(1280px, 100%) !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding-bottom: 92px !important;
+  }
+
+  main.app.app-with-nav > nav.main-nav {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    top: auto !important;
+    width: auto !important;
+    max-width: none !important;
+    z-index: 999 !important;
+  }
+}
+
 `;
 
 
