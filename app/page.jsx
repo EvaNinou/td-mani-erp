@@ -373,28 +373,36 @@ hr {
 
 /* Desktop sidebar + mobile bottom navigation */
 @media (min-width: 901px) {
-  .app-with-nav {
-    width: calc(100% - 320px) !important;
+  body {
+    overflow-x: hidden;
+  }
+
+  .app.app-with-nav {
+    width: auto !important;
     max-width: none !important;
-    margin-left: 300px !important;
-    margin-right: 20px !important;
-    padding-left: 0 !important;
-    padding-right: 20px !important;
+    margin: 0 24px 0 300px !important;
+    padding: 16px 0 24px !important;
+  }
+
+  .app.app-with-nav > .top {
+    position: static !important;
+    width: 100% !important;
+    margin: 0 0 16px !important;
   }
 
   .main-nav {
-    position: fixed;
-    top: 18px;
-    left: 18px;
-    bottom: 18px;
-    width: 250px;
+    position: fixed !important;
+    top: 18px !important;
+    left: 18px !important;
+    bottom: 18px !important;
+    width: 250px !important;
     z-index: 40;
     display: flex !important;
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
-    margin: 0;
-    padding: 18px 14px;
+    margin: 0 !important;
+    padding: 18px 14px !important;
     overflow-y: auto;
     overflow-x: hidden;
     background: rgba(13,13,15,0.96) !important;
@@ -415,21 +423,16 @@ hr {
   }
 
   .main-nav button {
-    width: 100%;
-    min-width: 0;
-    margin: 0;
-    padding: 12px 13px;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 12px 13px !important;
     text-align: left;
     border-radius: 14px;
   }
 
   .main-nav .nav-more {
-    display: none;
-  }
-
-  .top {
-    position: sticky;
-    top: 14px;
+    display: none !important;
   }
 }
 
