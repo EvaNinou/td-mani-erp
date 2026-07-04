@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabaseClient.js';
 import './styles.css';
 
-const INITIAL_CUSTOMER = { name: '', phone: '', area: '', notes: '' };
+const INITIAL_CUSTOMER = { name: '', afm: '', phone: '', area: '', notes: '' };
 const INITIAL_PROJECT = { customer_id: '', title: '', address: '', area: '', agreed_amount: '', status: 'active' };
-const INITIAL_PAYMENT = { customer_id: '', project_id: '', amount: '', payment_date: '', method: 'Μετρητά', notes: '' };
+const INITIAL_PAYMENT = { customer_id: '', project_id: '', customer_invoice_id: '', amount: '', payment_date: '', method: 'Μετρητά', notes: '' };
 const INITIAL_EXPENSE = { customer_id: '', project_id: '', title: '', amount: '', category: 'Υλικά', notes: '' };
 const INITIAL_INVENTORY = { item_name: '', quantity: '', min_quantity: '', purchase_price: '' };
 const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal: '', job_type: 'invoice', status: 'pending' };
 const INITIAL_TASK = { project_id: '', title: '', task_date: '', task_time: '', status: 'pending', notes: '' };
 const INITIAL_DOCUMENT = { customer_id: '', project_id: '', title: '', document_type: 'Τιμολόγιο', file_url: '', notes: '' };
+const INITIAL_CUSTOMER_INVOICE = { customer_id: '', project_id: '', invoice_date: '', invoice_number: '', description: '', net_amount: '', notes: '' };
 const INITIAL_SUPPLIER = { name: '', afm: '', phone: '', email: '', address: '', notes: '' };
 const INITIAL_SUPPLIER_INVOICE = { supplier_id: '', project_id: '', expense_category: '', invoice_date: '', invoice_number: '', description: '', net_amount: '', vat_amount: '', total_amount: '', notes: '' };
 const INITIAL_SUPPLIER_PAYMENT = { supplier_id: '', supplier_invoice_id: '', payment_date: '', amount: '', method: 'Τράπεζα', notes: '' };
@@ -299,6 +300,7 @@ hr {
 .page-dashboard .dashboard-section,
 .page-customers .customers-section,
 .page-finance .finance-section,
+.page-customer-invoices .customer-invoices-section,
 .page-tasks .tasks-section,
 .page-documents .documents-section,
 .page-suppliers .suppliers-section,
@@ -411,6 +413,7 @@ export default function Home() {
   const [customers, setCustomers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [customerInvoices, setCustomerInvoices] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [quotes, setQuotes] = useState([]);
@@ -431,10 +434,12 @@ const [customerSearch, setCustomerSearch] = useState('');
 const [projectSearch, setProjectSearch] = useState('');
 const [taskSearch, setTaskSearch] = useState('');
 const [supplierSearch, setSupplierSearch] = useState('');
+const [customerInvoiceSearch, setCustomerInvoiceSearch] = useState('');
   
   const [editingCustomerId, setEditingCustomerId] = useState(null);
   const [editingProjectId, setEditingProjectId] = useState(null);
   const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [editingCustomerInvoiceId, setEditingCustomerInvoiceId] = useState(null);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [editingInventoryId, setEditingInventoryId] = useState(null);
   const [editingQuoteId, setEditingQuoteId] = useState(null);
@@ -447,6 +452,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
   const [newCustomer, setNewCustomer] = useState(INITIAL_CUSTOMER);
   const [newProject, setNewProject] = useState(INITIAL_PROJECT);
   const [newPayment, setNewPayment] = useState(INITIAL_PAYMENT);
+  const [newCustomerInvoice, setNewCustomerInvoice] = useState(INITIAL_CUSTOMER_INVOICE);
   const [newExpense, setNewExpense] = useState(INITIAL_EXPENSE);
   const [newInventory, setNewInventory] = useState(INITIAL_INVENTORY);
   const [newQuote, setNewQuote] = useState(INITIAL_QUOTE);
@@ -467,6 +473,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
       loadCustomers(),
       loadProjects(),
       loadPayments(),
+      loadCustomerInvoices(),
       loadExpenses(),
       loadInventory(),
       loadQuotes(),
@@ -496,6 +503,11 @@ const [supplierSearch, setSupplierSearch] = useState('');
   async function loadPayments() {
     const { data } = await supabase.from('payments').select('*').order('created_at', { ascending: false });
     setPayments(data || []);
+  }
+
+  async function loadCustomerInvoices() {
+    const { data } = await supabase.from('customer_invoices').select('*').order('invoice_date', { ascending: false });
+    setCustomerInvoices(data || []);
   }
 
   async function loadExpenses() {
@@ -541,6 +553,53 @@ const [supplierSearch, setSupplierSearch] = useState('');
   function getCustomerName(customerId) {
     return customers.find((customer) => customer.id === customerId)?.name || 'Χωρίς πελάτη';
   }
+
+  function getCustomerAfm(customerId) {
+    return customers.find((customer) => customer.id === customerId)?.afm || '-';
+  }
+
+  function getCustomerInvoices(customerId) {
+    return customerInvoices.filter((invoice) => invoice.customer_id === customerId && isActiveItem(invoice));
+  }
+
+  function getProjectCustomerInvoices(projectId) {
+    return customerInvoices.filter((invoice) => invoice.project_id === projectId && isActiveItem(invoice));
+  }
+
+  function getCustomerInvoicePayments(invoiceId) {
+    return payments.filter((payment) => payment.customer_invoice_id === invoiceId && isActiveItem(payment));
+  }
+
+  function getCustomerInvoicePaid(invoiceId) {
+    return getCustomerInvoicePayments(invoiceId)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  }
+
+  function getCustomerInvoiceStatus(invoice) {
+    const paid = getCustomerInvoicePaid(invoice.id);
+    const receivable = Number(invoice.receivable_amount || 0);
+
+    if (paid <= 0) return 'Απλήρωτο';
+    if (paid < receivable) return 'Μερικώς πληρωμένο';
+    return 'Εξοφλημένο';
+  }
+
+  function calculateCustomerInvoiceValues(invoiceForm) {
+    const net = Number(invoiceForm.net_amount || 0);
+    const vat = net * 0.24;
+    const withholding = net * 0.03;
+    const total = net + vat;
+    const receivable = total - withholding;
+
+    return {
+      net,
+      vat,
+      withholding,
+      total,
+      receivable
+    };
+  }
+
 
   function getCustomerProjects(customerId) {
     return projects.filter((project) => project.customer_id === customerId && isActiveItem(project));
@@ -694,6 +753,20 @@ const [supplierSearch, setSupplierSearch] = useState('');
     return suppliers.filter(supplierMatchesSearch);
   }
 
+  function customerInvoiceMatchesSearch(invoice) {
+    const search = normalizeText(customerInvoiceSearch);
+    if (!search) return true;
+
+    return [
+      getCustomerName(invoice.customer_id),
+      getCustomerAfm(invoice.customer_id)
+    ].some((value) => normalizeText(value).includes(search));
+  }
+
+  function getVisibleCustomerInvoices() {
+    return customerInvoices.filter(isActiveItem).filter(customerInvoiceMatchesSearch);
+  }
+
   function getProjectPayments(projectId) {
     return payments.filter((payment) => payment.project_id === projectId && isActiveItem(payment));
   }
@@ -729,6 +802,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
         projectExpensesList: expenses.filter((expense) => expense.project_id === project.id && isActiveItem(expense)),
         projectQuotes: getProjectQuotes(project.id),
         projectTasks: getProjectTasks(project.id),
+        projectCustomerInvoices: getProjectCustomerInvoices(project.id),
         projectDocuments: getProjectDocuments(project.id),
         projectSupplierInvoices: getProjectSupplierInvoices(project.id)
       };
@@ -766,6 +840,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
     const search = normalizeText(customerSearch);
     const customerTextMatches = !search || [
       customer.name,
+      customer.afm,
       customer.phone,
       customer.area,
       customer.notes
@@ -946,6 +1021,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
     const payload = {
       project_id: newPayment.project_id,
+      customer_invoice_id: newPayment.customer_invoice_id || null,
       amount: Number(newPayment.amount || 0),
       payment_date: newPayment.payment_date || null,
       method: newPayment.method,
@@ -961,8 +1037,44 @@ const [supplierSearch, setSupplierSearch] = useState('');
     if (error) return alert(error.message);
 
     setNewPayment(INITIAL_PAYMENT);
+    setNewCustomerInvoice(INITIAL_CUSTOMER_INVOICE);
     setEditingPaymentId(null);
+    setEditingCustomerInvoiceId(null);
     loadPayments();
+  }
+
+  async function saveCustomerInvoice() {
+    if (!newCustomerInvoice.customer_id || !newCustomerInvoice.invoice_date || !newCustomerInvoice.net_amount) {
+      alert('Διάλεξε πελάτη, ημερομηνία και καθαρή αξία τιμολογίου');
+      return;
+    }
+
+    const { net, vat, withholding, total, receivable } = calculateCustomerInvoiceValues(newCustomerInvoice);
+
+    const payload = {
+      customer_id: newCustomerInvoice.customer_id,
+      project_id: newCustomerInvoice.project_id || null,
+      invoice_date: newCustomerInvoice.invoice_date,
+      invoice_number: newCustomerInvoice.invoice_number,
+      description: newCustomerInvoice.description,
+      net_amount: net,
+      vat_amount: vat,
+      withholding_amount: withholding,
+      total_amount: total,
+      receivable_amount: receivable,
+      notes: newCustomerInvoice.notes
+    };
+
+    const query = editingCustomerInvoiceId
+      ? supabase.from('customer_invoices').update(payload).eq('id', editingCustomerInvoiceId)
+      : supabase.from('customer_invoices').insert([payload]);
+
+    const { error } = await query;
+    if (error) return alert(error.message);
+
+    setNewCustomerInvoice(INITIAL_CUSTOMER_INVOICE);
+    setEditingCustomerInvoiceId(null);
+    loadCustomerInvoices();
   }
 
   async function saveExpense() {
@@ -1263,7 +1375,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
   }
 
   function editCustomer(customer) {
-    setNewCustomer({ name: customer.name || '', phone: customer.phone || '', area: customer.area || '', notes: customer.notes || '' });
+    setNewCustomer({ name: customer.name || '', afm: customer.afm || '', phone: customer.phone || '', area: customer.area || '', notes: customer.notes || '' });
     setEditingCustomerId(customer.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -1287,12 +1399,28 @@ const [supplierSearch, setSupplierSearch] = useState('');
     setNewPayment({
       customer_id: project?.customer_id || '',
       project_id: payment.project_id || '',
+      customer_invoice_id: payment.customer_invoice_id || '',
       amount: String(payment.amount || ''),
       payment_date: payment.payment_date || '',
       method: payment.method || 'Μετρητά',
       notes: payment.notes || ''
     });
     setEditingPaymentId(payment.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function editCustomerInvoice(invoice) {
+    setNewCustomerInvoice({
+      customer_id: invoice.customer_id || '',
+      project_id: invoice.project_id || '',
+      invoice_date: invoice.invoice_date || '',
+      invoice_number: invoice.invoice_number || '',
+      description: invoice.description || '',
+      net_amount: String(invoice.net_amount || ''),
+      notes: invoice.notes || ''
+    });
+    setEditingCustomerInvoiceId(invoice.id);
+    setActivePage('customer-invoices');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -1414,6 +1542,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
     setEditingCustomerId(null);
     setEditingProjectId(null);
     setEditingPaymentId(null);
+    setEditingCustomerInvoiceId(null);
     setEditingExpenseId(null);
     setEditingInventoryId(null);
     setEditingQuoteId(null);
@@ -1425,6 +1554,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
     setNewCustomer(INITIAL_CUSTOMER);
     setNewProject(INITIAL_PROJECT);
     setNewPayment(INITIAL_PAYMENT);
+    setNewCustomerInvoice(INITIAL_CUSTOMER_INVOICE);
     setNewExpense(INITIAL_EXPENSE);
     setNewInventory(INITIAL_INVENTORY);
     setNewQuote(INITIAL_QUOTE);
@@ -1467,6 +1597,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
       for (const projectId of projectIds) {
         await supabase.from('payments').delete().eq('project_id', projectId);
+        await supabase.from('customer_invoices').delete().eq('project_id', projectId);
         await supabase.from('expenses').delete().eq('project_id', projectId);
         await supabase.from('quotes').delete().eq('project_id', projectId);
         await supabase.from('tasks').delete().eq('project_id', projectId);
@@ -1479,6 +1610,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
 
     if (table === 'projects') {
       await supabase.from('payments').delete().eq('project_id', id);
+      await supabase.from('customer_invoices').delete().eq('project_id', id);
       await supabase.from('expenses').delete().eq('project_id', id);
       await supabase.from('quotes').delete().eq('project_id', id);
       await supabase.from('tasks').delete().eq('project_id', id);
@@ -1499,6 +1631,10 @@ const [supplierSearch, setSupplierSearch] = useState('');
     if (table === 'supplier_invoices') {
       await supabase.from('expenses').delete().eq('supplier_invoice_id', id);
       await supabase.from('supplier_payments').delete().eq('supplier_invoice_id', id);
+    }
+
+    if (table === 'customer_invoices') {
+      await supabase.from('payments').update({ customer_invoice_id: null }).eq('customer_invoice_id', id);
     }
 
     const { error } = await supabase.from(table).delete().eq('id', id);
@@ -1599,6 +1735,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
         <button className={activePage === 'dashboard' ? 'active' : ''} onClick={() => setActivePage('dashboard')}>🏠 Dashboard</button>
         <button className={activePage === 'customers' ? 'active' : ''} onClick={() => setActivePage('customers')}>👥 Πελάτες & Έργα</button>
         <button className={activePage === 'finance' ? 'active' : ''} onClick={() => setActivePage('finance')}>💰 Finance</button>
+        <button className={activePage === 'customer-invoices' ? 'active' : ''} onClick={() => setActivePage('customer-invoices')}>🧾 Τιμολόγια Εσόδων</button>
         <button className={activePage === 'tasks' ? 'active' : ''} onClick={() => setActivePage('tasks')}>📅 Tasks</button>
         <button className={activePage === 'documents' ? 'active' : ''} onClick={() => setActivePage('documents')}>📁 Documents</button>
         <button className={activePage === 'suppliers' ? 'active' : ''} onClick={() => setActivePage('suppliers')}>🚚 Προμηθευτές</button>
@@ -1607,7 +1744,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
         <button className={activePage === 'settings' ? 'active' : ''} onClick={() => setActivePage('settings')}>⚙️ Settings</button>
       </nav>
 
-      {(editingCustomerId || editingProjectId || editingPaymentId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId || editingDocumentId || editingSupplierId || editingSupplierInvoiceId || editingSupplierPaymentId) && (
+      {(editingCustomerId || editingProjectId || editingPaymentId || editingCustomerInvoiceId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId || editingDocumentId || editingSupplierId || editingSupplierInvoiceId || editingSupplierPaymentId) && (
         <section className="card">
           <h2>✏️ Λειτουργία επεξεργασίας</h2>
           <p>Έχεις ανοίξει μια εγγραφή για αλλαγές. Κάνε τις αλλαγές στη φόρμα και πάτα αποθήκευση.</p>
@@ -1770,6 +1907,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
       <section className="card page-section customers-section">
         <h2>{editingCustomerId ? 'Επεξεργασία Πελάτη' : 'Νέος Πελάτης'}</h2>
         <input placeholder="Όνομα πελάτη" value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} />
+        <input placeholder="ΑΦΜ" value={newCustomer.afm} onChange={(e) => setNewCustomer({ ...newCustomer, afm: e.target.value })} />
         <input placeholder="Τηλέφωνο" value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} />
         <input placeholder="Περιοχή" value={newCustomer.area} onChange={(e) => setNewCustomer({ ...newCustomer, area: e.target.value })} />
         <textarea placeholder="Σημειώσεις" value={newCustomer.notes} onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })} />
@@ -1794,6 +1932,76 @@ const [supplierSearch, setSupplierSearch] = useState('');
         <button onClick={saveProject}>{editingProjectId ? 'Αποθήκευση αλλαγών έργου' : 'Αποθήκευση έργου'}</button>
       </section>
 
+
+      <section className="card page-section customer-invoices-section">
+        <h2>{editingCustomerInvoiceId ? 'Επεξεργασία Τιμολογίου Εσόδου' : 'Νέο Τιμολόγιο Εσόδου'}</h2>
+
+        <select
+          value={newCustomerInvoice.customer_id}
+          onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, customer_id: e.target.value, project_id: '' })}
+        >
+          <option value="">Διάλεξε πελάτη</option>
+          {customers.filter(isActiveItem).map((customer) => (
+            <option key={customer.id} value={customer.id}>{customer.name} — ΑΦΜ: {customer.afm || '-'}</option>
+          ))}
+        </select>
+
+        <select value={newCustomerInvoice.project_id} onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, project_id: e.target.value })}>
+          <option value="">Χωρίς έργο / Γενικό έσοδο</option>
+          {getFilteredProjectsByCustomer(newCustomerInvoice.customer_id).map((project) => (
+            <option key={project.id} value={project.id}>{project.title}</option>
+          ))}
+        </select>
+
+        <input type="date" value={newCustomerInvoice.invoice_date} onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, invoice_date: e.target.value })} />
+        <input placeholder="Αριθμός τιμολογίου" value={newCustomerInvoice.invoice_number} onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, invoice_number: e.target.value })} />
+        <textarea placeholder="Περιγραφή" value={newCustomerInvoice.description} onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, description: e.target.value })} />
+        <input placeholder="Καθαρή αξία" value={newCustomerInvoice.net_amount} onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, net_amount: e.target.value })} />
+
+        <div className="line">
+          <p>ΦΠΑ 24%: <b>{calculateCustomerInvoiceValues(newCustomerInvoice).vat}€</b></p>
+          <p>Παρακράτηση 3%: <b>{calculateCustomerInvoiceValues(newCustomerInvoice).withholding}€</b></p>
+          <p>Σύνολο τιμολογίου: <b>{calculateCustomerInvoiceValues(newCustomerInvoice).total}€</b></p>
+          <p>Καθαρό εισπρακτέο: <b>{calculateCustomerInvoiceValues(newCustomerInvoice).receivable}€</b></p>
+        </div>
+
+        <textarea placeholder="Σημειώσεις" value={newCustomerInvoice.notes} onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, notes: e.target.value })} />
+
+        <button onClick={saveCustomerInvoice}>{editingCustomerInvoiceId ? 'Αποθήκευση αλλαγών τιμολογίου' : 'Αποθήκευση τιμολογίου'}</button>
+      </section>
+
+      <section className="card page-section customer-invoices-section">
+        <h2>Τιμολόγια Εσόδων</h2>
+
+        <input
+          placeholder="Αναζήτηση με ΑΦΜ ή όνομα πελάτη..."
+          value={customerInvoiceSearch}
+          onChange={(e) => setCustomerInvoiceSearch(e.target.value)}
+        />
+
+        {customerInvoices.filter(isActiveItem).length === 0 ? (
+          <p>Δεν υπάρχουν τιμολόγια εσόδων ακόμα.</p>
+        ) : getVisibleCustomerInvoices().length === 0 ? (
+          <p>Δεν βρέθηκαν τιμολόγια με αυτή την αναζήτηση.</p>
+        ) : (
+          getVisibleCustomerInvoices().map((invoice) => (
+            <div key={invoice.id} className={getCustomerInvoiceStatus(invoice) === 'Εξοφλημένο' ? 'line' : 'line alert'}>
+              <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.receivable_amount}€ εισπρακτέο</b></p>
+              <p>Πελάτης: {getCustomerName(invoice.customer_id)} — ΑΦΜ: {getCustomerAfm(invoice.customer_id)}</p>
+              <p>Έργο: {invoice.project_id ? getProjectTitle(invoice.project_id) : 'Χωρίς έργο / Γενικό έσοδο'}</p>
+              <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
+              <p>Καθαρή: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€ | Παρακράτηση: {invoice.withholding_amount || 0}€</p>
+              <p>Σύνολο: {invoice.total_amount || 0}€</p>
+              <p>Πληρωμένα: {getCustomerInvoicePaid(invoice.id)}€</p>
+              <p>Status: <b>{getCustomerInvoiceStatus(invoice)}</b></p>
+              <small>{invoice.description || invoice.notes}</small>
+              <button onClick={() => editCustomerInvoice(invoice)}>✏️ Επεξεργασία</button>
+              <button onClick={() => deleteItem('customer_invoices', invoice.id)}>🗑 Διαγραφή τιμολογίου</button>
+            </div>
+          ))
+        )}
+      </section>
+
       <section className="card page-section finance-section">
         <h2>{editingPaymentId ? 'Επεξεργασία Πληρωμής' : 'Νέα Πληρωμή'}</h2>
         <select
@@ -1810,6 +2018,18 @@ const [supplierSearch, setSupplierSearch] = useState('');
           <option value="">Διάλεξε έργο πελάτη</option>
           {getFilteredProjectsByCustomer(newPayment.customer_id).map((project) => (
             <option key={project.id} value={project.id}>{project.title}</option>
+          ))}
+        </select>
+
+        <select
+          value={newPayment.customer_invoice_id || ''}
+          onChange={(e) => setNewPayment({ ...newPayment, customer_invoice_id: e.target.value })}
+        >
+          <option value="">Σύνδεση με τιμολόγιο εσόδου (προαιρετικό)</option>
+          {getCustomerInvoices(newPayment.customer_id).map((invoice) => (
+            <option key={invoice.id} value={invoice.id}>
+              {invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.receivable_amount}€ — {invoice.invoice_date || '-'}
+            </option>
           ))}
         </select>
 
@@ -1914,6 +2134,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
           <hr />
 
           <h2>{selectedCustomerReport.name}</h2>
+          <p><b>ΑΦΜ:</b> {selectedCustomerReport.afm || '-'}</p>
           <p><b>Τηλέφωνο:</b> {selectedCustomerReport.phone || '-'}</p>
           <p><b>Περιοχή:</b> {selectedCustomerReport.area || '-'}</p>
           <p><b>Σημειώσεις:</b> {selectedCustomerReport.notes || '-'}</p>
@@ -1942,6 +2163,15 @@ const [supplierSearch, setSupplierSearch] = useState('');
                 <p>Πληρωμές: {row.paid}€</p>
                 <p>Έξοδα: {row.expenses}€</p>
                 <p><b>Καθαρό υπόλοιπο έργου: {row.balance}€</b></p>
+
+                <h4>Τιμολόγια Εσόδων</h4>
+                {row.projectCustomerInvoices.length === 0 ? (
+                  <p>Δεν υπάρχουν τιμολόγια εσόδων.</p>
+                ) : (
+                  row.projectCustomerInvoices.map((invoice) => (
+                    <p key={invoice.id}>• {invoice.invoice_date || '-'} — {invoice.invoice_number || '-'} — {invoice.receivable_amount}€ — {getCustomerInvoiceStatus(invoice)}</p>
+                  ))
+                )}
 
                 <h4>Πληρωμές</h4>
                 {row.payments.filter(isActiveItem).length === 0 ? (
@@ -2252,6 +2482,7 @@ const [supplierSearch, setSupplierSearch] = useState('');
               <div key={customer.id} className="line">
                 <div onClick={() => setOpenCustomerId(isOpen ? null : customer.id)}>
                   <p><b>{isOpen ? '▼' : '▶'} {customer.name}</b></p>
+                  <p>ΑΦΜ: {customer.afm || '-'}</p>
                   <p>{customer.phone}</p>
                   <p>{customer.area}</p>
                   <small>{customer.notes}</small>
@@ -2331,6 +2562,20 @@ const [supplierSearch, setSupplierSearch] = useState('');
             - getProjectPaid(selectedProject.id)
             - getProjectExpenses(selectedProject.id)
           }€</b></p>
+
+          <h3>Τιμολόγια Εσόδων έργου</h3>
+          {getProjectCustomerInvoices(selectedProject.id).length === 0 ? (
+            <p>Δεν υπάρχουν τιμολόγια εσόδων για αυτό το έργο.</p>
+          ) : (
+            getProjectCustomerInvoices(selectedProject.id).map((invoice) => (
+              <div key={invoice.id} className="line">
+                <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.receivable_amount}€ εισπρακτέο</b></p>
+                <p>Καθαρή: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€ | Παρακράτηση: {invoice.withholding_amount || 0}€</p>
+                <p>Πληρωμένα: {getCustomerInvoicePaid(invoice.id)}€</p>
+                <p>Status: <b>{getCustomerInvoiceStatus(invoice)}</b></p>
+              </div>
+            ))
+          )}
 
           <h3>Πληρωμές έργου</h3>
           {getProjectPayments(selectedProject.id).map((payment) => (
@@ -2487,6 +2732,20 @@ const [supplierSearch, setSupplierSearch] = useState('');
               <p>Πελάτης: {getCustomerName(project.customer_id)}</p>
               <button onClick={() => restoreItem('projects', project.id)}>↩️ Επαναφορά</button>
               <button onClick={() => permanentDeleteItem('projects', project.id)}>❌ Οριστική διαγραφή</button>
+            </div>
+          ))
+        )}
+
+        <h3>Τιμολόγια Εσόδων</h3>
+        {customerInvoices.filter(isDeletedItem).length === 0 ? (
+          <p>Δεν υπάρχουν διαγραμμένα τιμολόγια εσόδων.</p>
+        ) : (
+          customerInvoices.filter(isDeletedItem).map((invoice) => (
+            <div key={invoice.id} className="line">
+              <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.receivable_amount}€</b></p>
+              <p>Πελάτης: {getCustomerName(invoice.customer_id)} — ΑΦΜ: {getCustomerAfm(invoice.customer_id)}</p>
+              <button onClick={() => restoreItem('customer_invoices', invoice.id)}>↩️ Επαναφορά</button>
+              <button onClick={() => permanentDeleteItem('customer_invoices', invoice.id)}>❌ Οριστική διαγραφή</button>
             </div>
           ))
         )}
