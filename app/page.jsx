@@ -370,6 +370,100 @@ hr {
   }
 }
 
+
+/* Desktop sidebar + mobile bottom navigation */
+@media (min-width: 901px) {
+  .app-with-nav {
+    width: 100%;
+    max-width: none;
+    padding-left: 260px;
+    padding-right: 24px;
+  }
+
+  .main-nav {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    bottom: 18px;
+    width: 220px;
+    z-index: 40;
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin: 0;
+    padding: 18px 14px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: rgba(13,13,15,0.94) !important;
+    border: 1px solid rgba(214,168,79,0.22);
+    border-radius: 24px;
+    box-shadow: 0 22px 48px rgba(0,0,0,0.34);
+  }
+
+  .main-nav::before {
+    content: "TD MANI ERP";
+    display: block;
+    margin: 0 0 12px;
+    padding: 12px 10px;
+    color: var(--gold);
+    font-weight: 950;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .main-nav button {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 12px 13px;
+    text-align: left;
+    border-radius: 14px;
+  }
+
+  .top {
+    position: sticky;
+    top: 14px;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-with-nav {
+    padding-bottom: 92px;
+  }
+
+  .main-nav {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    top: auto;
+    z-index: 60;
+    display: grid !important;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(86px, 1fr);
+    gap: 8px;
+    margin: 0;
+    padding: 9px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: rgba(13,13,15,0.96) !important;
+    border: 1px solid rgba(214,168,79,0.24);
+    border-radius: 22px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.42);
+  }
+
+  .main-nav button {
+    width: auto;
+    min-width: 86px;
+    margin: 0;
+    padding: 10px 9px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+}
+
+
 @media print {
   body {
     background: white !important;
@@ -1823,7 +1917,7 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
     const progress = getProjectProgress(selectedProject.id);
 
     return (
-      <main className="app page-customers">
+      <main className="app app-with-nav page-customers">
         <style>{ERP_STYLES}</style>
 
         <header className="top">
@@ -2035,7 +2129,7 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
         </div>
       </header>
 
-      <nav className="erp-nav">
+      <nav className="erp-nav main-nav">
         <button className={activePage === 'dashboard' ? 'active' : ''} onClick={() => setActivePage('dashboard')}>🏠 Dashboard</button>
         <button className={activePage === 'customers' ? 'active' : ''} onClick={() => setActivePage('customers')}>👥 Πελάτες & Έργα</button>
         <button className={activePage === 'finance' ? 'active' : ''} onClick={() => setActivePage('finance')}>💰 Finance</button>
