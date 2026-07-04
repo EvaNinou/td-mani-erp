@@ -424,6 +424,7 @@ export default function Home() {
   const [supplierPayments, setSupplierPayments] = useState([]);
 
   const [selectedProject, setSelectedProject] = useState(null);
+  const [activeProjectTab, setActiveProjectTab] = useState('overview');
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [selectedCustomerReport, setSelectedCustomerReport] = useState(null);
   const [openCustomerId, setOpenCustomerId] = useState(null);
@@ -1720,6 +1721,33 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
 
 
 
+
+  function getProjectProgress(projectId) {
+    const project = projects.find((item) => item.id === projectId);
+    const agreed = Number(project?.agreed_amount || 0);
+    const paid = getProjectPaid(projectId);
+
+    if (!agreed) return 0;
+
+    return Math.min(100, Math.round((paid / agreed) * 100));
+  }
+
+  function getProjectStatusLabel(status) {
+    if (status === 'active') return '🟢 Ενεργό';
+    if (status === 'pending') return '🟡 Pending';
+    if (status === 'completed') return '🔵 Ολοκληρωμένο';
+    if (status === 'problem') return '🔴 Πρόβλημα';
+    return status || '-';
+  }
+
+  function getProjectStatusStyle(status) {
+    if (status === 'active') return { borderColor: 'rgba(60, 200, 120, 0.55)' };
+    if (status === 'pending') return { borderColor: 'rgba(255, 205, 80, 0.65)' };
+    if (status === 'completed') return { borderColor: 'rgba(80, 150, 255, 0.65)' };
+    if (status === 'problem') return { borderColor: 'rgba(255, 107, 95, 0.75)' };
+    return {};
+  }
+
   function loginUser() {
     const user = DEMO_USERS.find(
       (item) => item.email === loginForm.email && item.password === loginForm.password
@@ -1781,6 +1809,207 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
           </button>
 
           <small>Demo login για δοκιμή. Στο τελικό ERP θα το αλλάξουμε σε Supabase Auth.</small>
+        </section>
+      </main>
+    );
+  }
+
+
+  if (selectedProject && activePage === 'customers') {
+    const agreed = Number(selectedProject.agreed_amount || 0);
+    const paid = getProjectPaid(selectedProject.id);
+    const projectExpenses = getProjectExpenses(selectedProject.id);
+    const balance = agreed - paid - projectExpenses;
+    const progress = getProjectProgress(selectedProject.id);
+
+    return (
+      <main className="app page-customers">
+        <style>{ERP_STYLES}</style>
+
+        <header className="top">
+          <div className="brand">
+            <div className="logo">TD</div>
+            <div>
+              <h1>T D MANI</h1>
+              <p>Καρτέλα Έργου</p>
+            </div>
+          </div>
+
+          <div>
+            <p><b>{currentUser.name}</b></p>
+            <small>{currentUser.role}</small>
+            <br />
+            <button onClick={logoutUser}>Αποσύνδεση</button>
+          </div>
+        </header>
+
+        <section className="card">
+          <button onClick={() => setSelectedProject(null)}>← Πίσω στα έργα</button>
+
+          <h2>{selectedProject.title}</h2>
+          <p>Πελάτης: <b>{getCustomerName(selectedProject.customer_id)}</b></p>
+          <p>ΑΦΜ πελάτη: {getCustomerAfm(selectedProject.customer_id)}</p>
+          <p>Status: <b>{getProjectStatusLabel(selectedProject.status)}</b></p>
+          <p>Περιοχή: {selectedProject.area || '-'}</p>
+          <p>Διεύθυνση: {selectedProject.address || '-'}</p>
+        </section>
+
+        <section className="card">
+          <h2>Σύνοψη έργου</h2>
+          <div className="grid">
+            <div className="line"><p><b>{agreed}€</b></p><small>Συμφωνία</small></div>
+            <div className="line"><p><b>{paid}€</b></p><small>Πληρωμές / Εισπράξεις</small></div>
+            <div className="line"><p><b>{projectExpenses}€</b></p><small>Έξοδα</small></div>
+            <div className={balance < 0 ? 'line alert' : 'line'}><p><b>{balance}€</b></p><small>Καθαρό υπόλοιπο</small></div>
+          </div>
+
+          <div className="line">
+            <p>Progress πληρωμών: <b>{progress}%</b></p>
+            <div style={{ width: '100%', height: '12px', background: 'rgba(255,255,255,0.10)', borderRadius: '999px', overflow: 'hidden' }}>
+              <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(135deg, #d6a84f, #7a551d)' }} />
+            </div>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="erp-nav" style={{ position: 'static' }}>
+            <button className={activeProjectTab === 'overview' ? 'active' : ''} onClick={() => setActiveProjectTab('overview')}>Στοιχεία</button>
+            <button className={activeProjectTab === 'invoices' ? 'active' : ''} onClick={() => setActiveProjectTab('invoices')}>Τιμολόγια Εσόδων</button>
+            <button className={activeProjectTab === 'payments' ? 'active' : ''} onClick={() => setActiveProjectTab('payments')}>Πληρωμές</button>
+            <button className={activeProjectTab === 'expenses' ? 'active' : ''} onClick={() => setActiveProjectTab('expenses')}>Έξοδα</button>
+            <button className={activeProjectTab === 'quotes' ? 'active' : ''} onClick={() => setActiveProjectTab('quotes')}>Προσφορές</button>
+            <button className={activeProjectTab === 'tasks' ? 'active' : ''} onClick={() => setActiveProjectTab('tasks')}>Tasks</button>
+            <button className={activeProjectTab === 'documents' ? 'active' : ''} onClick={() => setActiveProjectTab('documents')}>Documents</button>
+          </div>
+
+          {activeProjectTab === 'overview' && (
+            <div>
+              <h3>Στοιχεία έργου</h3>
+              <p><b>Τίτλος:</b> {selectedProject.title}</p>
+              <p><b>Πελάτης:</b> {getCustomerName(selectedProject.customer_id)}</p>
+              <p><b>ΑΦΜ:</b> {getCustomerAfm(selectedProject.customer_id)}</p>
+              <p><b>Περιοχή:</b> {selectedProject.area || '-'}</p>
+              <p><b>Διεύθυνση:</b> {selectedProject.address || '-'}</p>
+              <p><b>Status:</b> {getProjectStatusLabel(selectedProject.status)}</p>
+              <button onClick={() => editProject(selectedProject)}>✏️ Επεξεργασία έργου</button>
+              <button onClick={() => window.print()}>📄 Export / Print PDF</button>
+            </div>
+          )}
+
+          {activeProjectTab === 'invoices' && (
+            <div>
+              <h3>Τιμολόγια Εσόδων έργου</h3>
+              {getProjectCustomerInvoices(selectedProject.id).length === 0 ? (
+                <p>Δεν υπάρχουν τιμολόγια εσόδων για αυτό το έργο.</p>
+              ) : (
+                getProjectCustomerInvoices(selectedProject.id).map((invoice) => (
+                  <div key={invoice.id} className="line">
+                    <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.receivable_amount}€ εισπρακτέο</b></p>
+                    <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
+                    <p>Καθαρή: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€ | Παρακράτηση: {invoice.withholding_amount || 0}€</p>
+                    <p>Πληρωμένα: {getCustomerInvoicePaid(invoice.id)}€</p>
+                    <p>Status: <b>{getCustomerInvoiceStatus(invoice)}</b></p>
+                    <button onClick={() => editCustomerInvoice(invoice)}>✏️ Επεξεργασία</button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeProjectTab === 'payments' && (
+            <div>
+              <h3>Πληρωμές έργου</h3>
+              {getProjectPayments(selectedProject.id).length === 0 ? (
+                <p>Δεν υπάρχουν πληρωμές για αυτό το έργο.</p>
+              ) : (
+                getProjectPayments(selectedProject.id).map((payment) => (
+                  <div key={payment.id} className="line">
+                    <p><b>{payment.amount}€</b> — {payment.method}</p>
+                    <p>Ημερομηνία: {payment.payment_date || '-'}</p>
+                    <p>Τιμολόγιο: {payment.customer_invoice_id ? (customerInvoices.find((invoice) => invoice.id === payment.customer_invoice_id)?.invoice_number || 'Συνδεδεμένο') : 'Χωρίς σύνδεση'}</p>
+                    <small>{payment.notes}</small>
+                    <button onClick={() => editPayment(payment)}>✏️ Επεξεργασία</button>
+                    <button onClick={() => deleteItem('payments', payment.id)}>🗑 Διαγραφή πληρωμής</button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeProjectTab === 'expenses' && (
+            <div>
+              <h3>Έξοδα έργου</h3>
+              {expenses.filter((expense) => expense.project_id === selectedProject.id && isActiveItem(expense)).length === 0 ? (
+                <p>Δεν υπάρχουν έξοδα για αυτό το έργο.</p>
+              ) : (
+                expenses.filter((expense) => expense.project_id === selectedProject.id && isActiveItem(expense)).map((expense) => (
+                  <div key={expense.id} className="line">
+                    <p><b>{expense.title}</b> — {expense.amount}€</p>
+                    <p>Κατηγορία: {expense.category || '-'}</p>
+                    <small>{expense.notes}</small>
+                    <button onClick={() => editExpense(expense)}>✏️ Επεξεργασία</button>
+                    <button onClick={() => deleteItem('expenses', expense.id)}>🗑 Διαγραφή εξόδου</button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeProjectTab === 'quotes' && (
+            <div>
+              <h3>Προσφορές έργου</h3>
+              {getProjectQuotes(selectedProject.id).length === 0 ? (
+                <p>Δεν υπάρχουν προσφορές για αυτό το έργο.</p>
+              ) : (
+                getProjectQuotes(selectedProject.id).map((quote) => (
+                  <div key={quote.id} className="line" onClick={() => setSelectedQuote(quote)}>
+                    <p><b>{quote.work_type}</b></p>
+                    <p>{quote.description}</p>
+                    <p>{quote.payable}€</p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeProjectTab === 'tasks' && (
+            <div>
+              <h3>Tasks έργου</h3>
+              {getProjectTasks(selectedProject.id).length === 0 ? (
+                <p>Δεν υπάρχουν tasks για αυτό το έργο.</p>
+              ) : (
+                getProjectTasks(selectedProject.id).map((task) => (
+                  <div key={task.id} className={task.status === 'completed' ? 'line' : 'line alert'}>
+                    <p><b>{task.title}</b></p>
+                    <p>{task.task_date} {task.task_time || ''}</p>
+                    <small>{task.status}</small>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeProjectTab === 'documents' && (
+            <div>
+              <h3>Αρχεία / Παραστατικά έργου</h3>
+              {getProjectDocuments(selectedProject.id).length === 0 ? (
+                <p>Δεν υπάρχουν αρχεία για αυτό το έργο.</p>
+              ) : (
+                getProjectDocuments(selectedProject.id).map((document) => (
+                  <div key={document.id} className="line">
+                    <p><b>{document.title}</b></p>
+                    <p>{document.document_type}</p>
+                    {document.file_url && (
+                      <p><a href={document.file_url} target="_blank">Άνοιγμα αρχείου</a></p>
+                    )}
+                    <small>{document.notes}</small>
+                    <button onClick={() => editDocument(document)}>✏️ Επεξεργασία</button>
+                    <button onClick={() => deleteItem('documents', document.id)}>🗑 Διαγραφή αρχείου</button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </section>
       </main>
     );
@@ -2003,6 +2232,7 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
           <option value="active">Ενεργό</option>
           <option value="pending">Σε αναμονή</option>
           <option value="completed">Ολοκληρωμένο</option>
+          <option value="problem">Πρόβλημα / Overdue</option>
         </select>
         <button onClick={saveProject}>{editingProjectId ? 'Αποθήκευση αλλαγών έργου' : 'Αποθήκευση έργου'}</button>
       </section>
@@ -2626,16 +2856,24 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
                         const balance = agreed - paid - projectExpenses;
 
                         return (
-                          <div key={project.id} className="line">
+                          <div key={project.id} className="line" style={getProjectStatusStyle(project.status)}>
                             <p><b>{project.title}</b></p>
-                            <p>{project.area}</p>
-                            <p>Status: {project.status}</p>
+                            <p>Πελάτης: {getCustomerName(project.customer_id)}</p>
+                            <p>Περιοχή: {project.area || '-'}</p>
+                            <p>Status: <b>{getProjectStatusLabel(project.status)}</b></p>
                             <p>Συμφωνία: {agreed}€</p>
                             <p>Πληρώθηκε: {paid}€</p>
                             <p>Έξοδα: {projectExpenses}€</p>
                             <p><b>Καθαρό υπόλοιπο: {balance}€</b></p>
 
-                            <button onClick={() => setSelectedProject(project)}>👁 Προβολή ανάλυσης</button>
+                            <div className="line">
+                              <p>Progress πληρωμών: <b>{getProjectProgress(project.id)}%</b></p>
+                              <div style={{ width: '100%', height: '10px', background: 'rgba(255,255,255,0.10)', borderRadius: '999px', overflow: 'hidden' }}>
+                                <div style={{ width: `${getProjectProgress(project.id)}%`, height: '100%', background: 'linear-gradient(135deg, #d6a84f, #7a551d)' }} />
+                              </div>
+                            </div>
+
+                            <button onClick={() => { setSelectedProject(project); setActiveProjectTab('overview'); }}>👁 Άνοιγμα έργου</button>
                             <button onClick={() => editProject(project)}>✏️ Επεξεργασία έργου</button>
                             <button onClick={() => deleteItem('projects', project.id)}>🗑 Διαγραφή έργου</button>
                           </div>
