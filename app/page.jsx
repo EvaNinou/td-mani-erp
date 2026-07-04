@@ -370,125 +370,6 @@ hr {
   }
 }
 
-
-/* Desktop sidebar + mobile bottom navigation */
-@media (min-width: 901px) {
-  body {
-    overflow-x: hidden;
-  }
-
-  .app.app-with-nav {
-    width: auto !important;
-    max-width: none !important;
-    margin: 0 24px 0 300px !important;
-    padding: 16px 0 24px !important;
-  }
-
-  .app.app-with-nav > .top {
-    position: static !important;
-    width: 100% !important;
-    margin: 0 0 16px !important;
-  }
-
-  .main-nav {
-    position: fixed !important;
-    top: 18px !important;
-    left: 18px !important;
-    bottom: 18px !important;
-    width: 250px !important;
-    z-index: 40;
-    display: flex !important;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    margin: 0 !important;
-    padding: 18px 14px !important;
-    overflow-y: auto;
-    overflow-x: hidden;
-    background: rgba(13,13,15,0.96) !important;
-    border: 1px solid rgba(214,168,79,0.24);
-    border-radius: 24px;
-    box-shadow: 0 22px 48px rgba(0,0,0,0.34);
-  }
-
-  .main-nav::before {
-    content: "TD MANI ERP";
-    display: block;
-    margin: 0 0 12px;
-    padding: 12px 10px;
-    color: var(--gold);
-    font-weight: 950;
-    letter-spacing: 0.08em;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .main-nav button {
-    width: 100% !important;
-    min-width: 0 !important;
-    margin: 0 !important;
-    padding: 12px 13px !important;
-    text-align: left;
-    border-radius: 14px;
-  }
-
-  .main-nav .nav-more {
-    display: none !important;
-  }
-}
-
-@media (max-width: 900px) {
-  .app-with-nav {
-    padding-bottom: 92px;
-  }
-
-  .main-nav {
-    position: fixed;
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-    top: auto;
-    z-index: 60;
-    display: grid !important;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin: 0;
-    padding: 9px;
-    overflow: visible;
-    background: rgba(13,13,15,0.96) !important;
-    border: 1px solid rgba(214,168,79,0.24);
-    border-radius: 22px;
-    box-shadow: 0 18px 40px rgba(0,0,0,0.42);
-  }
-
-  .main-nav button {
-    width: 100%;
-    min-width: 0;
-    margin: 0;
-    padding: 10px 6px;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-
-  .main-nav .nav-secondary {
-    display: none;
-  }
-
-  .main-nav.mobile-open .nav-secondary {
-    display: block;
-  }
-
-  .main-nav.mobile-open {
-    grid-template-columns: repeat(2, 1fr);
-    max-height: 72vh;
-    overflow-y: auto;
-  }
-
-  .main-nav.mobile-open .nav-primary {
-    grid-column: auto;
-  }
-}
-
-
 @media print {
   body {
     background: white !important;
@@ -519,91 +400,12 @@ hr {
 
   .page-section { display: block !important; }
 }
-
-/* FINAL SIDEBAR OVERRIDE */
-@media (min-width: 901px) {
-  body {
-    overflow-x: hidden !important;
-  }
-
-  main.app.app-with-nav {
-    width: calc(100vw - 340px) !important;
-    max-width: calc(100vw - 340px) !important;
-    margin-left: 320px !important;
-    margin-right: 20px !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-  }
-
-  main.app.app-with-nav > header.top {
-    position: relative !important;
-    top: auto !important;
-    left: auto !important;
-    right: auto !important;
-    width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    transform: none !important;
-  }
-
-  main.app.app-with-nav > nav.main-nav {
-    position: fixed !important;
-    top: 18px !important;
-    left: 18px !important;
-    bottom: 18px !important;
-    width: 260px !important;
-    max-width: 260px !important;
-    height: auto !important;
-    z-index: 999 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 8px !important;
-    margin: 0 !important;
-    padding: 18px 14px !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-  }
-
-  main.app.app-with-nav > nav.main-nav button {
-    width: 100% !important;
-    min-width: 0 !important;
-    margin: 0 !important;
-    text-align: left !important;
-  }
-
-  main.app.app-with-nav > nav.main-nav .nav-more {
-    display: none !important;
-  }
-}
-
-@media (max-width: 900px) {
-  main.app.app-with-nav {
-    width: min(1280px, 100%) !important;
-    max-width: 100% !important;
-    margin: 0 auto !important;
-    padding-bottom: 92px !important;
-  }
-
-  main.app.app-with-nav > nav.main-nav {
-    position: fixed !important;
-    left: 10px !important;
-    right: 10px !important;
-    bottom: 10px !important;
-    top: auto !important;
-    width: auto !important;
-    max-width: none !important;
-    z-index: 999 !important;
-  }
-}
-
 `;
 
 
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
   const [activePage, setActivePage] = useState('dashboard');
-  const [showMobileMore, setShowMobileMore] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
@@ -2021,7 +1823,7 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
     const progress = getProjectProgress(selectedProject.id);
 
     return (
-      <main className="app app-with-nav page-customers">
+      <main className="app page-customers">
         <style>{ERP_STYLES}</style>
 
         <header className="top">
@@ -2233,19 +2035,17 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
         </div>
       </header>
 
-      <nav className={`erp-nav main-nav ${showMobileMore ? 'mobile-open' : ''}`}>
-        <button className={`nav-primary ${activePage === 'dashboard' ? 'active' : ''}`} onClick={() => { setActivePage('dashboard'); setShowMobileMore(false); }}>🏠 Dashboard</button>
-        <button className={`nav-primary ${activePage === 'customers' ? 'active' : ''}`} onClick={() => { setActivePage('customers'); setShowMobileMore(false); }}>👥 Έργα</button>
-        <button className={`nav-primary ${activePage === 'suppliers' ? 'active' : ''}`} onClick={() => { setActivePage('suppliers'); setShowMobileMore(false); }}>🚚 Προμηθευτές</button>
-        <button className="nav-primary nav-more" onClick={() => setShowMobileMore(!showMobileMore)}>＋ Menu</button>
-
-        <button className={`nav-secondary ${activePage === 'finance' ? 'active' : ''}`} onClick={() => { setActivePage('finance'); setShowMobileMore(false); }}>💰 Finance</button>
-        <button className={`nav-secondary ${activePage === 'customer-invoices' ? 'active' : ''}`} onClick={() => { setActivePage('customer-invoices'); setShowMobileMore(false); }}>🧾 Τιμολόγια Εσόδων</button>
-        <button className={`nav-secondary ${activePage === 'tasks' ? 'active' : ''}`} onClick={() => { setActivePage('tasks'); setShowMobileMore(false); }}>📅 Tasks</button>
-        <button className={`nav-secondary ${activePage === 'documents' ? 'active' : ''}`} onClick={() => { setActivePage('documents'); setShowMobileMore(false); }}>📁 Documents</button>
-        <button className={`nav-secondary ${activePage === 'inventory' ? 'active' : ''}`} onClick={() => { setActivePage('inventory'); setShowMobileMore(false); }}>📦 Inventory</button>
-        <button className={`nav-secondary ${activePage === 'trash' ? 'active' : ''}`} onClick={() => { setActivePage('trash'); setShowMobileMore(false); }}>🗑 Κάδος</button>
-        <button className={`nav-secondary ${activePage === 'settings' ? 'active' : ''}`} onClick={() => { setActivePage('settings'); setShowMobileMore(false); }}>⚙️ Settings</button>
+      <nav className="erp-nav">
+        <button className={activePage === 'dashboard' ? 'active' : ''} onClick={() => setActivePage('dashboard')}>🏠 Dashboard</button>
+        <button className={activePage === 'customers' ? 'active' : ''} onClick={() => setActivePage('customers')}>👥 Πελάτες & Έργα</button>
+        <button className={activePage === 'finance' ? 'active' : ''} onClick={() => setActivePage('finance')}>💰 Finance</button>
+        <button className={activePage === 'customer-invoices' ? 'active' : ''} onClick={() => setActivePage('customer-invoices')}>🧾 Τιμολόγια Εσόδων</button>
+        <button className={activePage === 'tasks' ? 'active' : ''} onClick={() => setActivePage('tasks')}>📅 Tasks</button>
+        <button className={activePage === 'documents' ? 'active' : ''} onClick={() => setActivePage('documents')}>📁 Documents</button>
+        <button className={activePage === 'suppliers' ? 'active' : ''} onClick={() => setActivePage('suppliers')}>🚚 Προμηθευτές</button>
+        <button className={activePage === 'inventory' ? 'active' : ''} onClick={() => setActivePage('inventory')}>📦 Inventory</button>
+        <button className={activePage === 'trash' ? 'active' : ''} onClick={() => setActivePage('trash')}>🗑 Κάδος</button>
+        <button className={activePage === 'settings' ? 'active' : ''} onClick={() => setActivePage('settings')}>⚙️ Settings</button>
       </nav>
 
       {(editingCustomerId || editingProjectId || editingPaymentId || editingCustomerInvoiceId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId || editingDocumentId || editingSupplierId || editingSupplierInvoiceId || editingSupplierPaymentId) && (
