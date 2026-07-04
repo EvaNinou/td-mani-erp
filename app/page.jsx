@@ -2090,6 +2090,96 @@ const [vatQuarter, setVatQuarter] = useState('1');
     );
   }
 
+
+  if (selectedSupplierReport && activePage === 'suppliers') {
+    const supplierTotals = getSupplierTotals(selectedSupplierReport.id);
+
+    return (
+      <main className="app page-suppliers">
+        <style>{ERP_STYLES}</style>
+
+        <section className="card print-area">
+          <button onClick={() => setSelectedSupplierReport(null)}>← Πίσω στους προμηθευτές</button>
+
+          <div className="pdf-header">
+            <div className="logo pdf-logo">TD</div>
+            <div>
+              <h2>TD MANI</h2>
+              <p><b>ΑΝΑΦΟΡΑ ΠΡΟΜΗΘΕΥΤΗ</b></p>
+              <small>Πλάκες, Μήλος 84800 | 6944705508 | Manitaulant@yahoo.com</small>
+            </div>
+          </div>
+
+          <hr />
+
+          <h2>{selectedSupplierReport.name}</h2>
+          <p><b>ΑΦΜ:</b> {selectedSupplierReport.afm || '-'}</p>
+          <p><b>Τηλέφωνο:</b> {selectedSupplierReport.phone || '-'}</p>
+          <p><b>Email:</b> {selectedSupplierReport.email || '-'}</p>
+          <p><b>Διεύθυνση:</b> {selectedSupplierReport.address || '-'}</p>
+          <p><b>Σημειώσεις:</b> {selectedSupplierReport.notes || '-'}</p>
+
+          <hr />
+
+          <h3>Σύνοψη</h3>
+          <div className="grid">
+            <div className="line"><p><b>{supplierTotals.totalInvoices}€</b></p><small>Σύνολο τιμολογίων</small></div>
+            <div className="line"><p><b>{supplierTotals.totalPaid}€</b></p><small>Σύνολο πληρωμών</small></div>
+            <div className={supplierTotals.balance > 0 ? 'line alert' : 'line'}><p><b>{supplierTotals.balance}€</b></p><small>Υπόλοιπο</small></div>
+          </div>
+
+          <hr />
+
+          <h3>Τιμολόγια</h3>
+          {getSupplierInvoices(selectedSupplierReport.id).length === 0 ? (
+            <p>Δεν υπάρχουν τιμολόγια για αυτόν τον προμηθευτή.</p>
+          ) : (
+            getSupplierInvoices(selectedSupplierReport.id).map((invoice) => (
+              <div key={invoice.id} className="report-block line">
+                <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.total_amount || 0}€</b></p>
+                <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
+                <p>Έργο: {invoice.project_id ? getProjectTitle(invoice.project_id) : 'Χωρίς έργο / Γενικό έξοδο'}</p>
+                <p>Κατηγορία: {invoice.expense_category || '-'}</p>
+                <p>Καθαρή αξία: {invoice.net_amount || 0}€</p>
+                <p>ΦΠΑ 24%: {invoice.vat_amount || 0}€</p>
+                <p>Σύνολο: {invoice.total_amount || 0}€</p>
+                <p>Πληρωμένα: {getSupplierInvoicePaid(invoice.id)}€</p>
+                <p>Status: <b>{getSupplierInvoiceStatus(invoice)}</b></p>
+                <p>Περιγραφή: {invoice.description || '-'}</p>
+              </div>
+            ))
+          )}
+
+          <h3>Πληρωμές</h3>
+          {getSupplierPayments(selectedSupplierReport.id).length === 0 ? (
+            <p>Δεν υπάρχουν πληρωμές για αυτόν τον προμηθευτή.</p>
+          ) : (
+            getSupplierPayments(selectedSupplierReport.id).map((payment) => (
+              <div key={payment.id} className="line">
+                <p><b>{payment.amount}€</b> — {payment.method}</p>
+                <p>Ημερομηνία: {payment.payment_date || '-'}</p>
+                <p>
+                  Τιμολόγιο: {payment.supplier_invoice_id
+                    ? (supplierInvoices.find((invoice) => invoice.id === payment.supplier_invoice_id)?.invoice_number || 'Συνδεδεμένο')
+                    : 'Γενική πληρωμή'}
+                </p>
+                <small>{payment.notes}</small>
+              </div>
+            ))
+          )}
+
+          <hr />
+
+          <p><b>Υπογραφή / Σφραγίδα</b></p>
+          <p className="signature-line">T D MANI</p>
+
+          <button onClick={() => window.print()}>Export / Print PDF</button>
+          <button onClick={() => setSelectedSupplierReport(null)}>← Πίσω στους προμηθευτές</button>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className={`app page-${activePage}`}>
       <style>{ERP_STYLES}</style>
@@ -2937,78 +3027,6 @@ const [vatQuarter, setVatQuarter] = useState('1');
         )}
       </section>
 
-
-      {selectedSupplierReport && (
-        <section className="card print-area page-section suppliers-section">
-          <div className="pdf-header">
-            <div className="logo pdf-logo">TD</div>
-            <div>
-              <h2>TD MANI</h2>
-              <p><b>ΑΝΑΦΟΡΑ ΠΡΟΜΗΘΕΥΤΗ</b></p>
-              <small>Πλάκες, Μήλος 84800 | 6944705508 | Manitaulant@yahoo.com</small>
-            </div>
-          </div>
-
-          <hr />
-
-          <h2>{selectedSupplierReport.name}</h2>
-          <p><b>ΑΦΜ:</b> {selectedSupplierReport.afm || '-'}</p>
-          <p><b>Τηλέφωνο:</b> {selectedSupplierReport.phone || '-'}</p>
-          <p><b>Email:</b> {selectedSupplierReport.email || '-'}</p>
-          <p><b>Διεύθυνση:</b> {selectedSupplierReport.address || '-'}</p>
-          <p><b>Σημειώσεις:</b> {selectedSupplierReport.notes || '-'}</p>
-
-          <hr />
-
-          <h3>Σύνοψη</h3>
-          <p>Σύνολο τιμολογίων: {getSupplierTotals(selectedSupplierReport.id).totalInvoices}€</p>
-          <p>Σύνολο πληρωμών: {getSupplierTotals(selectedSupplierReport.id).totalPaid}€</p>
-          <p><b>Υπόλοιπο: {getSupplierTotals(selectedSupplierReport.id).balance}€</b></p>
-
-          <hr />
-
-          <h3>Τιμολόγια</h3>
-          {getSupplierInvoices(selectedSupplierReport.id).length === 0 ? (
-            <p>Δεν υπάρχουν τιμολόγια για αυτόν τον προμηθευτή.</p>
-          ) : (
-            getSupplierInvoices(selectedSupplierReport.id).map((invoice) => (
-              <div key={invoice.id} className="report-block">
-                <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'}</b></p>
-                <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
-                <p>Έργο: {invoice.project_id ? getProjectTitle(invoice.project_id) : 'Χωρίς έργο / Γενικό έξοδο'}</p>
-                <p>Κατηγορία: {invoice.expense_category || '-'}</p>
-                <p>Καθαρή αξία: {invoice.net_amount || 0}€</p>
-                <p>ΦΠΑ 24%: {invoice.vat_amount || 0}€</p>
-                <p>Σύνολο: {invoice.total_amount || 0}€</p>
-                <p>Πληρωμένα: {getSupplierInvoicePaid(invoice.id)}€</p>
-                <p>Status: {getSupplierInvoiceStatus(invoice)}</p>
-                <p>Περιγραφή: {invoice.description || '-'}</p>
-                <hr />
-              </div>
-            ))
-          )}
-
-          <h3>Πληρωμές</h3>
-          {getSupplierPayments(selectedSupplierReport.id).length === 0 ? (
-            <p>Δεν υπάρχουν πληρωμές για αυτόν τον προμηθευτή.</p>
-          ) : (
-            getSupplierPayments(selectedSupplierReport.id).map((payment) => (
-              <p key={payment.id}>
-                • {payment.payment_date || '-'} — {payment.amount}€ — {payment.method}
-                {payment.supplier_invoice_id ? ` — Τιμολόγιο: ${supplierInvoices.find((invoice) => invoice.id === payment.supplier_invoice_id)?.invoice_number || 'Συνδεδεμένο'}` : ' — Γενική πληρωμή'}
-              </p>
-            ))
-          )}
-
-          <hr />
-
-          <p><b>Υπογραφή / Σφραγίδα</b></p>
-          <p className="signature-line">T D MANI</p>
-
-          <button onClick={() => window.print()}>Export / Print PDF</button>
-          <button onClick={() => setSelectedSupplierReport(null)}>Κλείσιμο αναφοράς</button>
-        </section>
-      )}
 
       <section className="card page-section inventory-section">
         <h2>{editingInventoryId ? 'Επεξεργασία Υλικού' : 'Νέο Υλικό'}</h2>
