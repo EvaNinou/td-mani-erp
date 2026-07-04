@@ -437,6 +437,8 @@ const [taskSearch, setTaskSearch] = useState('');
 const [supplierSearch, setSupplierSearch] = useState('');
 const [customerInvoiceSearch, setCustomerInvoiceSearch] = useState('');
 const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
+const [vatYear, setVatYear] = useState(String(new Date().getFullYear()));
+const [vatQuarter, setVatQuarter] = useState('1');
   
   const [editingCustomerId, setEditingCustomerId] = useState(null);
   const [editingProjectId, setEditingProjectId] = useState(null);
@@ -898,6 +900,61 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
     return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
   }
 
+
+  function getQuarterDates(yearValue, quarterValue) {
+    const year = Number(yearValue || new Date().getFullYear());
+    const quarter = Number(quarterValue || 1);
+    const startMonth = (quarter - 1) * 3;
+    const start = new Date(year, startMonth, 1);
+    const end = new Date(year, startMonth + 3, 0);
+
+    return {
+      startDate: start.toISOString().split('T')[0],
+      endDate: end.toISOString().split('T')[0]
+    };
+  }
+
+  function isDateInRange(dateString, startDate, endDate) {
+    if (!dateString) return false;
+    return dateString >= startDate && dateString <= endDate;
+  }
+
+  function getVatTotals(yearValue = vatYear, quarterValue = vatQuarter) {
+    const { startDate, endDate } = getQuarterDates(yearValue, quarterValue);
+
+    const outputVat = customerInvoices
+      .filter((invoice) => isActiveItem(invoice) && isDateInRange(invoice.invoice_date, startDate, endDate))
+      .reduce((sum, invoice) => sum + Number(invoice.vat_amount || 0), 0);
+
+    const inputVat = supplierInvoices
+      .filter((invoice) => isActiveItem(invoice) && isDateInRange(invoice.invoice_date, startDate, endDate))
+      .reduce((sum, invoice) => sum + Number(invoice.vat_amount || 0), 0);
+
+    return {
+      startDate,
+      endDate,
+      outputVat,
+      inputVat,
+      payableVat: outputVat - inputVat
+    };
+  }
+
+  function getCustomerOpenReceivables() {
+    return customerInvoices
+      .filter(isActiveItem)
+      .reduce((sum, invoice) => {
+        const receivable = Number(invoice.receivable_amount || 0);
+        const paid = getCustomerInvoicePaid(invoice.id);
+        return sum + Math.max(0, receivable - paid);
+      }, 0);
+  }
+
+  function getSupplierOpenPayables() {
+    return suppliers
+      .filter(isActiveItem)
+      .reduce((sum, supplier) => sum + Math.max(0, getSupplierTotals(supplier.id).balance), 0);
+  }
+
   const dashboardStats = useMemo(() => {
     const monthlyIncome = payments.filter((payment) => isActiveItem(payment) && isCurrentMonth(payment.created_at))
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
@@ -970,6 +1027,22 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
     const pendingTasks = activeTasksList.filter((task) => task.status !== 'completed').length;
     return { totalProjects, totalAgreed, totalPaid, totalExpenses, totalBalance, lowStockCount, totalQuotes, pendingTasks };
   }, [projects, payments, expenses, inventory, quotes, tasks]);
+
+
+  const businessStats = useMemo(() => {
+    const customerOpenReceivables = getCustomerOpenReceivables();
+    const supplierOpenPayables = getSupplierOpenPayables();
+    const currentQuarter = Math.floor(new Date().getMonth() / 3) + 1;
+    const currentYear = String(new Date().getFullYear());
+    const currentVat = getVatTotals(currentYear, String(currentQuarter));
+
+    return {
+      customerOpenReceivables,
+      supplierOpenPayables,
+      cashView: customerOpenReceivables - supplierOpenPayables,
+      currentVat
+    };
+  }, [customerInvoices, payments, suppliers, supplierInvoices, supplierPayments]);
 
   function calculateQuoteValues(quoteForm) {
     const subtotal = Number(quoteForm.subtotal || 0);
@@ -2057,19 +2130,47 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
       )}
 
       <section className="card page-section dashboard-section">
-        <h2>Dashboard Analytics</h2>
+        <h2>Dashboard</h2>
+
         <div className="grid">
-          <div className="line"><p><b>{totals.totalProjects}</b></p><small>Συνολικά Έργα</small></div>
-          <div className="line"><p><b>{totals.totalBalance}€</b></p><small>Συνολικό Υπόλοιπο</small></div>
-          <div className="line"><p><b>{dashboardStats.monthlyIncome}€</b></p><small>Έσοδα Μήνα</small></div>
-          <div className="line"><p><b>{dashboardStats.monthlyExpenses}€</b></p><small>Έξοδα Μήνα</small></div>
-          <div className={dashboardStats.monthlyProfit >= 0 ? 'line' : 'line alert'}>
-            <p><b>{dashboardStats.monthlyProfit}€</b></p><small>Κέρδος Μήνα</small>
-          </div>
-          <div className="line"><p><b>{dashboardStats.activeProjects}</b></p><small>Active Projects</small></div>
-          <div className="line"><p><b>{dashboardStats.completedProjects}</b></p><small>Completed Projects</small></div>
+          <div className="line"><p><b>{totals.totalProjects}</b></p><small>Συνολικά έργα</small></div>
+          <div className="line"><p><b>{dashboardStats.activeProjects}</b></p><small>Ενεργά έργα</small></div>
+          <div className="line"><p><b>{dashboardStats.completedProjects}</b></p><small>Ολοκληρωμένα</small></div>
           <div className={dashboardStats.overdueTasks > 0 ? 'line alert' : 'line'}>
-            <p><b>{dashboardStats.overdueTasks}</b></p><small>Overdue Tasks</small>
+            <p><b>{dashboardStats.overdueTasks}</b></p><small>Καθυστερημένα tasks</small>
+          </div>
+        </div>
+
+        <h3>Οικονομική εικόνα</h3>
+        <div className="grid">
+          <div className="line"><p><b>{totals.totalAgreed}€</b></p><small>Συμφωνημένα έργων</small></div>
+          <div className="line"><p><b>{totals.totalPaid}€</b></p><small>Εισπράξεις</small></div>
+          <div className="line"><p><b>{totals.totalExpenses}€</b></p><small>Έξοδα</small></div>
+          <div className={totals.totalBalance < 0 ? 'line alert' : 'line'}>
+            <p><b>{totals.totalBalance}€</b></p><small>Καθαρό υπόλοιπο έργων</small>
+          </div>
+        </div>
+
+        <h3>Οφειλές / Cashflow</h3>
+        <div className="grid">
+          <div className="line"><p><b>{businessStats.customerOpenReceivables}€</b></p><small>Ανοιχτά εισπρακτέα πελατών</small></div>
+          <div className={businessStats.supplierOpenPayables > 0 ? 'line alert' : 'line'}>
+            <p><b>{businessStats.supplierOpenPayables}€</b></p><small>Χρωστούμενα σε προμηθευτές</small>
+          </div>
+          <div className={businessStats.cashView < 0 ? 'line alert' : 'line'}>
+            <p><b>{businessStats.cashView}€</b></p><small>Εικόνα εισπρακτέων - υποχρεώσεων</small>
+          </div>
+          <div className={businessStats.currentVat.payableVat > 0 ? 'line alert' : 'line'}>
+            <p><b>{businessStats.currentVat.payableVat}€</b></p><small>Εκτίμηση ΦΠΑ τρέχοντος τριμήνου</small>
+          </div>
+        </div>
+
+        <h3>Μήνας</h3>
+        <div className="grid">
+          <div className="line"><p><b>{dashboardStats.monthlyIncome}€</b></p><small>Έσοδα μήνα</small></div>
+          <div className="line"><p><b>{dashboardStats.monthlyExpenses}€</b></p><small>Έξοδα μήνα</small></div>
+          <div className={dashboardStats.monthlyProfit >= 0 ? 'line' : 'line alert'}>
+            <p><b>{dashboardStats.monthlyProfit}€</b></p><small>Διαφορά μήνα</small>
           </div>
         </div>
       </section>
@@ -2339,6 +2440,50 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
             </div>
           ))
         )}
+      </section>
+
+
+      <section className="card page-section finance-section">
+        <h2>🧾 Υπολογισμός ΦΠΑ τριμήνου</h2>
+        <p>Υπολογίζει: ΦΠΑ εσόδων από τιμολόγια εσόδων μείον ΦΠΑ εξόδων από τιμολόγια προμηθευτών.</p>
+
+        <select value={vatYear} onChange={(e) => setVatYear(e.target.value)}>
+          <option value="2025">2025</option>
+          <option value="2026">2026</option>
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+        </select>
+
+        <select value={vatQuarter} onChange={(e) => setVatQuarter(e.target.value)}>
+          <option value="1">Α' τρίμηνο: Ιανουάριος - Μάρτιος</option>
+          <option value="2">Β' τρίμηνο: Απρίλιος - Ιούνιος</option>
+          <option value="3">Γ' τρίμηνο: Ιούλιος - Σεπτέμβριος</option>
+          <option value="4">Δ' τρίμηνο: Οκτώβριος - Δεκέμβριος</option>
+        </select>
+
+        <div className="grid">
+          <div className="line">
+            <p><b>{getVatTotals().outputVat}€</b></p>
+            <small>ΦΠΑ εσόδων</small>
+          </div>
+
+          <div className="line">
+            <p><b>{getVatTotals().inputVat}€</b></p>
+            <small>ΦΠΑ εξόδων</small>
+          </div>
+
+          <div className={getVatTotals().payableVat > 0 ? 'line alert' : 'line'}>
+            <p><b>{getVatTotals().payableVat}€</b></p>
+            <small>{getVatTotals().payableVat >= 0 ? 'Πληρωτέο ΦΠΑ' : 'Πιστωτικό ΦΠΑ'}</small>
+          </div>
+
+          <div className="line">
+            <p><b>{getVatTotals().startDate} έως {getVatTotals().endDate}</b></p>
+            <small>Περίοδος</small>
+          </div>
+        </div>
+
+        <small>Είναι εργαλείο εσωτερικής εκτίμησης. Ο τελικός έλεγχος γίνεται από τον λογιστή.</small>
       </section>
 
       <section className="card page-section finance-section">
