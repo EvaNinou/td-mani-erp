@@ -374,10 +374,12 @@ hr {
 /* Desktop sidebar + mobile bottom navigation */
 @media (min-width: 901px) {
   .app-with-nav {
-    width: 100%;
-    max-width: none;
-    padding-left: 260px;
-    padding-right: 24px;
+    width: calc(100% - 320px) !important;
+    max-width: none !important;
+    margin-left: 300px !important;
+    margin-right: 20px !important;
+    padding-left: 0 !important;
+    padding-right: 20px !important;
   }
 
   .main-nav {
@@ -385,7 +387,7 @@ hr {
     top: 18px;
     left: 18px;
     bottom: 18px;
-    width: 220px;
+    width: 250px;
     z-index: 40;
     display: flex !important;
     flex-direction: column;
@@ -395,8 +397,8 @@ hr {
     padding: 18px 14px;
     overflow-y: auto;
     overflow-x: hidden;
-    background: rgba(13,13,15,0.94) !important;
-    border: 1px solid rgba(214,168,79,0.22);
+    background: rgba(13,13,15,0.96) !important;
+    border: 1px solid rgba(214,168,79,0.24);
     border-radius: 24px;
     box-shadow: 0 22px 48px rgba(0,0,0,0.34);
   }
@@ -421,6 +423,10 @@ hr {
     border-radius: 14px;
   }
 
+  .main-nav .nav-more {
+    display: none;
+  }
+
   .top {
     position: sticky;
     top: 14px;
@@ -440,13 +446,11 @@ hr {
     top: auto;
     z-index: 60;
     display: grid !important;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(86px, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
     margin: 0;
     padding: 9px;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: visible;
     background: rgba(13,13,15,0.96) !important;
     border: 1px solid rgba(214,168,79,0.24);
     border-radius: 22px;
@@ -454,12 +458,30 @@ hr {
   }
 
   .main-nav button {
-    width: auto;
-    min-width: 86px;
+    width: 100%;
+    min-width: 0;
     margin: 0;
-    padding: 10px 9px;
-    font-size: 13px;
+    padding: 10px 6px;
+    font-size: 12px;
     white-space: nowrap;
+  }
+
+  .main-nav .nav-secondary {
+    display: none;
+  }
+
+  .main-nav.mobile-open .nav-secondary {
+    display: block;
+  }
+
+  .main-nav.mobile-open {
+    grid-template-columns: repeat(2, 1fr);
+    max-height: 72vh;
+    overflow-y: auto;
+  }
+
+  .main-nav.mobile-open .nav-primary {
+    grid-column: auto;
   }
 }
 
@@ -500,6 +522,7 @@ hr {
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
   const [activePage, setActivePage] = useState('dashboard');
+  const [showMobileMore, setShowMobileMore] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
@@ -2129,17 +2152,19 @@ const [paymentCustomerSearch, setPaymentCustomerSearch] = useState('');
         </div>
       </header>
 
-      <nav className="erp-nav main-nav">
-        <button className={activePage === 'dashboard' ? 'active' : ''} onClick={() => setActivePage('dashboard')}>🏠 Dashboard</button>
-        <button className={activePage === 'customers' ? 'active' : ''} onClick={() => setActivePage('customers')}>👥 Πελάτες & Έργα</button>
-        <button className={activePage === 'finance' ? 'active' : ''} onClick={() => setActivePage('finance')}>💰 Finance</button>
-        <button className={activePage === 'customer-invoices' ? 'active' : ''} onClick={() => setActivePage('customer-invoices')}>🧾 Τιμολόγια Εσόδων</button>
-        <button className={activePage === 'tasks' ? 'active' : ''} onClick={() => setActivePage('tasks')}>📅 Tasks</button>
-        <button className={activePage === 'documents' ? 'active' : ''} onClick={() => setActivePage('documents')}>📁 Documents</button>
-        <button className={activePage === 'suppliers' ? 'active' : ''} onClick={() => setActivePage('suppliers')}>🚚 Προμηθευτές</button>
-        <button className={activePage === 'inventory' ? 'active' : ''} onClick={() => setActivePage('inventory')}>📦 Inventory</button>
-        <button className={activePage === 'trash' ? 'active' : ''} onClick={() => setActivePage('trash')}>🗑 Κάδος</button>
-        <button className={activePage === 'settings' ? 'active' : ''} onClick={() => setActivePage('settings')}>⚙️ Settings</button>
+      <nav className={`erp-nav main-nav ${showMobileMore ? 'mobile-open' : ''}`}>
+        <button className={`nav-primary ${activePage === 'dashboard' ? 'active' : ''}`} onClick={() => { setActivePage('dashboard'); setShowMobileMore(false); }}>🏠 Dashboard</button>
+        <button className={`nav-primary ${activePage === 'customers' ? 'active' : ''}`} onClick={() => { setActivePage('customers'); setShowMobileMore(false); }}>👥 Έργα</button>
+        <button className={`nav-primary ${activePage === 'suppliers' ? 'active' : ''}`} onClick={() => { setActivePage('suppliers'); setShowMobileMore(false); }}>🚚 Προμηθευτές</button>
+        <button className="nav-primary nav-more" onClick={() => setShowMobileMore(!showMobileMore)}>＋ Menu</button>
+
+        <button className={`nav-secondary ${activePage === 'finance' ? 'active' : ''}`} onClick={() => { setActivePage('finance'); setShowMobileMore(false); }}>💰 Finance</button>
+        <button className={`nav-secondary ${activePage === 'customer-invoices' ? 'active' : ''}`} onClick={() => { setActivePage('customer-invoices'); setShowMobileMore(false); }}>🧾 Τιμολόγια Εσόδων</button>
+        <button className={`nav-secondary ${activePage === 'tasks' ? 'active' : ''}`} onClick={() => { setActivePage('tasks'); setShowMobileMore(false); }}>📅 Tasks</button>
+        <button className={`nav-secondary ${activePage === 'documents' ? 'active' : ''}`} onClick={() => { setActivePage('documents'); setShowMobileMore(false); }}>📁 Documents</button>
+        <button className={`nav-secondary ${activePage === 'inventory' ? 'active' : ''}`} onClick={() => { setActivePage('inventory'); setShowMobileMore(false); }}>📦 Inventory</button>
+        <button className={`nav-secondary ${activePage === 'trash' ? 'active' : ''}`} onClick={() => { setActivePage('trash'); setShowMobileMore(false); }}>🗑 Κάδος</button>
+        <button className={`nav-secondary ${activePage === 'settings' ? 'active' : ''}`} onClick={() => { setActivePage('settings'); setShowMobileMore(false); }}>⚙️ Settings</button>
       </nav>
 
       {(editingCustomerId || editingProjectId || editingPaymentId || editingCustomerInvoiceId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId || editingDocumentId || editingSupplierId || editingSupplierInvoiceId || editingSupplierPaymentId) && (
