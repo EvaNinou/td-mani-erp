@@ -842,7 +842,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
       .filter((expense) => projectIds.includes(expense.project_id) && isActiveItem(expense))
       .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-    return { agreed, paid, expenses: projectExpenses, balance: agreed - paid - projectExpenses };
+    return { agreed, paid, expenses: projectExpenses, balance: agreed - projectExpenses, customerBalance: agreed - paid, currentProfit: paid - projectExpenses };
   }
 
   function getCustomerReportRows(customerId) {
@@ -856,7 +856,9 @@ const [vatQuarter, setVatQuarter] = useState('1');
         agreed,
         paid,
         expenses: projectExpenses,
-        balance: agreed - paid - projectExpenses,
+        balance: agreed - projectExpenses,
+        customerBalance: agreed - paid,
+        currentProfit: paid - projectExpenses,
         payments: getProjectPayments(project.id),
         projectExpensesList: expenses.filter((expense) => expense.project_id === project.id && isActiveItem(expense)),
         projectQuotes: getProjectQuotes(project.id),
@@ -1029,9 +1031,8 @@ const [vatQuarter, setVatQuarter] = useState('1');
     const riskyProjects = projects.filter(isActiveItem)
       .map((project) => {
         const agreed = Number(project.agreed_amount || 0);
-        const paid = getProjectPaid(project.id);
         const projectExpenses = getProjectExpenses(project.id);
-        const balance = agreed - paid - projectExpenses;
+        const balance = agreed - projectExpenses;
 
         return {
           ...project,
@@ -1043,9 +1044,8 @@ const [vatQuarter, setVatQuarter] = useState('1');
     const highBalanceProjects = projects.filter(isActiveItem)
       .map((project) => {
         const agreed = Number(project.agreed_amount || 0);
-        const paid = getProjectPaid(project.id);
         const projectExpenses = getProjectExpenses(project.id);
-        const balance = agreed - paid - projectExpenses;
+        const balance = agreed - projectExpenses;
 
         return {
           ...project,
@@ -1072,7 +1072,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
     const totalAgreed = activeProjectsList.reduce((sum, project) => sum + Number(project.agreed_amount || 0), 0);
     const totalPaid = activePaymentsList.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
     const totalExpenses = activeExpensesList.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-    const totalBalance = totalAgreed - totalPaid - totalExpenses;
+    const totalBalance = totalAgreed - totalExpenses;
     const lowStockCount = activeInventoryList.filter((item) => Number(item.quantity || 0) <= Number(item.min_quantity || 0)).length;
     const totalQuotes = activeQuotesList.reduce((sum, quote) => sum + Number(quote.payable || 0), 0);
     const pendingTasks = activeTasksList.filter((task) => task.status !== 'completed').length;
@@ -1944,7 +1944,9 @@ const [vatQuarter, setVatQuarter] = useState('1');
     const agreed = Number(selectedProject.agreed_amount || 0);
     const paid = getProjectPaid(selectedProject.id);
     const projectExpenses = getProjectExpenses(selectedProject.id);
-    const balance = agreed - paid - projectExpenses;
+    const customerBalance = agreed - paid;
+    const currentProfit = paid - projectExpenses;
+    const estimatedProfit = agreed - projectExpenses;
     const progress = getProjectProgress(selectedProject.id);
     const projectPaymentsList = getProjectPayments(selectedProject.id);
     const projectExpensesList = expenses.filter((expense) => expense.project_id === selectedProject.id && isActiveItem(expense));
@@ -1992,7 +1994,9 @@ const [vatQuarter, setVatQuarter] = useState('1');
             <div className="line"><p><b>{agreed}€</b></p><small>Συμφωνία</small></div>
             <div className="line"><p><b>{paid}€</b></p><small>Πληρωμές / Εισπράξεις</small></div>
             <div className="line"><p><b>{projectExpenses}€</b></p><small>Έξοδα</small></div>
-            <div className={balance < 0 ? 'line alert' : 'line'}><p><b>{balance}€</b></p><small>Καθαρό υπόλοιπο</small></div>
+            <div className={customerBalance > 0 ? 'line alert' : 'line'}><p><b>{customerBalance}€</b></p><small>Υπόλοιπο πελάτη</small></div>
+            <div className={currentProfit < 0 ? 'line alert' : 'line'}><p><b>{currentProfit}€</b></p><small>Κέρδος μέχρι τώρα</small></div>
+            <div className={estimatedProfit < 0 ? 'line alert' : 'line'}><p><b>{estimatedProfit}€</b></p><small>Εκτιμώμενο τελικό κέρδος</small></div>
           </div>
 
           <div className="line">
@@ -2174,7 +2178,9 @@ const [vatQuarter, setVatQuarter] = useState('1');
               <div className="line"><p><b>{formatCurrency(agreed)}</b></p><small>Συμφωνία έργου</small></div>
               <div className="line"><p><b>{formatCurrency(paid)}</b></p><small>Συνολικές εισπράξεις</small></div>
               <div className="line"><p><b>{formatCurrency(projectExpenses)}</b></p><small>Συνολικά έξοδα</small></div>
-              <div className={balance < 0 ? 'line alert' : 'line'}><p><b>{formatCurrency(balance)}</b></p><small>Καθαρό υπόλοιπο</small></div>
+              <div className={customerBalance > 0 ? 'line alert' : 'line'}><p><b>{formatCurrency(customerBalance)}</b></p><small>Υπόλοιπο πελάτη</small></div>
+              <div className={currentProfit < 0 ? 'line alert' : 'line'}><p><b>{formatCurrency(currentProfit)}</b></p><small>Κέρδος μέχρι τώρα</small></div>
+              <div className={estimatedProfit < 0 ? 'line alert' : 'line'}><p><b>{formatCurrency(estimatedProfit)}</b></p><small>Εκτιμώμενο τελικό κέρδος</small></div>
             </div>
           </div>
 
@@ -2553,7 +2559,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
           <div className="line"><p><b>{totals.totalPaid}€</b></p><small>Εισπράξεις</small></div>
           <div className="line"><p><b>{totals.totalExpenses}€</b></p><small>Έξοδα</small></div>
           <div className={totals.totalBalance < 0 ? 'line alert' : 'line'}>
-            <p><b>{totals.totalBalance}€</b></p><small>Καθαρό υπόλοιπο έργων</small>
+            <p><b>{totals.totalBalance}€</b></p><small>Εκτιμώμενο κέρδος έργων</small>
           </div>
         </div>
 
@@ -3041,7 +3047,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
           <p>Συμφωνημένα: {getCustomerTotals(selectedCustomerReport.id).agreed}€</p>
           <p>Πληρωμένα: {getCustomerTotals(selectedCustomerReport.id).paid}€</p>
           <p>Έξοδα: {getCustomerTotals(selectedCustomerReport.id).expenses}€</p>
-          <p><b>Καθαρό υπόλοιπο: {getCustomerTotals(selectedCustomerReport.id).balance}€</b></p>
+          <p><b>Εκτιμώμενο κέρδος: {getCustomerTotals(selectedCustomerReport.id).balance}€</b></p>
 
           <hr />
 
@@ -3058,7 +3064,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
                 <p>Συμφωνία: {row.agreed}€</p>
                 <p>Πληρωμές: {row.paid}€</p>
                 <p>Έξοδα: {row.expenses}€</p>
-                <p><b>Καθαρό υπόλοιπο έργου: {row.balance}€</b></p>
+                <p><b>Εκτιμώμενο κέρδος έργου: {row.balance}€</b></p>
 
                 <h4>Τιμολόγια Εσόδων</h4>
                 {row.projectCustomerInvoices.length === 0 ? (
@@ -3388,7 +3394,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
                   <p>Συμφωνημένα: {customerTotals.agreed}€</p>
                   <p>Πληρωμένα: {customerTotals.paid}€</p>
                   <p>Έξοδα: {customerTotals.expenses}€</p>
-                  <p><b>Καθαρό υπόλοιπο: {customerTotals.balance}€</b></p>
+                  <p><b>Εκτιμώμενο κέρδος: {customerTotals.balance}€</b></p>
                 </div>
 
                 <button onClick={() => setSelectedCustomerReport(customer)}>📄 Export PDF Αναφορά</button>
@@ -3406,7 +3412,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
                         const paid = getProjectPaid(project.id);
                         const agreed = Number(project.agreed_amount || 0);
                         const projectExpenses = getProjectExpenses(project.id);
-                        const balance = agreed - paid - projectExpenses;
+                        const balance = agreed - projectExpenses;
 
                         return (
                           <div key={project.id} className="line" style={getProjectStatusStyle(project.status)}>
@@ -3417,7 +3423,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
                             <p>Συμφωνία: {agreed}€</p>
                             <p>Πληρώθηκε: {paid}€</p>
                             <p>Έξοδα: {projectExpenses}€</p>
-                            <p><b>Καθαρό υπόλοιπο: {balance}€</b></p>
+                            <p><b>Εκτιμώμενο κέρδος: {balance}€</b></p>
 
                             <div className="line">
                               <p>Progress πληρωμών: <b>{getProjectProgress(project.id)}%</b></p>
@@ -3463,11 +3469,9 @@ const [vatQuarter, setVatQuarter] = useState('1');
           <p>Συμφωνία: {Number(selectedProject.agreed_amount || 0)}€</p>
           <p>Πληρωμές: {getProjectPaid(selectedProject.id)}€</p>
           <p>Έξοδα: {getProjectExpenses(selectedProject.id)}€</p>
-          <p><b>Καθαρό υπόλοιπο: {
-            Number(selectedProject.agreed_amount || 0)
-            - getProjectPaid(selectedProject.id)
-            - getProjectExpenses(selectedProject.id)
-          }€</b></p>
+          <p><b>Υπόλοιπο πελάτη: {Number(selectedProject.agreed_amount || 0) - getProjectPaid(selectedProject.id)}€</b></p>
+          <p><b>Κέρδος μέχρι τώρα: {getProjectPaid(selectedProject.id) - getProjectExpenses(selectedProject.id)}€</b></p>
+          <p><b>Εκτιμώμενο τελικό κέρδος: {Number(selectedProject.agreed_amount || 0) - getProjectExpenses(selectedProject.id)}€</b></p>
 
           <h3>Τιμολόγια Εσόδων έργου</h3>
           {getProjectCustomerInvoices(selectedProject.id).length === 0 ? (
