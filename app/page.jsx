@@ -421,6 +421,108 @@ hr {
   display: inline-block;
 }
 
+
+.quick-create-fab {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 100;
+  width: 68px;
+  height: 68px;
+  min-width: 68px;
+  margin: 0;
+  padding: 0;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  line-height: 1;
+  box-shadow: 0 20px 44px rgba(0,0,0,0.48), 0 0 0 1px rgba(214,168,79,0.28);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.quick-create-fab:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 24px 54px rgba(0,0,0,0.56), 0 0 0 1px rgba(214,168,79,0.48);
+}
+
+.quick-create-fab.open {
+  transform: rotate(45deg);
+}
+
+.quick-create-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0,0,0,0.58);
+  backdrop-filter: blur(5px);
+  animation: quickFade 0.20s ease both;
+}
+
+.quick-create-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 90;
+  width: min(430px, 100%);
+  height: 100vh;
+  padding: 22px;
+  overflow-y: auto;
+  background: rgba(13,13,15,0.985) !important;
+  border-left: 1px solid rgba(214,168,79,0.30);
+  box-shadow: -26px 0 54px rgba(0,0,0,0.46);
+  animation: quickSlide 0.24s ease both;
+}
+
+.quick-create-option {
+  width: 100%;
+  margin: 9px 0;
+  padding: 15px;
+  text-align: left;
+  background: rgba(255,255,255,0.06) !important;
+  color: var(--text) !important;
+  border-color: var(--border);
+}
+
+.quick-create-option:hover {
+  border-color: rgba(214,168,79,0.55);
+}
+
+.quick-return-card {
+  border-color: rgba(214,168,79,0.45);
+  background: linear-gradient(180deg, rgba(214,168,79,0.12), rgba(255,255,255,0.04)) !important;
+}
+
+@keyframes quickFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes quickSlide {
+  from { transform: translateX(100%); opacity: 0.8; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+
+
+@media (max-width: 560px) {
+  .quick-create-fab {
+    right: 15px;
+    bottom: 15px;
+    width: 62px;
+    height: 62px;
+    min-width: 62px;
+    font-size: 32px;
+  }
+
+  .quick-create-panel {
+    width: 100%;
+    border-left: none;
+    padding: 18px;
+  }
+}
+
 @media print {
   body {
     background: white !important;
@@ -466,6 +568,8 @@ export default function Home() {
   const [activeReportTab, setActiveReportTab] = useState('');
   const [selectedReportProjectId, setSelectedReportProjectId] = useState('');
   const [showProjectReport, setShowProjectReport] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickReturnToDashboard, setQuickReturnToDashboard] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
@@ -2002,6 +2106,24 @@ const [vatQuarter, setVatQuarter] = useState('1');
     setSelectedUser('Mani Taulant');
   }
 
+  function goToQuickCreate(page, setup = () => {}) {
+    setQuickCreateOpen(false);
+    setQuickReturnToDashboard(true);
+    cancelEdits();
+    setup();
+    setSelectedProject(null);
+    setActivePage(page);
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 80);
+  }
+
+  function backToDashboardFromQuickCreate() {
+    setQuickReturnToDashboard(false);
+    cancelEdits();
+    setSelectedProject(null);
+    setActivePage('dashboard');
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 80);
+  }
+
   if (!currentUser) {
     return (
       <main className={`app page-${activePage}`}>
@@ -2682,6 +2804,13 @@ const [vatQuarter, setVatQuarter] = useState('1');
           </div>
         </div>
       </section>
+
+      {quickReturnToDashboard && activePage !== 'dashboard' && (
+        <section className="card quick-return-card no-print">
+          <button onClick={backToDashboardFromQuickCreate}>← Πίσω στον Πίνακα Ελέγχου</button>
+          <small>Άνοιξες αυτή τη φόρμα από το +.</small>
+        </section>
+      )}
 
       <section className="card page-section dashboard-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '14px', flexWrap: 'wrap' }}>
@@ -4236,6 +4365,66 @@ const [vatQuarter, setVatQuarter] = useState('1');
           </>
         )}
       </section>
+
+
+      {currentUser && !selectedProject && (
+        <>
+          {quickCreateOpen && (
+            <>
+              <div className="quick-create-backdrop no-print" onClick={() => setQuickCreateOpen(false)} />
+              <aside className="quick-create-panel no-print">
+                <h2>➕ Νέα Καταχώριση</h2>
+                <p>Διάλεξε τι θέλεις να καταχωρήσεις.</p>
+
+                <button
+                  className="quick-create-option"
+                  onClick={() => goToQuickCreate('customers', () => {
+                    setNewCustomer(INITIAL_CUSTOMER);
+                    setEditingCustomerId(null);
+                  })}
+                >
+                  👤 Νέος Πελάτης<br />
+                  <small>Άνοιγμα φόρμας πελάτη</small>
+                </button>
+
+                <button
+                  className="quick-create-option"
+                  onClick={() => goToQuickCreate('customer-invoices', () => {
+                    setNewCustomerInvoice(INITIAL_CUSTOMER_INVOICE);
+                    setEditingCustomerInvoiceId(null);
+                  })}
+                >
+                  🧾 Νέο Τιμολόγιο Πελάτη<br />
+                  <small>Έσοδο, ΦΠΑ, παρακράτηση και εισπρακτέο</small>
+                </button>
+
+                <button
+                  className="quick-create-option"
+                  onClick={() => goToQuickCreate('suppliers', () => {
+                    setNewSupplierInvoice(INITIAL_SUPPLIER_INVOICE);
+                    setEditingSupplierInvoiceId(null);
+                    setOpenSupplierId(null);
+                  })}
+                >
+                  🚚 Νέο Τιμολόγιο Προμηθευτή<br />
+                  <small>Έξοδο έργου, ΦΠΑ εισροών και υπόλοιπο προμηθευτή</small>
+                </button>
+
+                <hr />
+                <small>Πάτα ξανά το + για κλείσιμο.</small>
+              </aside>
+            </>
+          )}
+
+          <button
+            className={quickCreateOpen ? 'quick-create-fab open no-print' : 'quick-create-fab no-print'}
+            onClick={() => setQuickCreateOpen(!quickCreateOpen)}
+            aria-label="Νέα καταχώριση"
+          >
+            +
+          </button>
+        </>
+      )}
 
     </main>
   );
