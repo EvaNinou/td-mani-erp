@@ -462,6 +462,8 @@ export default function Home() {
   const [activePage, setActivePage] = useState('dashboard');
   const [activeSettingsTab, setActiveSettingsTab] = useState('');
   const [activeReportTab, setActiveReportTab] = useState('');
+  const [selectedReportProjectId, setSelectedReportProjectId] = useState('');
+  const [showProjectReport, setShowProjectReport] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
@@ -2688,41 +2690,258 @@ const [vatQuarter, setVatQuarter] = useState('1');
         )}
 
         {activeReportTab !== '' && (
-          <button onClick={() => setActiveReportTab('')}>← Πίσω στις Αναφορές</button>
+          <button
+            onClick={() => {
+              setActiveReportTab('');
+              setShowProjectReport(false);
+            }}
+          >
+            ← Πίσω στις Αναφορές
+          </button>
         )}
 
         {activeReportTab === 'project' && (
           <div className="card">
             <h3>📁 Αναφορά Έργου</h3>
-            <p>Εδώ θα μπει η πλήρης αναφορά έργου με επιλογή έργου και Export PDF.</p>
+            <p>Διάλεξε έργο και το ERP θα δημιουργήσει αυτόματα την αναφορά από τα υπάρχοντα δεδομένα.</p>
+
+            <select
+              value={selectedReportProjectId}
+              onChange={(e) => {
+                setSelectedReportProjectId(e.target.value);
+                setShowProjectReport(false);
+              }}
+            >
+              <option value="">Διάλεξε έργο</option>
+              {projects.filter(isActiveItem).map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.title} — {getCustomerName(project.customer_id)}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => {
+                if (!selectedReportProjectId) {
+                  alert('Διάλεξε πρώτα έργο');
+                  return;
+                }
+                setShowProjectReport(true);
+              }}
+            >
+              Προβολή Αναφοράς
+            </button>
+
+            {showProjectReport && selectedReportProjectId && (() => {
+              const reportProject = projects.find((project) => project.id === selectedReportProjectId);
+              if (!reportProject) return <p>Δεν βρέθηκε το έργο.</p>;
+
+              const agreed = Number(reportProject.agreed_amount || 0);
+              const paid = getProjectPaid(reportProject.id);
+              const projectExpenses = getProjectExpenses(reportProject.id);
+              const customerBalance = agreed - paid;
+              const currentProfit = paid - projectExpenses;
+              const estimatedProfit = agreed - projectExpenses;
+              const reportPayments = getProjectPayments(reportProject.id);
+              const reportExpenses = expenses.filter((expense) => expense.project_id === reportProject.id && isActiveItem(expense));
+              const reportCustomerInvoices = getProjectCustomerInvoices(reportProject.id);
+              const reportSupplierInvoices = getProjectSupplierInvoices(reportProject.id);
+
+              return (
+                <div className="card print-area">
+                  <div className="pdf-header">
+                    <div className="logo pdf-logo">TD</div>
+                    <div>
+                      <h2>Αναφορά Έργου</h2>
+                      <p><b>T D MANI</b> — ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</p>
+                      <small>Ημερομηνία αναφοράς: {formatDate(new Date().toISOString())}</small>
+                    </div>
+                  </div>
+
+                  <button className="no-print" onClick={() => window.print()}>
+                    🖨 Export PDF
+                  </button>
+
+                  <hr />
+
+                  <div className="report-block">
+                    <h3>📁 Στοιχεία έργου</h3>
+                    <div className="grid">
+                      <div className="line"><p><b>{reportProject.title}</b></p><small>Έργο</small></div>
+                      <div className="line"><p><b>{getCustomerName(reportProject.customer_id)}</b></p><small>Πελάτης</small></div>
+                      <div className="line"><p><b>{getCustomerAfm(reportProject.customer_id)}</b></p><small>ΑΦΜ πελάτη</small></div>
+                      <div className="line"><p><b>{getProjectStatusLabel(reportProject.status)}</b></p><small>Status</small></div>
+                      <div className="line"><p><b>{reportProject.area || '-'}</b></p><small>Περιοχή</small></div>
+                      <div className="line"><p><b>{reportProject.address || '-'}</b></p><small>Διεύθυνση</small></div>
+                    </div>
+                  </div>
+
+                  <div className="report-block">
+                    <h3>💰 Οικονομική εικόνα</h3>
+                    <div className="grid">
+                      <div className="line"><p><b>{formatCurrency(agreed)}</b></p><small>Συμφωνία έργου</small></div>
+                      <div className="line"><p><b>{formatCurrency(paid)}</b></p><small>Συνολικές εισπράξεις</small></div>
+                      <div className="line"><p><b>{formatCurrency(projectExpenses)}</b></p><small>Συνολικά έξοδα</small></div>
+                      <div className={customerBalance > 0 ? 'line alert' : 'line'}><p><b>{formatCurrency(customerBalance)}</b></p><small>Υπόλοιπο πελάτη</small></div>
+                      <div className={currentProfit < 0 ? 'line alert' : 'line'}><p><b>{formatCurrency(currentProfit)}</b></p><small>Κέρδος μέχρι τώρα</small></div>
+                      <div className={estimatedProfit < 0 ? 'line alert' : 'line'}><p><b>{formatCurrency(estimatedProfit)}</b></p><small>Εκτιμώμενο τελικό κέρδος</small></div>
+                    </div>
+                  </div>
+
+                  <div className="report-block">
+                    <h3>🧾 Τιμολόγια εσόδων</h3>
+                    <table className="report-table">
+                      <thead>
+                        <tr>
+                          <th>Ημερομηνία</th>
+                          <th>Αριθμός</th>
+                          <th>Περιγραφή</th>
+                          <th>Καθαρή αξία</th>
+                          <th>ΦΠΑ</th>
+                          <th>Σύνολο</th>
+                          <th>Εισπρακτέο</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportCustomerInvoices.length === 0 ? (
+                          <tr><td colSpan="8">Δεν υπάρχουν τιμολόγια εσόδων.</td></tr>
+                        ) : reportCustomerInvoices.map((invoice) => (
+                          <tr key={invoice.id}>
+                            <td>{formatDate(invoice.invoice_date)}</td>
+                            <td>{invoice.invoice_number || '-'}</td>
+                            <td>{invoice.description || '-'}</td>
+                            <td>{formatCurrency(invoice.net_amount)}</td>
+                            <td>{formatCurrency(invoice.vat_amount)}</td>
+                            <td>{formatCurrency(invoice.total_amount)}</td>
+                            <td>{formatCurrency(invoice.receivable_amount)}</td>
+                            <td>{getCustomerInvoiceStatus(invoice)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="report-block">
+                    <h3>💳 Πληρωμές / Εισπράξεις</h3>
+                    <table className="report-table">
+                      <thead>
+                        <tr>
+                          <th>Ημερομηνία</th>
+                          <th>Ποσό</th>
+                          <th>Τρόπος</th>
+                          <th>Σημειώσεις</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportPayments.length === 0 ? (
+                          <tr><td colSpan="4">Δεν υπάρχουν πληρωμές.</td></tr>
+                        ) : reportPayments.map((payment) => (
+                          <tr key={payment.id}>
+                            <td>{formatDate(payment.payment_date || payment.created_at)}</td>
+                            <td>{formatCurrency(payment.amount)}</td>
+                            <td>{payment.method || '-'}</td>
+                            <td>{payment.notes || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="report-block">
+                    <h3>💸 Έξοδα έργου</h3>
+                    <table className="report-table">
+                      <thead>
+                        <tr>
+                          <th>Τίτλος</th>
+                          <th>Κατηγορία</th>
+                          <th>Ποσό</th>
+                          <th>Σημειώσεις</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportExpenses.length === 0 ? (
+                          <tr><td colSpan="4">Δεν υπάρχουν έξοδα.</td></tr>
+                        ) : reportExpenses.map((expense) => (
+                          <tr key={expense.id}>
+                            <td>{expense.title || '-'}</td>
+                            <td>{expense.category || '-'}</td>
+                            <td>{formatCurrency(expense.amount)}</td>
+                            <td>{expense.notes || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="report-block">
+                    <h3>🚚 Τιμολόγια προμηθευτών</h3>
+                    <table className="report-table">
+                      <thead>
+                        <tr>
+                          <th>Ημερομηνία</th>
+                          <th>Προμηθευτής</th>
+                          <th>Αριθμός</th>
+                          <th>Περιγραφή</th>
+                          <th>Καθαρή αξία</th>
+                          <th>ΦΠΑ</th>
+                          <th>Σύνολο</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportSupplierInvoices.length === 0 ? (
+                          <tr><td colSpan="8">Δεν υπάρχουν τιμολόγια προμηθευτών.</td></tr>
+                        ) : reportSupplierInvoices.map((invoice) => (
+                          <tr key={invoice.id}>
+                            <td>{formatDate(invoice.invoice_date)}</td>
+                            <td>{getSupplierName(invoice.supplier_id)}</td>
+                            <td>{invoice.invoice_number || '-'}</td>
+                            <td>{invoice.description || '-'}</td>
+                            <td>{formatCurrency(invoice.net_amount)}</td>
+                            <td>{formatCurrency(invoice.vat_amount)}</td>
+                            <td>{formatCurrency(invoice.total_amount)}</td>
+                            <td>{getSupplierInvoiceStatus(invoice)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="signature-line">
+                    <small>TD MANI</small>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
         {activeReportTab === 'customer' && (
           <div className="card">
             <h3>👤 Αναφορά Πελάτη</h3>
-            <p>Εδώ θα μπει η αναφορά πελάτη με όλα τα έργα, πληρωμές και υπόλοιπα.</p>
+            <p>Επόμενο βήμα: αναφορά πελάτη με όλα τα έργα, πληρωμές και υπόλοιπα.</p>
           </div>
         )}
 
         {activeReportTab === 'supplier' && (
           <div className="card">
             <h3>🚚 Αναφορά Προμηθευτή</h3>
-            <p>Εδώ θα μπει η αναφορά προμηθευτή με τιμολόγια, πληρωμές και υπόλοιπο.</p>
+            <p>Επόμενο βήμα: αναφορά προμηθευτή με τιμολόγια, πληρωμές και υπόλοιπο.</p>
           </div>
         )}
 
         {activeReportTab === 'vat' && (
           <div className="card">
             <h3>💰 Αναφορά ΦΠΑ</h3>
-            <p>Εδώ θα μπει η αναφορά ΦΠΑ ανά τρίμηνο με ΦΠΑ εσόδων, ΦΠΑ εξόδων και πληρωτέο.</p>
+            <p>Επόμενο βήμα: αναφορά ΦΠΑ ανά τρίμηνο με ΦΠΑ εσόδων, ΦΠΑ εξόδων και πληρωτέο.</p>
           </div>
         )}
 
         {activeReportTab === 'balances' && (
           <div className="card">
             <h3>📊 Ανοιχτά Υπόλοιπα</h3>
-            <p>Εδώ θα μπουν τα ανοιχτά υπόλοιπα πελατών και προμηθευτών.</p>
+            <p>Επόμενο βήμα: ανοιχτά υπόλοιπα πελατών και προμηθευτών.</p>
           </div>
         )}
       </section>
