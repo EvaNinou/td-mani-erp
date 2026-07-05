@@ -326,10 +326,60 @@ hr {
   border-color: rgba(214,168,79,0.55);
 }
 
+.dashboard-welcome {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 18px;
+  background: linear-gradient(135deg, rgba(214,168,79,0.14), rgba(255,255,255,0.035)) !important;
+  border: 1px solid rgba(214,168,79,0.22);
+  border-radius: 22px;
+  margin-bottom: 16px;
+}
+
+.dashboard-welcome h2 {
+  margin-bottom: 8px;
+  font-size: 24px;
+}
+
+.dashboard-welcome-date {
+  color: var(--gold);
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.dashboard-welcome-time {
+  min-width: 96px;
+  text-align: right;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.dashboard-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.dashboard-strip-item {
+  padding: 13px 14px;
+  background: rgba(255,255,255,0.045) !important;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.dashboard-strip-item b {
+  color: var(--gold);
+}
+
 @media (max-width: 900px) {
   .app { padding: 12px; }
   .top { align-items: flex-start; flex-direction: column; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .card { padding: 16px; border-radius: 20px; }
   h1 { font-size: 21px; }
   h2 { font-size: 19px; }
@@ -358,6 +408,8 @@ hr {
   }
 
   .grid { grid-template-columns: 1fr; }
+  .dashboard-strip { grid-template-columns: 1fr; }
+  .dashboard-welcome-time { text-align: left; }
   .brand { width: 100%; }
 
   .logo {
@@ -572,6 +624,7 @@ export default function Home() {
   const [quickReturnToDashboard, setQuickReturnToDashboard] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [currentDateTime, setCurrentDateTime] = useState(new Date());
 
   const [crews, setCrews] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -634,6 +687,11 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
   useEffect(() => {
     refreshAll();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDateTime(new Date()), 60000);
+    return () => clearInterval(timer);
   }, []);
 
   async function refreshAll() {
@@ -1015,6 +1073,31 @@ const [vatQuarter, setVatQuarter] = useState('1');
   function formatDate(value) {
     if (!value) return '-';
     return String(value).split('T')[0];
+  }
+
+  function formatGreekLongDate(date) {
+    return date.toLocaleDateString('el-GR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  }
+
+  function formatGreekTime(date) {
+    return date.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function getGreeting(date) {
+    const hour = date.getHours();
+    if (hour < 12) return '☀️ Καλημέρα';
+    if (hour < 17) return '🌤️ Καλό μεσημέρι';
+    if (hour < 20) return '🌇 Καλό απόγευμα';
+    return '🌙 Καλησπέρα';
+  }
+
+  function getFirstName(name) {
+    return String(name || '').trim().split(' ')[0] || 'χρήστη';
   }
 
 
@@ -2813,27 +2896,20 @@ const [vatQuarter, setVatQuarter] = useState('1');
       )}
 
       <section className="card page-section dashboard-section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '14px', flexWrap: 'wrap' }}>
+        <div className="dashboard-welcome">
           <div>
-            <h2>📊 Πίνακας Ελέγχου</h2>
-            <p>Γρήγορη εικόνα εταιρείας και άμεσες ενέργειες.</p>
+            <p className="dashboard-welcome-date">📅 {formatGreekLongDate(currentDateTime)}</p>
+            <h2>{getGreeting(currentDateTime)}, {getFirstName(currentUser.name)} 👋</h2>
+            <p>Καλώς ήρθες στο TD MANI ERP.</p>
           </div>
-
-          <div className="no-print-inline" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button onClick={() => { setActivePage('customers'); setSelectedProject(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>➕ Νέος Πελάτης</button>
-            <button onClick={() => { setActivePage('customers'); setSelectedProject(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>🏗 Νέο Έργο</button>
-            <button onClick={() => { setActivePage('customer-invoices'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>🧾 Νέο Τιμολόγιο</button>
-            <button onClick={() => { setActivePage('finance'); setShowPayments(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>💰 Νέα Είσπραξη</button>
-            <button onClick={() => { setActivePage('finance'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>💸 Νέο Έξοδο</button>
-          </div>
+          <div className="dashboard-welcome-time">🕒 {formatGreekTime(currentDateTime)}</div>
         </div>
 
-        <h3>📅 Σήμερα</h3>
-        <div className="grid">
-          <div className="line"><p><b>{dashboardExtraStats.todayTasks.length}</b></p><small>Εργασίες σήμερα</small></div>
-          <div className="line"><p><b>{formatCurrency(dashboardExtraStats.todayIncome)}</b></p><small>Εισπράξεις σήμερα</small></div>
-          <div className="line"><p><b>{formatCurrency(dashboardExtraStats.todayExpenseAmount)}</b></p><small>Έξοδα σήμερα</small></div>
-          <div className="line"><p><b>{dashboardExtraStats.todayInvoices.length}</b></p><small>Τιμολόγια σήμερα</small></div>
+        <div className="dashboard-strip">
+          <div className="dashboard-strip-item">👷 <b>{dashboardExtraStats.todayTasks.length}</b><br /><small>Εργασίες σήμερα</small></div>
+          <div className="dashboard-strip-item">💰 <b>{dashboardExtraStats.todayPayments.length}</b><br /><small>Εισπράξεις σήμερα</small></div>
+          <div className="dashboard-strip-item">🧾 <b>{dashboardExtraStats.todayInvoices.length}</b><br /><small>Τιμολόγια σήμερα</small></div>
+          <div className={dashboardStats.overdueTasks > 0 ? 'dashboard-strip-item alert' : 'dashboard-strip-item'}>⚠️ <b>{dashboardStats.overdueTasks}</b><br /><small>Εκκρεμότητες</small></div>
         </div>
 
         <h3>🚨 Προσοχή</h3>
@@ -4389,6 +4465,17 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
                 <button
                   className="quick-create-option"
+                  onClick={() => goToQuickCreate('customers', () => {
+                    setNewProject(INITIAL_PROJECT);
+                    setEditingProjectId(null);
+                  })}
+                >
+                  🏗️ Νέο Έργο<br />
+                  <small>Άνοιγμα φόρμας έργου</small>
+                </button>
+
+                <button
+                  className="quick-create-option"
                   onClick={() => goToQuickCreate('customer-invoices', () => {
                     setNewCustomerInvoice(INITIAL_CUSTOMER_INVOICE);
                     setEditingCustomerInvoiceId(null);
@@ -4396,6 +4483,18 @@ const [vatQuarter, setVatQuarter] = useState('1');
                 >
                   🧾 Νέο Τιμολόγιο Πελάτη<br />
                   <small>Έσοδο, ΦΠΑ, παρακράτηση και εισπρακτέο</small>
+                </button>
+
+                <button
+                  className="quick-create-option"
+                  onClick={() => goToQuickCreate('finance', () => {
+                    setNewPayment(INITIAL_PAYMENT);
+                    setEditingPaymentId(null);
+                    setShowPayments(true);
+                  })}
+                >
+                  💰 Νέα Είσπραξη<br />
+                  <small>Καταχώριση πληρωμής πελάτη</small>
                 </button>
 
                 <button
@@ -4408,6 +4507,18 @@ const [vatQuarter, setVatQuarter] = useState('1');
                 >
                   🚚 Νέο Τιμολόγιο Προμηθευτή<br />
                   <small>Έξοδο έργου, ΦΠΑ εισροών και υπόλοιπο προμηθευτή</small>
+                </button>
+
+                <button
+                  className="quick-create-option"
+                  onClick={() => goToQuickCreate('suppliers', () => {
+                    setNewSupplierPayment(INITIAL_SUPPLIER_PAYMENT);
+                    setEditingSupplierPaymentId(null);
+                    setOpenSupplierId(null);
+                  })}
+                >
+                  💳 Νέα Πληρωμή Προμηθευτή<br />
+                  <small>Καταχώριση πληρωμής προς προμηθευτή</small>
                 </button>
 
                 <hr />
