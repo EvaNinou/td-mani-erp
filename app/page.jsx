@@ -299,6 +299,7 @@ hr {
 
 .page-dashboard .dashboard-section,
 .page-customers .customers-section,
+.page-income-expenses .income-expenses-section,
 .page-finance .finance-section,
 .page-customer-invoices .customer-invoices-section,
 .page-tasks .tasks-section,
@@ -306,6 +307,7 @@ hr {
 .page-suppliers .suppliers-section,
 .page-inventory .inventory-section,
 .page-reports .reports-section,
+.page-settings.settings-reports .reports-section,
 .page-trash .trash-section,
 .page-settings.settings-home .settings-section,
 .page-settings.settings-tasks .settings-task-section,
@@ -419,73 +421,6 @@ hr {
   display: inline-block;
 }
 
-.quick-create-fab {
-  position: fixed;
-  right: 22px;
-  bottom: 22px;
-  z-index: 80;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-width: 94px;
-  padding: 13px 16px;
-  border-radius: 999px;
-  box-shadow: 0 18px 38px rgba(0,0,0,0.42), 0 0 0 1px rgba(214,168,79,0.25);
-}
-
-.quick-create-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(4px);
-}
-
-.quick-create-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  z-index: 90;
-  width: min(420px, 100%);
-  height: 100vh;
-  padding: 18px;
-  overflow-y: auto;
-  background: rgba(13,13,15,0.98) !important;
-  border-left: 1px solid rgba(214,168,79,0.28);
-  box-shadow: -24px 0 46px rgba(0,0,0,0.40);
-}
-
-.quick-create-option {
-  width: 100%;
-  margin: 8px 0;
-  padding: 14px;
-  text-align: left;
-  background: rgba(255,255,255,0.06) !important;
-  color: var(--text) !important;
-  border-color: var(--border);
-}
-
-.quick-return-card {
-  border-color: rgba(214,168,79,0.45);
-  background: linear-gradient(180deg, rgba(214,168,79,0.12), rgba(255,255,255,0.04)) !important;
-}
-
-@media (max-width: 560px) {
-  .quick-create-fab {
-    right: 14px;
-    bottom: 14px;
-    min-width: 76px;
-    width: auto;
-    padding: 12px 14px;
-  }
-
-  .quick-create-panel {
-    width: 100%;
-    border-left: none;
-  }
-}
-
 @media print {
   body {
     background: white !important;
@@ -531,8 +466,6 @@ export default function Home() {
   const [activeReportTab, setActiveReportTab] = useState('');
   const [selectedReportProjectId, setSelectedReportProjectId] = useState('');
   const [showProjectReport, setShowProjectReport] = useState(false);
-  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
-  const [quickReturnToDashboard, setQuickReturnToDashboard] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
@@ -2069,24 +2002,6 @@ const [vatQuarter, setVatQuarter] = useState('1');
     setSelectedUser('Mani Taulant');
   }
 
-  function goToQuickCreate(page, setup = () => {}) {
-    setQuickCreateOpen(false);
-    setQuickReturnToDashboard(true);
-    cancelEdits();
-    setup();
-    setSelectedProject(null);
-    setActivePage(page);
-    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 80);
-  }
-
-  function backToDashboardFromQuickCreate() {
-    setQuickReturnToDashboard(false);
-    cancelEdits();
-    setSelectedProject(null);
-    setActivePage('dashboard');
-    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 80);
-  }
-
   if (!currentUser) {
     return (
       <main className={`app page-${activePage}`}>
@@ -2725,11 +2640,12 @@ const [vatQuarter, setVatQuarter] = useState('1');
       <nav className="erp-nav">
         <button className={activePage === 'dashboard' ? 'active' : ''} onClick={() => setActivePage('dashboard')}>🏠 Πίνακας Ελέγχου</button>
         <button className={activePage === 'customers' ? 'active' : ''} onClick={() => setActivePage('customers')}>👥 Πελάτες & Έργα</button>
-        <button className={activePage === 'finance' ? 'active' : ''} onClick={() => setActivePage('finance')}>💰 Οικονομικά</button>
-        <button className={activePage === 'customer-invoices' ? 'active' : ''} onClick={() => setActivePage('customer-invoices')}>🧾 Τιμολόγια Εσόδων</button>
-        <button className={activePage === 'suppliers' ? 'active' : ''} onClick={() => setActivePage('suppliers')}>🚚 Προμηθευτές</button>
-        <button className={activePage === 'inventory' ? 'active' : ''} onClick={() => setActivePage('inventory')}>📦 Αποθήκη</button>
-        <button className={activePage === 'reports' ? 'active' : ''} onClick={() => { setActivePage('reports'); setActiveReportTab(''); }}>📑 Αναφορές</button>
+        <button
+          className={['income-expenses', 'finance', 'customer-invoices', 'suppliers', 'inventory'].includes(activePage) ? 'active' : ''}
+          onClick={() => setActivePage('income-expenses')}
+        >
+          💶 Έσοδα / Έξοδα
+        </button>
         <button className={activePage === 'settings' ? 'active' : ''} onClick={() => { setActivePage('settings'); setActiveSettingsTab(''); }}>⚙️ Ρυθμίσεις</button>
       </nav>
 
@@ -2741,18 +2657,45 @@ const [vatQuarter, setVatQuarter] = useState('1');
         </section>
       )}
 
-      {quickReturnToDashboard && activePage !== 'dashboard' && (
-        <section className="card quick-return-card no-print">
-          <button onClick={backToDashboardFromQuickCreate}>← Πίσω στον Πίνακα Ελέγχου</button>
-          <small>Άνοιξες αυτή τη φόρμα από τη γρήγορη δημιουργία.</small>
-        </section>
-      )}
+      <section className="card page-section income-expenses-section">
+        <h2>💶 Έσοδα / Έξοδα</h2>
+        <p>Διάλεξε οικονομική ενότητα για να συνεχίσεις.</p>
+        <div className="grid">
+          <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActivePage('finance')} onKeyDown={(e) => e.key === 'Enter' && setActivePage('finance')}>
+            <p><b>💰 Οικονομικά</b></p>
+            <small>Εισπράξεις, έξοδα, ΦΠΑ και οικονομική εικόνα</small>
+          </div>
+
+          <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActivePage('customer-invoices')} onKeyDown={(e) => e.key === 'Enter' && setActivePage('customer-invoices')}>
+            <p><b>🧾 Τιμολόγια Εσόδων</b></p>
+            <small>Τιμολόγια πελατών, παρακρατήσεις και εισπρακτέα</small>
+          </div>
+
+          <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActivePage('suppliers')} onKeyDown={(e) => e.key === 'Enter' && setActivePage('suppliers')}>
+            <p><b>🚚 Προμηθευτές</b></p>
+            <small>Προμηθευτές, τιμολόγια εξόδων και πληρωμές</small>
+          </div>
+
+          <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActivePage('inventory')} onKeyDown={(e) => e.key === 'Enter' && setActivePage('inventory')}>
+            <p><b>📦 Αποθήκη</b></p>
+            <small>Υλικά, ποσότητες και χαμηλό stock</small>
+          </div>
+        </div>
+      </section>
 
       <section className="card page-section dashboard-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '14px', flexWrap: 'wrap' }}>
           <div>
             <h2>📊 Πίνακας Ελέγχου</h2>
-            <p>Γρήγορη εικόνα εταιρείας. Για νέα καταχώριση πάτα το κουμπί ➕ κάτω δεξιά.</p>
+            <p>Γρήγορη εικόνα εταιρείας και άμεσες ενέργειες.</p>
+          </div>
+
+          <div className="no-print-inline" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button onClick={() => { setActivePage('customers'); setSelectedProject(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>➕ Νέος Πελάτης</button>
+            <button onClick={() => { setActivePage('customers'); setSelectedProject(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>🏗 Νέο Έργο</button>
+            <button onClick={() => { setActivePage('customer-invoices'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>🧾 Νέο Τιμολόγιο</button>
+            <button onClick={() => { setActivePage('finance'); setShowPayments(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>💰 Νέα Είσπραξη</button>
+            <button onClick={() => { setActivePage('finance'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>💸 Νέο Έξοδο</button>
           </div>
         </div>
 
@@ -2863,6 +2806,10 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
       <section className="card page-section reports-section">
         <h2>📑 Αναφορές</h2>
+
+        {activePage === 'settings' && activeReportTab === '' && (
+          <button onClick={() => setActiveSettingsTab('')}>← Πίσω στις Ρυθμίσεις</button>
+        )}
 
         {activeReportTab === '' && (
           <>
@@ -3165,6 +3112,11 @@ const [vatQuarter, setVatQuarter] = useState('1');
             <p><b>📁 Έγγραφα</b></p>
             <small>Αρχεία και παραστατικά έργων</small>
           </div>
+          <div className="line settings-card" role="button" tabIndex={0} onClick={() => { setActiveSettingsTab('reports'); setActiveReportTab(''); }} onKeyDown={(e) => e.key === 'Enter' && setActiveSettingsTab('reports')}>
+            <p><b>📑 Αναφορές</b></p>
+            <small>Αναφορές έργων, πελατών, προμηθευτών, ΦΠΑ και υπολοίπων</small>
+          </div>
+
           <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActiveSettingsTab('trash')} onKeyDown={(e) => e.key === 'Enter' && setActiveSettingsTab('trash')}>
             <p><b>🗑 Κάδος</b></p>
             <small>Επαναφορά ή οριστική διαγραφή</small>
@@ -4280,68 +4232,6 @@ const [vatQuarter, setVatQuarter] = useState('1');
           </>
         )}
       </section>
-
-
-      {currentUser && !selectedProject && (
-        <>
-          <button className="quick-create-fab no-print" onClick={() => setQuickCreateOpen(true)}>
-            <span style={{ fontSize: '22px', lineHeight: 1 }}>＋</span>
-            <span>Δημιουργία</span>
-          </button>
-
-          {quickCreateOpen && (
-            <>
-              <div className="quick-create-backdrop no-print" onClick={() => setQuickCreateOpen(false)} />
-              <aside className="quick-create-panel no-print">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                  <div>
-                    <h2>➕ Δημιουργία</h2>
-                    <p>Διάλεξε τι θέλεις να καταχωρήσεις.</p>
-                  </div>
-                  <button onClick={() => setQuickCreateOpen(false)}>✖</button>
-                </div>
-
-                <button
-                  className="quick-create-option"
-                  onClick={() => goToQuickCreate('customers', () => {
-                    setNewCustomer(INITIAL_CUSTOMER);
-                    setEditingCustomerId(null);
-                  })}
-                >
-                  👤 Νέος Πελάτης<br />
-                  <small>Άνοιγμα φόρμας πελάτη</small>
-                </button>
-
-                <button
-                  className="quick-create-option"
-                  onClick={() => goToQuickCreate('customer-invoices', () => {
-                    setNewCustomerInvoice(INITIAL_CUSTOMER_INVOICE);
-                    setEditingCustomerInvoiceId(null);
-                  })}
-                >
-                  🧾 Νέο Τιμολόγιο Πελάτη<br />
-                  <small>Έσοδο, ΦΠΑ, παρακράτηση και εισπρακτέο</small>
-                </button>
-
-                <button
-                  className="quick-create-option"
-                  onClick={() => goToQuickCreate('suppliers', () => {
-                    setNewSupplierInvoice(INITIAL_SUPPLIER_INVOICE);
-                    setEditingSupplierInvoiceId(null);
-                    setOpenSupplierId(null);
-                  })}
-                >
-                  🚚 Νέο Τιμολόγιο Προμηθευτή<br />
-                  <small>Έξοδο έργου, ΦΠΑ εισροών και υπόλοιπο προμηθευτή</small>
-                </button>
-
-                <hr />
-                <button onClick={() => setQuickCreateOpen(false)}>Κλείσιμο</button>
-              </aside>
-            </>
-          )}
-        </>
-      )}
 
     </main>
   );
