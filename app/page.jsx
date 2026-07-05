@@ -2397,10 +2397,18 @@ const [vatQuarter, setVatQuarter] = useState('1');
           </div>
 
           <div className="report-block">
-            <h3>Τελικό υπόλοιπο</h3>
-            <div className={balance < 0 ? 'line alert' : 'line'}>
-              <p><b>{formatCurrency(balance)}</b></p>
-              <small>Συμφωνία - εισπράξεις - έξοδα</small>
+            <h3>Τελική εικόνα έργου</h3>
+            <div className={customerBalance > 0 ? 'line alert' : 'line'}>
+              <p><b>{formatCurrency(customerBalance)}</b></p>
+              <small>Υπόλοιπο πελάτη: Συμφωνία - εισπράξεις</small>
+            </div>
+            <div className={currentProfit < 0 ? 'line alert' : 'line'}>
+              <p><b>{formatCurrency(currentProfit)}</b></p>
+              <small>Κέρδος μέχρι τώρα: Εισπράξεις - έξοδα</small>
+            </div>
+            <div className={estimatedProfit < 0 ? 'line alert' : 'line'}>
+              <p><b>{formatCurrency(estimatedProfit)}</b></p>
+              <small>Εκτιμώμενο τελικό κέρδος: Συμφωνία - έξοδα</small>
             </div>
           </div>
 
