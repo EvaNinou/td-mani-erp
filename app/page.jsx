@@ -306,11 +306,21 @@ hr {
 .page-suppliers .suppliers-section,
 .page-inventory .inventory-section,
 .page-trash .trash-section,
-.page-settings .settings-section,
-.page-settings .tasks-section,
-.page-settings .documents-section,
-.page-settings .trash-section {
+.page-settings.settings-home .settings-section,
+.page-settings.settings-tasks .settings-task-section,
+.page-settings.settings-documents .settings-document-section,
+.page-settings.settings-trash .settings-trash-section {
   display: block !important;
+}
+
+.settings-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.settings-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(214,168,79,0.55);
 }
 
 @media (max-width: 900px) {
@@ -449,6 +459,7 @@ hr {
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
   const [activePage, setActivePage] = useState('dashboard');
+  const [activeSettingsTab, setActiveSettingsTab] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
@@ -2519,7 +2530,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
   }
 
   return (
-    <main className={`app page-${activePage}`}>
+    <main className={`app page-${activePage} ${activePage === 'settings' ? `settings-${activeSettingsTab || 'home'}` : ''}`}>
       <style>{ERP_STYLES}</style>
       <header className="top">
         <div className="brand">
@@ -2545,7 +2556,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
         <button className={activePage === 'customer-invoices' ? 'active' : ''} onClick={() => setActivePage('customer-invoices')}>🧾 Τιμολόγια Εσόδων</button>
         <button className={activePage === 'suppliers' ? 'active' : ''} onClick={() => setActivePage('suppliers')}>🚚 Προμηθευτές</button>
         <button className={activePage === 'inventory' ? 'active' : ''} onClick={() => setActivePage('inventory')}>📦 Αποθήκη</button>
-        <button className={activePage === 'settings' ? 'active' : ''} onClick={() => setActivePage('settings')}>⚙️ Ρυθμίσεις</button>
+        <button className={activePage === 'settings' ? 'active' : ''} onClick={() => { setActivePage('settings'); setActiveSettingsTab(''); }}>⚙️ Ρυθμίσεις</button>
       </nav>
 
       {(editingCustomerId || editingProjectId || editingPaymentId || editingCustomerInvoiceId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId || editingDocumentId || editingSupplierId || editingSupplierInvoiceId || editingSupplierPaymentId) && (
@@ -2640,15 +2651,25 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
       <section className="card page-section settings-section">
         <h2>⚙️ Ρυθμίσεις</h2>
-        <p>Εδώ έχουν μεταφερθεί οι βοηθητικές ενότητες του ERP, ώστε το βασικό menu να μένει καθαρό.</p>
+        <p>Διάλεξε ποια ενότητα θέλεις να ανοίξεις.</p>
         <div className="grid">
-          <div className="line"><p><b>✅ Εργασίες</b></p><small>Tasks / ραντεβού ανά έργο</small></div>
-          <div className="line"><p><b>📁 Έγγραφα</b></p><small>Αρχεία και παραστατικά έργων</small></div>
-          <div className="line"><p><b>🗑 Κάδος</b></p><small>Επαναφορά ή οριστική διαγραφή</small></div>
+          <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActiveSettingsTab('tasks')} onKeyDown={(e) => e.key === 'Enter' && setActiveSettingsTab('tasks')}>
+            <p><b>✅ Εργασίες</b></p>
+            <small>Tasks / ραντεβού ανά έργο</small>
+          </div>
+          <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActiveSettingsTab('documents')} onKeyDown={(e) => e.key === 'Enter' && setActiveSettingsTab('documents')}>
+            <p><b>📁 Έγγραφα</b></p>
+            <small>Αρχεία και παραστατικά έργων</small>
+          </div>
+          <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActiveSettingsTab('trash')} onKeyDown={(e) => e.key === 'Enter' && setActiveSettingsTab('trash')}>
+            <p><b>🗑 Κάδος</b></p>
+            <small>Επαναφορά ή οριστική διαγραφή</small>
+          </div>
         </div>
       </section>
 
-      <section className="card page-section tasks-section">
+      <section className="card page-section tasks-section settings-task-section">
+        {activePage === 'settings' && <button onClick={() => setActiveSettingsTab('')}>← Πίσω στις Ρυθμίσεις</button>}
         <h2>{editingTaskId ? 'Επεξεργασία Εργασίας / Ραντεβού' : 'Νέα Εργασία / Ραντεβού'}</h2>
         <select value={newTask.project_id} onChange={(e) => setNewTask({ ...newTask, project_id: e.target.value })}>
           <option value="">Διάλεξε έργο</option>
@@ -2666,7 +2687,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
         <button onClick={saveTask}>{editingTaskId ? 'Αποθήκευση αλλαγών εργασίας' : 'Αποθήκευση εργασίας'}</button>
       </section>
 
-      <section className="card page-section tasks-section">
+      <section className="card page-section tasks-section settings-task-section">
         <h2>✅ Εργασίες / Ραντεβού</h2>
 
         <input
@@ -2694,7 +2715,8 @@ const [vatQuarter, setVatQuarter] = useState('1');
         )}
       </section>
 
-      <section className="card page-section documents-section">
+      <section className="card page-section documents-section settings-document-section">
+        {activePage === 'settings' && <button onClick={() => setActiveSettingsTab('')}>← Πίσω στις Ρυθμίσεις</button>}
         <h2>{editingDocumentId ? 'Επεξεργασία Αρχείου / Παραστατικού' : 'Νέο Αρχείο / Παραστατικό'}</h2>
 
         <select
@@ -3569,7 +3591,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
         </section>
       )}
 
-      <section className="card page-section documents-section">
+      <section className="card page-section documents-section settings-document-section">
         <h2>Αρχεία / Παραστατικά</h2>
         {documents.filter(isActiveItem).length === 0 ? (
           <p>Δεν υπάρχουν αρχεία ακόμα.</p>
@@ -3635,7 +3657,8 @@ const [vatQuarter, setVatQuarter] = useState('1');
         )}
       </section>
 
-      <section className="card page-section trash-section">
+      <section className="card page-section trash-section settings-trash-section">
+        {activePage === 'settings' && <button onClick={() => setActiveSettingsTab('')}>← Πίσω στις Ρυθμίσεις</button>}
         <h2>🗑 Κάδος</h2>
         <p>Εδώ εμφανίζονται όσα έχουν διαγραφεί προσωρινά. Μπορείς να τα επαναφέρεις ή να τα διαγράψεις οριστικά.</p>
 
