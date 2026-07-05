@@ -26,7 +26,7 @@ const DEMO_USERS = [
 const ERP_STYLES = `:root {
   --gold: #d6a84f;
   --dark: #0d0d0f;
-  --card: rgba(29, 29, 34, 0.94);
+  --card: rgba(29, 29, 34, 0.72);
   --text: #f5f1e8;
   --muted: #a8a29a;
   --danger: #ff6b5f;
@@ -136,6 +136,15 @@ small { color: var(--muted); }
   border: 1px solid var(--border);
   border-radius: 22px;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(214,168,79,0.30);
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.30);
 }
 
 .login-card {
@@ -153,11 +162,20 @@ small { color: var(--muted); }
 .line {
   margin: 10px 0;
   padding: 16px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.028)) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.070), rgba(255,255,255,0.026)) !important;
   border: 1px solid var(--border);
   border-radius: 18px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 24px rgba(0,0,0,0.18);
   text-align: left;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.line:hover {
+  transform: translateY(-2px);
+  border-color: rgba(214,168,79,0.34);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 16px 34px rgba(0,0,0,0.24);
 }
 
 .line p {
@@ -221,6 +239,12 @@ button {
   font-size: 14px;
   font-weight: 900;
   cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(0,0,0,0.24);
 }
 
 button + button {
@@ -258,6 +282,112 @@ hr {
   break-inside: avoid;
   padding: 12px 0;
 }
+
+
+/* Global Search */
+.global-search {
+  position: relative;
+  flex: 1 1 420px;
+  max-width: 520px;
+}
+
+.global-search input {
+  margin: 0;
+  padding-left: 44px;
+  padding-right: 44px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.070) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.055), 0 12px 28px rgba(0,0,0,0.16);
+}
+
+.global-search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gold);
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.global-search-shortcut {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.global-search-results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 120;
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 10px;
+  background: rgba(13,13,15,0.96) !important;
+  border: 1px solid rgba(214,168,79,0.24);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.48);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.global-search-result {
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 12px 13px;
+  display: block;
+  text-align: left;
+  background: rgba(255,255,255,0.050) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.global-search-result:hover {
+  border-color: rgba(214,168,79,0.55);
+  background: rgba(214,168,79,0.10) !important;
+}
+
+.global-search-result-title {
+  display: block;
+  color: var(--gold);
+  font-weight: 950;
+  margin-bottom: 3px;
+}
+
+.global-search-result-meta {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.global-search-empty {
+  padding: 13px;
+  color: var(--muted);
+}
+
+.section-title-icon {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  border-radius: 10px;
+  background: rgba(214,168,79,0.12);
+  border: 1px solid rgba(214,168,79,0.20);
+}
+
 
 /* Navigation tabs */
 .erp-nav {
@@ -378,6 +508,7 @@ hr {
 @media (max-width: 900px) {
   .app { padding: 12px; }
   .top { align-items: flex-start; flex-direction: column; }
+  .global-search { width: 100%; max-width: none; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .card { padding: 16px; border-radius: 20px; }
@@ -625,6 +756,8 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
   const [crews, setCrews] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -692,6 +825,23 @@ const [vatQuarter, setVatQuarter] = useState('1');
   useEffect(() => {
     const timer = setInterval(() => setCurrentDateTime(new Date()), 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    function handleGlobalSearchShortcut(event) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setGlobalSearchOpen(true);
+        setTimeout(() => document.getElementById('global-search-input')?.focus(), 40);
+      }
+
+      if (event.key === 'Escape') {
+        setGlobalSearchOpen(false);
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalSearchShortcut);
+    return () => window.removeEventListener('keydown', handleGlobalSearchShortcut);
   }, []);
 
   async function refreshAll() {
@@ -1390,6 +1540,191 @@ const [vatQuarter, setVatQuarter] = useState('1');
       suppliersWithOpenBalance
     };
   }, [tasks, payments, expenses, customerInvoices, inventory, customers, suppliers, projects, supplierInvoices, supplierPayments]);
+
+
+  const globalSearchResults = useMemo(() => {
+    const search = normalizeText(globalSearch);
+    if (!search || search.length < 2) return [];
+
+    const results = [];
+
+    customers.filter(isActiveItem).forEach((customer) => {
+      const haystack = [
+        customer.name,
+        customer.afm,
+        customer.phone,
+        customer.area,
+        customer.notes
+      ].map(normalizeText).join(' ');
+
+      if (haystack.includes(search)) {
+        results.push({
+          type: 'customer',
+          icon: '👤',
+          title: customer.name || 'Πελάτης',
+          meta: `Πελάτης • ΑΦΜ ${customer.afm || '-'}${customer.area ? ` • ${customer.area}` : ''}`,
+          action: () => {
+            setActivePage('customers');
+            setOpenCustomerId(customer.id);
+            setSelectedProject(null);
+          }
+        });
+      }
+    });
+
+    projects.filter(isActiveItem).forEach((project) => {
+      const haystack = [
+        project.title,
+        project.area,
+        project.address,
+        project.status,
+        getCustomerName(project.customer_id)
+      ].map(normalizeText).join(' ');
+
+      if (haystack.includes(search)) {
+        results.push({
+          type: 'project',
+          icon: '🏗️',
+          title: project.title || 'Έργο',
+          meta: `Έργο • ${getCustomerName(project.customer_id)}${project.area ? ` • ${project.area}` : ''}`,
+          action: () => {
+            setActivePage('customers');
+            setSelectedProject(project);
+            setActiveProjectTab('overview');
+          }
+        });
+      }
+    });
+
+    customerInvoices.filter(isActiveItem).forEach((invoice) => {
+      const haystack = [
+        invoice.invoice_number,
+        invoice.description,
+        invoice.invoice_date,
+        getCustomerName(invoice.customer_id),
+        getProjectTitle(invoice.project_id)
+      ].map(normalizeText).join(' ');
+
+      if (haystack.includes(search)) {
+        results.push({
+          type: 'customer-invoice',
+          icon: '🧾',
+          title: invoice.invoice_number ? `Τιμολόγιο ${invoice.invoice_number}` : 'Τιμολόγιο πελάτη',
+          meta: `Τιμολόγιο Εσόδων • ${getCustomerName(invoice.customer_id)} • ${formatCurrency(invoice.total_amount)}`,
+          action: () => {
+            setActivePage('customer-invoices');
+            setSelectedProject(null);
+          }
+        });
+      }
+    });
+
+    suppliers.filter(isActiveItem).forEach((supplier) => {
+      const haystack = [
+        supplier.name,
+        supplier.afm,
+        supplier.phone,
+        supplier.email,
+        supplier.address,
+        supplier.notes
+      ].map(normalizeText).join(' ');
+
+      if (haystack.includes(search)) {
+        results.push({
+          type: 'supplier',
+          icon: '🚚',
+          title: supplier.name || 'Προμηθευτής',
+          meta: `Προμηθευτής • ΑΦΜ ${supplier.afm || '-'}`,
+          action: () => {
+            setActivePage('suppliers');
+            setOpenSupplierId(supplier.id);
+            setSelectedProject(null);
+          }
+        });
+      }
+    });
+
+    supplierInvoices.filter(isActiveItem).forEach((invoice) => {
+      const haystack = [
+        invoice.invoice_number,
+        invoice.description,
+        invoice.invoice_date,
+        getSupplierName(invoice.supplier_id),
+        getProjectTitle(invoice.project_id)
+      ].map(normalizeText).join(' ');
+
+      if (haystack.includes(search)) {
+        results.push({
+          type: 'supplier-invoice',
+          icon: '📄',
+          title: invoice.invoice_number ? `Τιμολόγιο Προμηθευτή ${invoice.invoice_number}` : 'Τιμολόγιο προμηθευτή',
+          meta: `Προμηθευτής • ${getSupplierName(invoice.supplier_id)} • ${formatCurrency(invoice.total_amount)}`,
+          action: () => {
+            setActivePage('suppliers');
+            setOpenSupplierId(invoice.supplier_id);
+            setSelectedProject(null);
+          }
+        });
+      }
+    });
+
+    inventory.filter(isActiveItem).forEach((item) => {
+      const haystack = [
+        item.item_name,
+        item.quantity,
+        item.min_quantity,
+        item.purchase_price
+      ].map(normalizeText).join(' ');
+
+      if (haystack.includes(search)) {
+        results.push({
+          type: 'inventory',
+          icon: '📦',
+          title: item.item_name || 'Υλικό',
+          meta: `Αποθήκη • Ποσότητα ${item.quantity || 0}`,
+          action: () => {
+            setActivePage('inventory');
+            setSelectedProject(null);
+          }
+        });
+      }
+    });
+
+    tasks.filter(isActiveItem).forEach((task) => {
+      const haystack = [
+        task.title,
+        task.status,
+        task.notes,
+        task.task_date,
+        task.task_time,
+        getProjectTitle(task.project_id)
+      ].map(normalizeText).join(' ');
+
+      if (haystack.includes(search)) {
+        results.push({
+          type: 'task',
+          icon: '✅',
+          title: task.title || 'Εργασία',
+          meta: `Εργασία • ${getProjectTitle(task.project_id)} • ${formatDate(task.task_date)}`,
+          action: () => {
+            setActivePage('settings');
+            setActiveSettingsTab('tasks');
+            setSelectedProject(null);
+          }
+        });
+      }
+    });
+
+    return results.slice(0, 10);
+  }, [globalSearch, customers, projects, customerInvoices, suppliers, supplierInvoices, inventory, tasks]);
+
+  function selectGlobalSearchResult(result) {
+    result.action();
+    setGlobalSearch('');
+    setGlobalSearchOpen(false);
+    setQuickReturnToDashboard(false);
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 80);
+  }
 
   function calculateQuoteValues(quoteForm) {
     const subtotal = Number(quoteForm.subtotal || 0);
@@ -2832,6 +3167,40 @@ const [vatQuarter, setVatQuarter] = useState('1');
             <h1>T D MANI</h1>
             <p>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</p>
           </div>
+        </div>
+
+        <div className="global-search">
+          <span className="global-search-icon">🔍</span>
+          <input
+            id="global-search-input"
+            placeholder="Αναζήτηση σε πελάτες, έργα, τιμολόγια..."
+            value={globalSearch}
+            onFocus={() => setGlobalSearchOpen(true)}
+            onChange={(e) => {
+              setGlobalSearch(e.target.value);
+              setGlobalSearchOpen(true);
+            }}
+          />
+          <span className="global-search-shortcut">Ctrl K</span>
+
+          {globalSearchOpen && globalSearch && (
+            <div className="global-search-results">
+              {globalSearchResults.length > 0 ? (
+                globalSearchResults.map((result, index) => (
+                  <button
+                    key={`${result.type}-${index}`}
+                    className="global-search-result"
+                    onClick={() => selectGlobalSearchResult(result)}
+                  >
+                    <span className="global-search-result-title">{result.icon} {result.title}</span>
+                    <span className="global-search-result-meta">{result.meta}</span>
+                  </button>
+                ))
+              ) : (
+                <div className="global-search-empty">Δεν βρέθηκαν αποτελέσματα.</div>
+              )}
+            </div>
+          )}
         </div>
 
         <div>
