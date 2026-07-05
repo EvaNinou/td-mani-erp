@@ -3250,6 +3250,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
 
       <section className="card page-section customer-invoices-section">
+        <button onClick={() => setActivePage('income-expenses')}>← Πίσω στα Έσοδα / Έξοδα</button>
         <h2>{editingCustomerInvoiceId ? 'Επεξεργασία Τιμολογίου Εσόδου' : 'Νέο Τιμολόγιο Εσόδου'}</h2>
 
         <select
@@ -3354,6 +3355,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
 
       <section className="card page-section finance-section">
+        <button onClick={() => setActivePage('income-expenses')}>← Πίσω στα Έσοδα / Έξοδα</button>
         <h2>🧾 Υπολογισμός ΦΠΑ τριμήνου</h2>
         <p>Υπολογίζει: ΦΠΑ εσόδων από τιμολόγια εσόδων μείον ΦΠΑ εξόδων από τιμολόγια προμηθευτών.</p>
 
@@ -3664,6 +3666,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
 
       <section className="card page-section suppliers-section">
+        <button onClick={() => setActivePage('income-expenses')}>← Πίσω στα Έσοδα / Έξοδα</button>
         <h2>{editingSupplierId ? 'Επεξεργασία Προμηθευτή' : 'Νέος Προμηθευτής'}</h2>
 
         <input placeholder="Ονοματεπώνυμο / Επωνυμία" value={newSupplier.name} onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })} />
@@ -3847,6 +3850,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
 
       <section className="card page-section inventory-section">
+        <button onClick={() => setActivePage('income-expenses')}>← Πίσω στα Έσοδα / Έξοδα</button>
         <h2>{editingInventoryId ? 'Επεξεργασία Υλικού' : 'Νέο Υλικό'}</h2>
         <input placeholder="Υλικό" value={newInventory.item_name} onChange={(e) => setNewInventory({ ...newInventory, item_name: e.target.value })} />
         <input placeholder="Ποσότητα" value={newInventory.quantity} onChange={(e) => setNewInventory({ ...newInventory, quantity: e.target.value })} />
