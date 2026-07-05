@@ -306,7 +306,10 @@ hr {
 .page-suppliers .suppliers-section,
 .page-inventory .inventory-section,
 .page-trash .trash-section,
-.page-settings .settings-section {
+.page-settings .settings-section,
+.page-settings .tasks-section,
+.page-settings .documents-section,
+.page-settings .trash-section {
   display: block !important;
 }
 
@@ -1866,7 +1869,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
   function getProjectStatusLabel(status) {
     if (status === 'active') return '🟢 Ενεργό';
-    if (status === 'pending') return '🟡 Pending';
+    if (status === 'pending') return '🟡 Εκκρεμεί';
     if (status === 'completed') return '🔵 Ολοκληρωμένο';
     if (status === 'problem') return '🔴 Πρόβλημα';
     return status || '-';
@@ -2021,8 +2024,8 @@ const [vatQuarter, setVatQuarter] = useState('1');
             <button className={activeProjectTab === 'payments' ? 'active' : ''} onClick={() => setActiveProjectTab('payments')}>Πληρωμές</button>
             <button className={activeProjectTab === 'expenses' ? 'active' : ''} onClick={() => setActiveProjectTab('expenses')}>Έξοδα</button>
             <button className={activeProjectTab === 'quotes' ? 'active' : ''} onClick={() => setActiveProjectTab('quotes')}>Προσφορές</button>
-            <button className={activeProjectTab === 'tasks' ? 'active' : ''} onClick={() => setActiveProjectTab('tasks')}>Tasks</button>
-            <button className={activeProjectTab === 'documents' ? 'active' : ''} onClick={() => setActiveProjectTab('documents')}>Documents</button>
+            <button className={activeProjectTab === 'tasks' ? 'active' : ''} onClick={() => setActiveProjectTab('tasks')}>Εργασίες</button>
+            <button className={activeProjectTab === 'documents' ? 'active' : ''} onClick={() => setActiveProjectTab('documents')}>Έγγραφα</button>
           </div>
 
           {activeProjectTab === 'overview' && (
@@ -2117,7 +2120,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
           {activeProjectTab === 'tasks' && (
             <div>
-              <h3>Tasks έργου</h3>
+              <h3>Εργασίες έργου</h3>
               {getProjectTasks(selectedProject.id).length === 0 ? (
                 <p>Δεν υπάρχουν tasks για αυτό το έργο.</p>
               ) : (
@@ -2357,7 +2360,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
           </div>
 
           <div className="report-block">
-            <h3>Tasks</h3>
+            <h3>Εργασίες</h3>
             {projectTasksList.length === 0 ? (
               <p className="report-muted">Δεν υπάρχουν tasks.</p>
             ) : (
@@ -2381,7 +2384,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
           </div>
 
           <div className="report-block">
-            <h3>Documents</h3>
+            <h3>Έγγραφα</h3>
             {projectDocumentsList.length === 0 ? (
               <p className="report-muted">Δεν υπάρχουν documents.</p>
             ) : (
@@ -2536,16 +2539,13 @@ const [vatQuarter, setVatQuarter] = useState('1');
       </header>
 
       <nav className="erp-nav">
-        <button className={activePage === 'dashboard' ? 'active' : ''} onClick={() => setActivePage('dashboard')}>🏠 Dashboard</button>
+        <button className={activePage === 'dashboard' ? 'active' : ''} onClick={() => setActivePage('dashboard')}>🏠 Πίνακας Ελέγχου</button>
         <button className={activePage === 'customers' ? 'active' : ''} onClick={() => setActivePage('customers')}>👥 Πελάτες & Έργα</button>
-        <button className={activePage === 'finance' ? 'active' : ''} onClick={() => setActivePage('finance')}>💰 Finance</button>
+        <button className={activePage === 'finance' ? 'active' : ''} onClick={() => setActivePage('finance')}>💰 Οικονομικά</button>
         <button className={activePage === 'customer-invoices' ? 'active' : ''} onClick={() => setActivePage('customer-invoices')}>🧾 Τιμολόγια Εσόδων</button>
-        <button className={activePage === 'tasks' ? 'active' : ''} onClick={() => setActivePage('tasks')}>📅 Tasks</button>
-        <button className={activePage === 'documents' ? 'active' : ''} onClick={() => setActivePage('documents')}>📁 Documents</button>
         <button className={activePage === 'suppliers' ? 'active' : ''} onClick={() => setActivePage('suppliers')}>🚚 Προμηθευτές</button>
-        <button className={activePage === 'inventory' ? 'active' : ''} onClick={() => setActivePage('inventory')}>📦 Inventory</button>
-        <button className={activePage === 'trash' ? 'active' : ''} onClick={() => setActivePage('trash')}>🗑 Κάδος</button>
-        <button className={activePage === 'settings' ? 'active' : ''} onClick={() => setActivePage('settings')}>⚙️ Settings</button>
+        <button className={activePage === 'inventory' ? 'active' : ''} onClick={() => setActivePage('inventory')}>📦 Αποθήκη</button>
+        <button className={activePage === 'settings' ? 'active' : ''} onClick={() => setActivePage('settings')}>⚙️ Ρυθμίσεις</button>
       </nav>
 
       {(editingCustomerId || editingProjectId || editingPaymentId || editingCustomerInvoiceId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId || editingDocumentId || editingSupplierId || editingSupplierInvoiceId || editingSupplierPaymentId) && (
@@ -2564,7 +2564,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
           <div className="line"><p><b>{dashboardStats.activeProjects}</b></p><small>Ενεργά έργα</small></div>
           <div className="line"><p><b>{dashboardStats.completedProjects}</b></p><small>Ολοκληρωμένα</small></div>
           <div className={dashboardStats.overdueTasks > 0 ? 'line alert' : 'line'}>
-            <p><b>{dashboardStats.overdueTasks}</b></p><small>Καθυστερημένα tasks</small>
+            <p><b>{dashboardStats.overdueTasks}</b></p><small>Καθυστερημένες εργασίες</small>
           </div>
         </div>
 
@@ -2639,41 +2639,46 @@ const [vatQuarter, setVatQuarter] = useState('1');
       </section>
 
       <section className="card page-section settings-section">
-        <h2>Συνεργεία</h2>
-        {crews.map((crew) => <p key={crew.id}><b>{crew.name}</b> — {crew.specialty}</p>)}
+        <h2>⚙️ Ρυθμίσεις</h2>
+        <p>Εδώ έχουν μεταφερθεί οι βοηθητικές ενότητες του ERP, ώστε το βασικό menu να μένει καθαρό.</p>
+        <div className="grid">
+          <div className="line"><p><b>✅ Εργασίες</b></p><small>Tasks / ραντεβού ανά έργο</small></div>
+          <div className="line"><p><b>📁 Έγγραφα</b></p><small>Αρχεία και παραστατικά έργων</small></div>
+          <div className="line"><p><b>🗑 Κάδος</b></p><small>Επαναφορά ή οριστική διαγραφή</small></div>
+        </div>
       </section>
 
       <section className="card page-section tasks-section">
-        <h2>{editingTaskId ? 'Επεξεργασία Task / Ραντεβού' : 'Νέο Task / Ραντεβού'}</h2>
+        <h2>{editingTaskId ? 'Επεξεργασία Εργασίας / Ραντεβού' : 'Νέα Εργασία / Ραντεβού'}</h2>
         <select value={newTask.project_id} onChange={(e) => setNewTask({ ...newTask, project_id: e.target.value })}>
           <option value="">Διάλεξε έργο</option>
           {projects.filter(isActiveItem).map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
         </select>
-        <input placeholder="Τίτλος task / ραντεβού" value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} />
+        <input placeholder="Τίτλος εργασίας / ραντεβού" value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} />
         <input type="date" value={newTask.task_date} onChange={(e) => setNewTask({ ...newTask, task_date: e.target.value })} />
         <input type="time" value={newTask.task_time} onChange={(e) => setNewTask({ ...newTask, task_time: e.target.value })} />
         <select value={newTask.status} onChange={(e) => setNewTask({ ...newTask, status: e.target.value })}>
-          <option value="pending">Pending</option>
+          <option value="pending">Εκκρεμεί</option>
           <option value="in_progress">Σε εξέλιξη</option>
           <option value="completed">Ολοκληρώθηκε</option>
         </select>
         <textarea placeholder="Σημειώσεις" value={newTask.notes} onChange={(e) => setNewTask({ ...newTask, notes: e.target.value })} />
-        <button onClick={saveTask}>{editingTaskId ? 'Αποθήκευση αλλαγών task' : 'Αποθήκευση task'}</button>
+        <button onClick={saveTask}>{editingTaskId ? 'Αποθήκευση αλλαγών εργασίας' : 'Αποθήκευση εργασίας'}</button>
       </section>
 
       <section className="card page-section tasks-section">
-        <h2>Calendar / Tasks</h2>
+        <h2>✅ Εργασίες / Ραντεβού</h2>
 
         <input
-          placeholder="Αναζήτηση task / έργου / status..."
+          placeholder="Αναζήτηση εργασίας / έργου / κατάστασης..."
           value={taskSearch}
           onChange={(e) => setTaskSearch(e.target.value)}
         />
 
         {tasks.filter(isActiveItem).length === 0 ? (
-          <p>Δεν υπάρχουν tasks ακόμα.</p>
+          <p>Δεν υπάρχουν εργασίες ακόμα.</p>
         ) : getVisibleTasks().length === 0 ? (
-          <p>Δεν βρέθηκαν tasks με αυτή την αναζήτηση.</p>
+          <p>Δεν βρέθηκαν εργασίες με αυτή την αναζήτηση.</p>
         ) : (
           getVisibleTasks().map((task) => (
             <div key={task.id} className={task.status === 'completed' ? 'line' : 'line alert'}>
@@ -2683,7 +2688,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
               <p>Status: {task.status}</p>
               <small>{task.notes}</small>
               <button onClick={() => editTask(task)}>✏️ Επεξεργασία</button>
-              <button onClick={() => deleteItem('tasks', task.id)}>🗑 Διαγραφή task</button>
+              <button onClick={() => deleteItem('tasks', task.id)}>🗑 Διαγραφή εργασίας</button>
             </div>
           ))
         )}
@@ -2983,7 +2988,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
           <option value="cash">Μετρητά χωρίς ΦΠΑ</option>
         </select>
         <select value={newQuote.status} onChange={(e) => setNewQuote({ ...newQuote, status: e.target.value })}>
-          <option value="pending">Pending</option>
+          <option value="pending">Εκκρεμεί</option>
           <option value="accepted">Accepted</option>
           <option value="rejected">Rejected</option>
         </select>
@@ -3532,7 +3537,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
             </div>
           ))}
 
-          <h3>Tasks έργου</h3>
+          <h3>Εργασίες έργου</h3>
           {getProjectTasks(selectedProject.id).map((task) => (
             <div key={task.id} className={task.status === 'completed' ? 'line' : 'line alert'}>
               <p><b>{task.title}</b></p>
