@@ -1120,6 +1120,88 @@ const [vatQuarter, setVatQuarter] = useState('1');
     };
   }, [customerInvoices, payments, suppliers, supplierInvoices, supplierPayments]);
 
+
+  const dashboardExtraStats = useMemo(() => {
+    const today = formatLocalDate(new Date());
+
+    const todayTasks = tasks.filter((task) =>
+      isActiveItem(task) && task.task_date === today
+    );
+
+    const todayPayments = payments.filter((payment) =>
+      isActiveItem(payment) && payment.payment_date === today
+    );
+
+    const todayExpenses = expenses.filter((expense) =>
+      isActiveItem(expense) && String(expense.created_at || '').split('T')[0] === today
+    );
+
+    const todayInvoices = customerInvoices.filter((invoice) =>
+      isActiveItem(invoice) && invoice.invoice_date === today
+    );
+
+    const todayIncome = todayPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const todayExpenseAmount = todayExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+    const lowStockItems = inventory
+      .filter((item) =>
+        isActiveItem(item) && Number(item.quantity || 0) <= Number(item.min_quantity || 0)
+      )
+      .slice(0, 5);
+
+    const topCustomers = customers
+      .filter(isActiveItem)
+      .map((customer) => ({
+        customer,
+        totals: getCustomerTotals(customer.id)
+      }))
+      .sort((a, b) => Number(b.totals.agreed || 0) - Number(a.totals.agreed || 0))
+      .slice(0, 5);
+
+    const topSuppliers = suppliers
+      .filter(isActiveItem)
+      .map((supplier) => ({
+        supplier,
+        analytics: getSupplierAnalytics(supplier.id)
+      }))
+      .sort((a, b) => Number(b.analytics.totalInvoices || 0) - Number(a.analytics.totalInvoices || 0))
+      .slice(0, 5);
+
+    const overdueTasksList = tasks
+      .filter((task) =>
+        isActiveItem(task) && task.status !== 'completed' && task.task_date && task.task_date < today
+      )
+      .slice(0, 5);
+
+    const customersWithOpenBalance = customers
+      .filter(isActiveItem)
+      .map((customer) => ({ customer, balance: getCustomerTotals(customer.id).customerBalance }))
+      .filter((item) => Number(item.balance || 0) > 0)
+      .sort((a, b) => Number(b.balance || 0) - Number(a.balance || 0));
+
+    const suppliersWithOpenBalance = suppliers
+      .filter(isActiveItem)
+      .map((supplier) => ({ supplier, balance: getSupplierTotals(supplier.id).balance }))
+      .filter((item) => Number(item.balance || 0) > 0)
+      .sort((a, b) => Number(b.balance || 0) - Number(a.balance || 0));
+
+    return {
+      today,
+      todayTasks,
+      todayPayments,
+      todayExpenses,
+      todayInvoices,
+      todayIncome,
+      todayExpenseAmount,
+      lowStockItems,
+      topCustomers,
+      topSuppliers,
+      overdueTasksList,
+      customersWithOpenBalance,
+      suppliersWithOpenBalance
+    };
+  }, [tasks, payments, expenses, customerInvoices, inventory, customers, suppliers, projects, supplierInvoices, supplierPayments]);
+
   function calculateQuoteValues(quoteForm) {
     const subtotal = Number(quoteForm.subtotal || 0);
     const vat = quoteForm.job_type === 'invoice' ? subtotal * 0.24 : 0;
@@ -2573,85 +2655,124 @@ const [vatQuarter, setVatQuarter] = useState('1');
       )}
 
       <section className="card page-section dashboard-section">
-        <h2>Dashboard</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '14px', flexWrap: 'wrap' }}>
+          <div>
+            <h2>📊 Πίνακας Ελέγχου</h2>
+            <p>Γρήγορη εικόνα εταιρείας και άμεσες ενέργειες.</p>
+          </div>
 
+          <div className="no-print-inline" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button onClick={() => { setActivePage('customers'); setSelectedProject(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>➕ Νέος Πελάτης</button>
+            <button onClick={() => { setActivePage('customers'); setSelectedProject(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>🏗 Νέο Έργο</button>
+            <button onClick={() => { setActivePage('customer-invoices'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>🧾 Νέο Τιμολόγιο</button>
+            <button onClick={() => { setActivePage('finance'); setShowPayments(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>💰 Νέα Είσπραξη</button>
+            <button onClick={() => { setActivePage('finance'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>💸 Νέο Έξοδο</button>
+          </div>
+        </div>
+
+        <h3>📅 Σήμερα</h3>
         <div className="grid">
-          <div className="line"><p><b>{totals.totalProjects}</b></p><small>Συνολικά έργα</small></div>
-          <div className="line"><p><b>{dashboardStats.activeProjects}</b></p><small>Ενεργά έργα</small></div>
-          <div className="line"><p><b>{dashboardStats.completedProjects}</b></p><small>Ολοκληρωμένα</small></div>
+          <div className="line"><p><b>{dashboardExtraStats.todayTasks.length}</b></p><small>Εργασίες σήμερα</small></div>
+          <div className="line"><p><b>{formatCurrency(dashboardExtraStats.todayIncome)}</b></p><small>Εισπράξεις σήμερα</small></div>
+          <div className="line"><p><b>{formatCurrency(dashboardExtraStats.todayExpenseAmount)}</b></p><small>Έξοδα σήμερα</small></div>
+          <div className="line"><p><b>{dashboardExtraStats.todayInvoices.length}</b></p><small>Τιμολόγια σήμερα</small></div>
+        </div>
+
+        <h3>🚨 Προσοχή</h3>
+        <div className="grid">
+          <div className={riskStats.riskyProjects.length > 0 ? 'line alert' : 'line'}>
+            <p><b>{riskStats.riskyProjects.length}</b></p><small>Έργα με ζημία / αρνητική εικόνα</small>
+          </div>
+          <div className={dashboardExtraStats.customersWithOpenBalance.length > 0 ? 'line alert' : 'line'}>
+            <p><b>{dashboardExtraStats.customersWithOpenBalance.length}</b></p><small>Πελάτες με ανοιχτό υπόλοιπο</small>
+          </div>
+          <div className={dashboardExtraStats.suppliersWithOpenBalance.length > 0 ? 'line alert' : 'line'}>
+            <p><b>{dashboardExtraStats.suppliersWithOpenBalance.length}</b></p><small>Προμηθευτές προς πληρωμή</small>
+          </div>
           <div className={dashboardStats.overdueTasks > 0 ? 'line alert' : 'line'}>
             <p><b>{dashboardStats.overdueTasks}</b></p><small>Καθυστερημένες εργασίες</small>
           </div>
         </div>
 
+        <h3>Βασική εικόνα</h3>
+        <div className="grid">
+          <div className="line"><p><b>{totals.totalProjects}</b></p><small>Συνολικά έργα</small></div>
+          <div className="line"><p><b>{dashboardStats.activeProjects}</b></p><small>Ενεργά έργα</small></div>
+          <div className="line"><p><b>{dashboardStats.completedProjects}</b></p><small>Ολοκληρωμένα</small></div>
+          <div className={totals.totalBalance < 0 ? 'line alert' : 'line'}>
+            <p><b>{formatCurrency(totals.totalBalance)}</b></p><small>Εκτιμώμενο κέρδος έργων</small>
+          </div>
+        </div>
+
         <h3>Οικονομική εικόνα</h3>
         <div className="grid">
-          <div className="line"><p><b>{totals.totalAgreed}€</b></p><small>Συμφωνημένα έργων</small></div>
-          <div className="line"><p><b>{totals.totalPaid}€</b></p><small>Εισπράξεις</small></div>
-          <div className="line"><p><b>{totals.totalExpenses}€</b></p><small>Έξοδα</small></div>
-          <div className={totals.totalBalance < 0 ? 'line alert' : 'line'}>
-            <p><b>{totals.totalBalance}€</b></p><small>Εκτιμώμενο κέρδος έργων</small>
+          <div className="line"><p><b>{formatCurrency(totals.totalAgreed)}</b></p><small>Συμφωνημένα έργων</small></div>
+          <div className="line"><p><b>{formatCurrency(totals.totalPaid)}</b></p><small>Εισπράξεις</small></div>
+          <div className="line"><p><b>{formatCurrency(totals.totalExpenses)}</b></p><small>Έξοδα</small></div>
+          <div className={businessStats.currentVat.payableVat > 0 ? 'line alert' : 'line'}>
+            <p><b>{formatCurrency(businessStats.currentVat.payableVat)}</b></p><small>Εκτίμηση ΦΠΑ τρέχοντος τριμήνου</small>
           </div>
         </div>
 
         <h3>Οφειλές / Cashflow</h3>
         <div className="grid">
-          <div className="line"><p><b>{businessStats.customerOpenReceivables}€</b></p><small>Ανοιχτά εισπρακτέα πελατών</small></div>
+          <div className="line"><p><b>{formatCurrency(businessStats.customerOpenReceivables)}</b></p><small>Ανοιχτά εισπρακτέα πελατών</small></div>
           <div className={businessStats.supplierOpenPayables > 0 ? 'line alert' : 'line'}>
-            <p><b>{businessStats.supplierOpenPayables}€</b></p><small>Χρωστούμενα σε προμηθευτές</small>
+            <p><b>{formatCurrency(businessStats.supplierOpenPayables)}</b></p><small>Χρωστούμενα σε προμηθευτές</small>
           </div>
           <div className={businessStats.cashView < 0 ? 'line alert' : 'line'}>
-            <p><b>{businessStats.cashView}€</b></p><small>Εικόνα εισπρακτέων - υποχρεώσεων</small>
+            <p><b>{formatCurrency(businessStats.cashView)}</b></p><small>Εικόνα εισπρακτέων - υποχρεώσεων</small>
           </div>
-          <div className={businessStats.currentVat.payableVat > 0 ? 'line alert' : 'line'}>
-            <p><b>{businessStats.currentVat.payableVat}€</b></p><small>Εκτίμηση ΦΠΑ τρέχοντος τριμήνου</small>
-          </div>
-        </div>
-
-        <h3>Μήνας</h3>
-        <div className="grid">
-          <div className="line"><p><b>{dashboardStats.monthlyIncome}€</b></p><small>Έσοδα μήνα</small></div>
-          <div className="line"><p><b>{dashboardStats.monthlyExpenses}€</b></p><small>Έξοδα μήνα</small></div>
           <div className={dashboardStats.monthlyProfit >= 0 ? 'line' : 'line alert'}>
-            <p><b>{dashboardStats.monthlyProfit}€</b></p><small>Διαφορά μήνα</small>
+            <p><b>{formatCurrency(dashboardStats.monthlyProfit)}</b></p><small>Διαφορά μήνα</small>
           </div>
         </div>
-      </section>
 
-      <section className="card page-section dashboard-section">
-        <h2>🔔 Smart Alerts</h2>
-
-        {riskStats.riskyProjects.length === 0 && riskStats.highBalanceProjects.length === 0 ? (
-          <p>Δεν υπάρχουν alerts αυτή τη στιγμή.</p>
-        ) : (
-          <>
-            {riskStats.riskyProjects.length > 0 && (
-              <>
-                <h3>⚠️ Έργα με αρνητικό υπόλοιπο</h3>
-                {riskStats.riskyProjects.map((project) => (
-                  <div key={project.id} className="line alert">
-                    <p><b>{project.title}</b></p>
-                    <p>Πελάτης: {getCustomerName(project.customer_id)}</p>
-                    <p>Υπόλοιπο: {project.balance}€</p>
-                  </div>
-                ))}
-              </>
+        <div className="grid">
+          <div className="line">
+            <h3>🏆 Top Πελάτες</h3>
+            {dashboardExtraStats.topCustomers.length === 0 ? (
+              <p>Δεν υπάρχουν πελάτες ακόμα.</p>
+            ) : (
+              dashboardExtraStats.topCustomers.map(({ customer, totals }, index) => (
+                <p key={customer.id}><b>{index + 1}. {customer.name}</b><br /><small>{formatCurrency(totals.agreed)} συμφωνίες • Υπόλοιπο {formatCurrency(totals.customerBalance)}</small></p>
+              ))
             )}
+          </div>
 
-            {riskStats.highBalanceProjects.length > 0 && (
-              <>
-                <h3>💰 Έργα με μεγάλο ανοιχτό υπόλοιπο</h3>
-                {riskStats.highBalanceProjects.map((project) => (
-                  <div key={project.id} className="line">
-                    <p><b>{project.title}</b></p>
-                    <p>Πελάτης: {getCustomerName(project.customer_id)}</p>
-                    <p>Υπόλοιπο: {project.balance}€</p>
-                  </div>
-                ))}
-              </>
+          <div className="line">
+            <h3>🚚 Top Προμηθευτές</h3>
+            {dashboardExtraStats.topSuppliers.length === 0 ? (
+              <p>Δεν υπάρχουν προμηθευτές ακόμα.</p>
+            ) : (
+              dashboardExtraStats.topSuppliers.map(({ supplier, analytics }, index) => (
+                <p key={supplier.id}><b>{index + 1}. {supplier.name}</b><br /><small>{formatCurrency(analytics.totalInvoices)} αγορές • Υπόλοιπο {formatCurrency(analytics.balance)}</small></p>
+              ))
             )}
-          </>
-        )}
+          </div>
+
+          <div className="line">
+            <h3>📦 Χαμηλό Stock</h3>
+            {dashboardExtraStats.lowStockItems.length === 0 ? (
+              <p>Δεν υπάρχουν υλικά με χαμηλό stock.</p>
+            ) : (
+              dashboardExtraStats.lowStockItems.map((item) => (
+                <p key={item.id}><b>{item.item_name}</b><br /><small>Υπόλοιπο: {item.quantity || 0} • Ελάχιστο: {item.min_quantity || 0}</small></p>
+              ))
+            )}
+          </div>
+
+          <div className="line">
+            <h3>⏰ Ληγμένες εργασίες</h3>
+            {dashboardExtraStats.overdueTasksList.length === 0 ? (
+              <p>Δεν υπάρχουν ληγμένες εργασίες.</p>
+            ) : (
+              dashboardExtraStats.overdueTasksList.map((task) => (
+                <p key={task.id}><b>{task.title}</b><br /><small>{formatDate(task.task_date)} • {getProjectTitle(task.project_id)}</small></p>
+              ))
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="card page-section reports-section">
