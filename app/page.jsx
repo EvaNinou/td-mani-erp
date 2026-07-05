@@ -370,6 +370,41 @@ hr {
   }
 }
 
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0 16px;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.report-table th,
+.report-table td {
+  padding: 10px 9px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  font-size: 14px;
+}
+
+.report-table th {
+  color: var(--gold);
+  background: rgba(214,168,79,0.10) !important;
+}
+
+.report-total-row td {
+  font-weight: 900;
+  color: var(--gold);
+}
+
+.report-muted {
+  color: var(--muted);
+}
+
+.no-print-inline {
+  display: inline-block;
+}
+
 @media print {
   body {
     background: white !important;
@@ -390,12 +425,17 @@ hr {
     top: 0;
     width: 100%;
     margin: 0;
+    padding: 22px;
     background: white !important;
     box-shadow: none;
     border: none;
+    border-radius: 0;
   }
 
   .print-area button,
+  .no-print,
+  .no-print-inline,
+  .top,
   .erp-nav { display: none !important; }
 
   .page-section { display: block !important; }
@@ -839,6 +879,16 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
   function isDeletedItem(item) {
     return !!item?.is_deleted;
+  }
+
+
+  function formatCurrency(value) {
+    return `${Number(value || 0).toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€`;
+  }
+
+  function formatDate(value) {
+    if (!value) return '-';
+    return String(value).split('T')[0];
   }
 
 
@@ -1896,6 +1946,13 @@ const [vatQuarter, setVatQuarter] = useState('1');
     const projectExpenses = getProjectExpenses(selectedProject.id);
     const balance = agreed - paid - projectExpenses;
     const progress = getProjectProgress(selectedProject.id);
+    const projectPaymentsList = getProjectPayments(selectedProject.id);
+    const projectExpensesList = expenses.filter((expense) => expense.project_id === selectedProject.id && isActiveItem(expense));
+    const projectCustomerInvoicesList = getProjectCustomerInvoices(selectedProject.id);
+    const projectSupplierInvoicesList = getProjectSupplierInvoices(selectedProject.id);
+    const projectQuotesList = getProjectQuotes(selectedProject.id);
+    const projectTasksList = getProjectTasks(selectedProject.id);
+    const projectDocumentsList = getProjectDocuments(selectedProject.id);
 
     return (
       <main className="app page-customers">
@@ -1918,7 +1975,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
           </div>
         </header>
 
-        <section className="card">
+        <section className="card no-print">
           <button onClick={() => setSelectedProject(null)}>← Πίσω στα έργα</button>
 
           <h2>{selectedProject.title}</h2>
@@ -1929,7 +1986,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
           <p>Διεύθυνση: {selectedProject.address || '-'}</p>
         </section>
 
-        <section className="card">
+        <section className="card no-print">
           <h2>Σύνοψη έργου</h2>
           <div className="grid">
             <div className="line"><p><b>{agreed}€</b></p><small>Συμφωνία</small></div>
@@ -1946,7 +2003,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
           </div>
         </section>
 
-        <section className="card">
+        <section className="card no-print">
           <div className="erp-nav" style={{ position: 'static' }}>
             <button className={activeProjectTab === 'overview' ? 'active' : ''} onClick={() => setActiveProjectTab('overview')}>Στοιχεία</button>
             <button className={activeProjectTab === 'invoices' ? 'active' : ''} onClick={() => setActiveProjectTab('invoices')}>Τιμολόγια Εσόδων</button>
@@ -2085,6 +2142,263 @@ const [vatQuarter, setVatQuarter] = useState('1');
               )}
             </div>
           )}
+        </section>
+
+        <section className="card print-area">
+          <div className="pdf-header">
+            <div className="logo pdf-logo">TD</div>
+            <div>
+              <h1>T D MANI</h1>
+              <p>Αναφορά Έργου / Project Report</p>
+              <small>Ημερομηνία αναφοράς: {formatDate(new Date().toISOString())}</small>
+            </div>
+          </div>
+
+          <hr />
+
+          <div className="report-block">
+            <h2>{selectedProject.title}</h2>
+            <div className="grid">
+              <div className="line"><p><b>{getCustomerName(selectedProject.customer_id)}</b></p><small>Πελάτης</small></div>
+              <div className="line"><p><b>{getCustomerAfm(selectedProject.customer_id)}</b></p><small>ΑΦΜ πελάτη</small></div>
+              <div className="line"><p><b>{getProjectStatusLabel(selectedProject.status)}</b></p><small>Status</small></div>
+              <div className="line"><p><b>{selectedProject.area || '-'}</b></p><small>Περιοχή</small></div>
+            </div>
+            <p><b>Διεύθυνση:</b> {selectedProject.address || '-'}</p>
+            <p><b>Σημειώσεις:</b> {selectedProject.notes || '-'}</p>
+          </div>
+
+          <div className="report-block">
+            <h3>Οικονομική εικόνα έργου</h3>
+            <div className="grid">
+              <div className="line"><p><b>{formatCurrency(agreed)}</b></p><small>Συμφωνία έργου</small></div>
+              <div className="line"><p><b>{formatCurrency(paid)}</b></p><small>Συνολικές εισπράξεις</small></div>
+              <div className="line"><p><b>{formatCurrency(projectExpenses)}</b></p><small>Συνολικά έξοδα</small></div>
+              <div className={balance < 0 ? 'line alert' : 'line'}><p><b>{formatCurrency(balance)}</b></p><small>Καθαρό υπόλοιπο</small></div>
+            </div>
+          </div>
+
+          <div className="report-block">
+            <h3>Τιμολόγια εσόδων</h3>
+            {projectCustomerInvoicesList.length === 0 ? (
+              <p className="report-muted">Δεν υπάρχουν τιμολόγια εσόδων.</p>
+            ) : (
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>Ημ/νία</th>
+                    <th>Αριθμός</th>
+                    <th>Περιγραφή</th>
+                    <th>Καθαρή</th>
+                    <th>ΦΠΑ</th>
+                    <th>Παρακράτηση</th>
+                    <th>Εισπρακτέο</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectCustomerInvoicesList.map((invoice) => (
+                    <tr key={invoice.id}>
+                      <td>{formatDate(invoice.invoice_date)}</td>
+                      <td>{invoice.invoice_number || '-'}</td>
+                      <td>{invoice.description || '-'}</td>
+                      <td>{formatCurrency(invoice.net_amount)}</td>
+                      <td>{formatCurrency(invoice.vat_amount)}</td>
+                      <td>{formatCurrency(invoice.withholding_amount)}</td>
+                      <td>{formatCurrency(invoice.receivable_amount)}</td>
+                      <td>{getCustomerInvoiceStatus(invoice)}</td>
+                    </tr>
+                  ))}
+                  <tr className="report-total-row">
+                    <td colSpan="6">Σύνολο εισπρακτέων</td>
+                    <td colSpan="2">{formatCurrency(projectCustomerInvoicesList.reduce((sum, invoice) => sum + Number(invoice.receivable_amount || 0), 0))}</td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="report-block">
+            <h3>Εισπράξεις / πληρωμές πελάτη</h3>
+            {projectPaymentsList.length === 0 ? (
+              <p className="report-muted">Δεν υπάρχουν εισπράξεις.</p>
+            ) : (
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>Ημ/νία</th>
+                    <th>Ποσό</th>
+                    <th>Τρόπος</th>
+                    <th>Τιμολόγιο</th>
+                    <th>Σημειώσεις</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectPaymentsList.map((payment) => (
+                    <tr key={payment.id}>
+                      <td>{formatDate(payment.payment_date)}</td>
+                      <td>{formatCurrency(payment.amount)}</td>
+                      <td>{payment.method || '-'}</td>
+                      <td>{payment.customer_invoice_id ? (customerInvoices.find((invoice) => invoice.id === payment.customer_invoice_id)?.invoice_number || 'Συνδεδεμένο') : '-'}</td>
+                      <td>{payment.notes || '-'}</td>
+                    </tr>
+                  ))}
+                  <tr className="report-total-row">
+                    <td>Σύνολο</td>
+                    <td colSpan="4">{formatCurrency(paid)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="report-block">
+            <h3>Έξοδα έργου</h3>
+            {projectExpensesList.length === 0 ? (
+              <p className="report-muted">Δεν υπάρχουν έξοδα.</p>
+            ) : (
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>Τίτλος</th>
+                    <th>Κατηγορία</th>
+                    <th>Ποσό</th>
+                    <th>Σημειώσεις</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectExpensesList.map((expense) => (
+                    <tr key={expense.id}>
+                      <td>{expense.title || '-'}</td>
+                      <td>{expense.category || '-'}</td>
+                      <td>{formatCurrency(expense.amount)}</td>
+                      <td>{expense.notes || '-'}</td>
+                    </tr>
+                  ))}
+                  <tr className="report-total-row">
+                    <td colSpan="2">Σύνολο εξόδων</td>
+                    <td colSpan="2">{formatCurrency(projectExpenses)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="report-block">
+            <h3>Τιμολόγια προμηθευτών που συνδέονται με το έργο</h3>
+            {projectSupplierInvoicesList.length === 0 ? (
+              <p className="report-muted">Δεν υπάρχουν συνδεδεμένα τιμολόγια προμηθευτών.</p>
+            ) : (
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>Προμηθευτής</th>
+                    <th>Ημ/νία</th>
+                    <th>Αριθμός</th>
+                    <th>Περιγραφή</th>
+                    <th>Καθαρή</th>
+                    <th>ΦΠΑ</th>
+                    <th>Σύνολο</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectSupplierInvoicesList.map((invoice) => (
+                    <tr key={invoice.id}>
+                      <td>{getSupplierName(invoice.supplier_id)}</td>
+                      <td>{formatDate(invoice.invoice_date)}</td>
+                      <td>{invoice.invoice_number || '-'}</td>
+                      <td>{invoice.description || '-'}</td>
+                      <td>{formatCurrency(invoice.net_amount)}</td>
+                      <td>{formatCurrency(invoice.vat_amount)}</td>
+                      <td>{formatCurrency(invoice.total_amount)}</td>
+                      <td>{getSupplierInvoiceStatus(invoice)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="report-block">
+            <h3>Προσφορές</h3>
+            {projectQuotesList.length === 0 ? (
+              <p className="report-muted">Δεν υπάρχουν προσφορές.</p>
+            ) : (
+              <table className="report-table">
+                <thead>
+                  <tr><th>Είδος εργασίας</th><th>Περιγραφή</th><th>Πληρωτέο</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  {projectQuotesList.map((quote) => (
+                    <tr key={quote.id}>
+                      <td>{quote.work_type || '-'}</td>
+                      <td>{quote.description || '-'}</td>
+                      <td>{formatCurrency(quote.payable)}</td>
+                      <td>{quote.status || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="report-block">
+            <h3>Tasks</h3>
+            {projectTasksList.length === 0 ? (
+              <p className="report-muted">Δεν υπάρχουν tasks.</p>
+            ) : (
+              <table className="report-table">
+                <thead>
+                  <tr><th>Ημ/νία</th><th>Ώρα</th><th>Task</th><th>Status</th><th>Σημειώσεις</th></tr>
+                </thead>
+                <tbody>
+                  {projectTasksList.map((task) => (
+                    <tr key={task.id}>
+                      <td>{formatDate(task.task_date)}</td>
+                      <td>{task.task_time || '-'}</td>
+                      <td>{task.title || '-'}</td>
+                      <td>{task.status || '-'}</td>
+                      <td>{task.notes || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="report-block">
+            <h3>Documents</h3>
+            {projectDocumentsList.length === 0 ? (
+              <p className="report-muted">Δεν υπάρχουν documents.</p>
+            ) : (
+              <table className="report-table">
+                <thead>
+                  <tr><th>Τίτλος</th><th>Τύπος</th><th>Link</th><th>Σημειώσεις</th></tr>
+                </thead>
+                <tbody>
+                  {projectDocumentsList.map((document) => (
+                    <tr key={document.id}>
+                      <td>{document.title || '-'}</td>
+                      <td>{document.document_type || '-'}</td>
+                      <td>{document.file_url ? 'Υπάρχει αρχείο' : '-'}</td>
+                      <td>{document.notes || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="report-block">
+            <h3>Τελικό υπόλοιπο</h3>
+            <div className={balance < 0 ? 'line alert' : 'line'}>
+              <p><b>{formatCurrency(balance)}</b></p>
+              <small>Συμφωνία - εισπράξεις - έξοδα</small>
+            </div>
+          </div>
+
+          <button className="no-print-inline" onClick={() => window.print()}>📄 Export PDF Αναφοράς Έργου</button>
         </section>
       </main>
     );
