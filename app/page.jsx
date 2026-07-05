@@ -305,6 +305,7 @@ hr {
 .page-documents .documents-section,
 .page-suppliers .suppliers-section,
 .page-inventory .inventory-section,
+.page-reports .reports-section,
 .page-trash .trash-section,
 .page-settings.settings-home .settings-section,
 .page-settings.settings-tasks .settings-task-section,
@@ -460,6 +461,7 @@ export default function Home() {
   const [selectedUser, setSelectedUser] = useState('Mani Taulant');
   const [activePage, setActivePage] = useState('dashboard');
   const [activeSettingsTab, setActiveSettingsTab] = useState('');
+  const [activeReportTab, setActiveReportTab] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
@@ -2530,7 +2532,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
   }
 
   return (
-    <main className={`app page-${activePage} ${activePage === 'settings' ? `settings-${activeSettingsTab || 'home'}` : ''}`}>
+    <main className={`app page-${activePage} ${activePage === 'settings' ? `settings-${activeSettingsTab || 'home'}` : ''} ${activePage === 'reports' ? `reports-${activeReportTab || 'home'}` : ''}`}>
       <style>{ERP_STYLES}</style>
       <header className="top">
         <div className="brand">
@@ -2556,6 +2558,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
         <button className={activePage === 'customer-invoices' ? 'active' : ''} onClick={() => setActivePage('customer-invoices')}>🧾 Τιμολόγια Εσόδων</button>
         <button className={activePage === 'suppliers' ? 'active' : ''} onClick={() => setActivePage('suppliers')}>🚚 Προμηθευτές</button>
         <button className={activePage === 'inventory' ? 'active' : ''} onClick={() => setActivePage('inventory')}>📦 Αποθήκη</button>
+        <button className={activePage === 'reports' ? 'active' : ''} onClick={() => { setActivePage('reports'); setActiveReportTab(''); }}>📑 Αναφορές</button>
         <button className={activePage === 'settings' ? 'active' : ''} onClick={() => { setActivePage('settings'); setActiveSettingsTab(''); }}>⚙️ Ρυθμίσεις</button>
       </nav>
 
@@ -2646,6 +2649,81 @@ const [vatQuarter, setVatQuarter] = useState('1');
               </>
             )}
           </>
+        )}
+      </section>
+
+      <section className="card page-section reports-section">
+        <h2>📑 Αναφορές</h2>
+
+        {activeReportTab === '' && (
+          <>
+            <p>Διάλεξε ποια αναφορά θέλεις να ανοίξεις.</p>
+            <div className="grid">
+              <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActiveReportTab('project')} onKeyDown={(e) => e.key === 'Enter' && setActiveReportTab('project')}>
+                <p><b>📁 Αναφορά Έργου</b></p>
+                <small>Στοιχεία έργου, εισπράξεις, έξοδα, τιμολόγια και κέρδος</small>
+              </div>
+
+              <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActiveReportTab('customer')} onKeyDown={(e) => e.key === 'Enter' && setActiveReportTab('customer')}>
+                <p><b>👤 Αναφορά Πελάτη</b></p>
+                <small>Έργα πελάτη, πληρωμές και υπόλοιπα</small>
+              </div>
+
+              <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActiveReportTab('supplier')} onKeyDown={(e) => e.key === 'Enter' && setActiveReportTab('supplier')}>
+                <p><b>🚚 Αναφορά Προμηθευτή</b></p>
+                <small>Τιμολόγια, πληρωμές και υπόλοιπο προμηθευτή</small>
+              </div>
+
+              <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActiveReportTab('vat')} onKeyDown={(e) => e.key === 'Enter' && setActiveReportTab('vat')}>
+                <p><b>💰 Αναφορά ΦΠΑ</b></p>
+                <small>ΦΠΑ εσόδων, ΦΠΑ εξόδων και πληρωτέο ανά τρίμηνο</small>
+              </div>
+
+              <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActiveReportTab('balances')} onKeyDown={(e) => e.key === 'Enter' && setActiveReportTab('balances')}>
+                <p><b>📊 Ανοιχτά Υπόλοιπα</b></p>
+                <small>Πελάτες που χρωστάνε και προμηθευτές που χρωστάμε</small>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeReportTab !== '' && (
+          <button onClick={() => setActiveReportTab('')}>← Πίσω στις Αναφορές</button>
+        )}
+
+        {activeReportTab === 'project' && (
+          <div className="card">
+            <h3>📁 Αναφορά Έργου</h3>
+            <p>Εδώ θα μπει η πλήρης αναφορά έργου με επιλογή έργου και Export PDF.</p>
+          </div>
+        )}
+
+        {activeReportTab === 'customer' && (
+          <div className="card">
+            <h3>👤 Αναφορά Πελάτη</h3>
+            <p>Εδώ θα μπει η αναφορά πελάτη με όλα τα έργα, πληρωμές και υπόλοιπα.</p>
+          </div>
+        )}
+
+        {activeReportTab === 'supplier' && (
+          <div className="card">
+            <h3>🚚 Αναφορά Προμηθευτή</h3>
+            <p>Εδώ θα μπει η αναφορά προμηθευτή με τιμολόγια, πληρωμές και υπόλοιπο.</p>
+          </div>
+        )}
+
+        {activeReportTab === 'vat' && (
+          <div className="card">
+            <h3>💰 Αναφορά ΦΠΑ</h3>
+            <p>Εδώ θα μπει η αναφορά ΦΠΑ ανά τρίμηνο με ΦΠΑ εσόδων, ΦΠΑ εξόδων και πληρωτέο.</p>
+          </div>
+        )}
+
+        {activeReportTab === 'balances' && (
+          <div className="card">
+            <h3>📊 Ανοιχτά Υπόλοιπα</h3>
+            <p>Εδώ θα μπουν τα ανοιχτά υπόλοιπα πελατών και προμηθευτών.</p>
+          </div>
         )}
       </section>
 
