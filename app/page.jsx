@@ -285,6 +285,67 @@ hr {
 
 
 /* Premium Project Progress */
+.project-hero-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(214,168,79,0.32);
+  background:
+    radial-gradient(circle at top left, rgba(214,168,79,0.18), transparent 34%),
+    linear-gradient(135deg, rgba(255,255,255,0.070), rgba(255,255,255,0.022)) !important;
+}
+
+.project-hero-card::after {
+  content: '';
+  position: absolute;
+  right: -70px;
+  top: -70px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: rgba(214,168,79,0.08);
+  filter: blur(4px);
+}
+
+.project-hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.project-hero-title {
+  margin-bottom: 8px;
+  font-size: 26px;
+}
+
+.project-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.project-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(214,168,79,0.22);
+  background: rgba(255,255,255,0.055);
+  color: var(--text);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.project-progress-mini {
+  min-width: 170px;
+  text-align: right;
+}
+
 .progress-hero {
   position: relative;
   overflow: hidden;
@@ -309,6 +370,8 @@ hr {
 }
 
 .progress-layout {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 1.1fr 1.4fr 0.9fr;
   gap: 14px;
@@ -484,6 +547,7 @@ hr {
   .progress-layout { grid-template-columns: 1fr; }
   .progress-timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .progress-finance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .project-progress-mini { text-align: left; }
 }
 
 @media (max-width: 560px) {
@@ -2946,19 +3010,32 @@ const [vatQuarter, setVatQuarter] = useState('1');
           </div>
         </header>
 
-        <section className="card no-print">
+        <section className="card project-hero-card no-print">
           <button onClick={() => setSelectedProject(null)}>← Πίσω στα έργα</button>
 
-          <h2>{selectedProject.title}</h2>
-          <p>Πελάτης: <b>{getCustomerName(selectedProject.customer_id)}</b></p>
-          <p>ΑΦΜ πελάτη: {getCustomerAfm(selectedProject.customer_id)}</p>
-          <p>Status: <b>{getProjectStatusLabel(selectedProject.status)}</b></p>
-          <p>Περιοχή: {selectedProject.area || '-'}</p>
-          <p>Διεύθυνση: {selectedProject.address || '-'}</p>
+          <div className="project-hero-content">
+            <div>
+              <h2 className="project-hero-title">🏗️ {selectedProject.title}</h2>
+              <p>Πελάτης: <b>{getCustomerName(selectedProject.customer_id)}</b> • ΑΦΜ: {getCustomerAfm(selectedProject.customer_id)}</p>
+              <div className="project-hero-meta">
+                <span className="project-pill">{getProjectStatusLabel(selectedProject.status)}</span>
+                <span className="project-pill">📍 {selectedProject.area || '-'}</span>
+                <span className="project-pill">🏠 {selectedProject.address || '-'}</span>
+              </div>
+            </div>
+            <div className="project-progress-mini">
+              <small>Πρόοδος εργασιών</small>
+              <h2>{effectiveProgress}%</h2>
+              <div className="progress-bar-track">
+                <div className="progress-bar-fill" style={{ width: `${effectiveProgress}%` }} />
+              </div>
+              <button onClick={() => setActiveProjectTab('progress')}>📈 Άνοιγμα προόδου</button>
+            </div>
+          </div>
         </section>
 
         <section className="card no-print">
-          <h2>Σύνοψη έργου</h2>
+          <h2>💰 Σύνοψη έργου</h2>
           <div className="grid">
             <div className="line"><p><b>{agreed}€</b></p><small>Συμφωνία</small></div>
             <div className="line"><p><b>{paid}€</b></p><small>Πληρωμές / Εισπράξεις</small></div>
@@ -3135,7 +3212,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
                       </div>
                     </div>
                   </div>
-                  <p>Με βάση τις ολοκληρωμένες εργασίες του έργου.</p>
+                  <p>Υπολογίζεται αυτόματα από τις ολοκληρωμένες εργασίες του έργου.</p>
                 </div>
 
                 <div className="progress-bars-card">
@@ -3475,14 +3552,6 @@ const [vatQuarter, setVatQuarter] = useState('1');
     return (
       <main className="app page-suppliers">
         <style>{ERP_STYLES}</style>
-
-        <section className="erp-footer-card no-print">
-          <div className="erp-footer-icon">🏗️</div>
-          <div>
-            <p className="erp-footer-title">TD MANI ERP</p>
-            <p className="erp-footer-copy">© Copyright EvaNinou</p>
-          </div>
-        </section>
 
         <section className="card print-area">
           <button onClick={() => setSelectedSupplierReport(null)}>← Πίσω στους προμηθευτές</button>
@@ -5220,14 +5289,6 @@ const [vatQuarter, setVatQuarter] = useState('1');
         )}
       </section>
 
-
-      <section className="erp-footer-card no-print">
-        <div className="erp-footer-icon">🏗️</div>
-        <div>
-          <p className="erp-footer-title">TD MANI ERP</p>
-          <p className="erp-footer-copy">© Copyright EvaNinou</p>
-        </div>
-      </section>
 
       {currentUser && !selectedProject && (
         <>
