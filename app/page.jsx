@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabaseClient.js';
 import './styles.css';
+import TDCard from './components/shared/TDCard';
 
 const INITIAL_CUSTOMER = { name: '', afm: '', phone: '', area: '', notes: '' };
 const INITIAL_PROJECT = { customer_id: '', title: '', address: '', area: '', agreed_amount: '', status: 'active' };
@@ -3742,7 +3743,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
         </section>
       )}
 
-      <section className="card page-section dashboard-section">
+      <TDCard className="card page-section dashboard-section">
         <div className="dashboard-welcome">
           <div>
             <p className="dashboard-welcome-date">📅 {formatGreekLongDate(currentDateTime)}</p>
@@ -3854,7 +3855,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
             )}
           </div>
         </div>
-      </section>
+      </TDCard>
 
       <section className="card page-section reports-section">
         <h2>📑 Αναφορές</h2>
