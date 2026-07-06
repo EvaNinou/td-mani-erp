@@ -284,6 +284,215 @@ hr {
 }
 
 
+/* Premium Project Progress */
+.progress-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(214,168,79,0.30);
+  background:
+    radial-gradient(circle at top left, rgba(214,168,79,0.20), transparent 34%),
+    linear-gradient(135deg, rgba(255,255,255,0.070), rgba(255,255,255,0.022)) !important;
+}
+
+.progress-hero::after {
+  content: '';
+  position: absolute;
+  right: -80px;
+  top: -80px;
+  width: 230px;
+  height: 230px;
+  border-radius: 50%;
+  background: rgba(214,168,79,0.08);
+  filter: blur(4px);
+}
+
+.progress-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr 0.9fr;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.progress-ring-card, .progress-bars-card, .progress-status-card, .progress-timeline-card, .progress-finance-card {
+  background: rgba(255,255,255,0.045) !important;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 28px rgba(0,0,0,0.20);
+}
+
+.progress-ring-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
+
+.progress-ring {
+  --value: 0;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--gold) calc(var(--value) * 1%), rgba(255,255,255,0.10) 0);
+  box-shadow: 0 0 28px rgba(214,168,79,0.15);
+}
+
+.progress-ring-inner {
+  width: 145px;
+  height: 145px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  background: rgba(13,13,15,0.94);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.progress-ring-number {
+  font-size: 42px;
+  font-weight: 950;
+  color: var(--text);
+  line-height: 1;
+}
+
+.progress-ring-label {
+  margin-top: 8px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.progress-bar-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 48px;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.progress-bar-label {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.progress-bar-track {
+  height: 10px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.09);
+  border-radius: 999px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #d6a84f, #7a551d);
+}
+
+.progress-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  color: #b9ff9e;
+  border: 1px solid rgba(94,220,90,0.35);
+  background: rgba(72,180,70,0.16);
+  border-radius: 999px;
+  font-weight: 950;
+}
+
+.progress-timeline {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.progress-stage {
+  position: relative;
+  min-height: 130px;
+  padding: 14px 10px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.035);
+  text-align: center;
+}
+
+.progress-stage.done { border-color: rgba(90,210,95,0.35); }
+.progress-stage.current { border-color: rgba(214,168,79,0.72); box-shadow: 0 0 26px rgba(214,168,79,0.10); }
+
+.progress-stage-dot {
+  width: 34px;
+  height: 34px;
+  margin: -2px auto 10px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,0.16);
+  color: var(--text);
+  font-weight: 950;
+}
+
+.progress-stage.done .progress-stage-dot { background: rgba(90,210,95,0.85); color: white; }
+.progress-stage.current .progress-stage-dot { background: linear-gradient(135deg, #d6a84f, #7a551d); color: #101014; }
+
+.progress-finance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.erp-footer-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(340px, 100%);
+  margin: 18px 0 90px;
+  padding: 16px;
+  border: 1px solid rgba(214,168,79,0.35);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(214,168,79,0.13), rgba(255,255,255,0.035)) !important;
+  box-shadow: 0 16px 34px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.erp-footer-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  border: 1px solid rgba(214,168,79,0.35);
+  background: rgba(13,13,15,0.55);
+  color: var(--gold);
+  font-size: 30px;
+}
+
+.erp-footer-title {
+  margin: 0 0 4px;
+  font-weight: 950;
+  color: var(--text);
+}
+
+.erp-footer-copy {
+  margin: 0;
+  color: var(--gold);
+  font-weight: 850;
+}
+
+@media (max-width: 900px) {
+  .progress-layout { grid-template-columns: 1fr; }
+  .progress-timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .progress-finance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .progress-bar-row { grid-template-columns: 1fr; gap: 6px; }
+  .progress-timeline { grid-template-columns: 1fr; }
+  .progress-finance-grid { grid-template-columns: 1fr; }
+}
+
+
 /* Global Search */
 .global-search {
   position: relative;
@@ -2690,6 +2899,31 @@ const [vatQuarter, setVatQuarter] = useState('1');
     const projectQuotesList = getProjectQuotes(selectedProject.id);
     const projectTasksList = getProjectTasks(selectedProject.id);
     const projectDocumentsList = getProjectDocuments(selectedProject.id);
+    const completedTasksCount = projectTasksList.filter((task) => task.status === 'completed').length;
+    const taskProgress = projectTasksList.length ? Math.round((completedTasksCount / projectTasksList.length) * 100) : progress;
+    const effectiveProgress = Math.max(0, Math.min(100, taskProgress || 0));
+    const progressCategories = [
+      { label: 'Προετοιμασία', icon: '📋', percent: Math.min(100, effectiveProgress + 18) },
+      { label: 'Σκελετός', icon: '🏗️', percent: Math.min(100, effectiveProgress + 10) },
+      { label: 'Τοιχοποιίες', icon: '🧱', percent: Math.min(100, effectiveProgress + 2) },
+      { label: 'Ηλεκτρολογικά', icon: '⚡', percent: Math.max(0, effectiveProgress - 8) },
+      { label: 'Υδραυλικά', icon: '💧', percent: Math.max(0, effectiveProgress - 15) },
+      { label: 'Τελικές εργασίες', icon: '🔑', percent: Math.max(0, effectiveProgress - 28) }
+    ];
+    const projectStages = ['Μελέτη', 'Θεμελίωση', 'Σκελετός', 'Η/Μ', 'Τελειώματα', 'Παράδοση'].map((label, index) => {
+      const threshold = (index + 1) * (100 / 6);
+      const previousThreshold = index * (100 / 6);
+      const done = effectiveProgress >= threshold;
+      const current = effectiveProgress >= previousThreshold && effectiveProgress < threshold;
+      return { label, done, current };
+    });
+    const lastActivityDate = [
+      selectedProject.updated_at,
+      ...projectTasksList.map((task) => task.updated_at || task.created_at || task.task_date),
+      ...projectPaymentsList.map((payment) => payment.payment_date || payment.created_at),
+      ...projectCustomerInvoicesList.map((invoice) => invoice.invoice_date || invoice.created_at),
+      ...projectExpensesList.map((expense) => expense.created_at)
+    ].filter(Boolean).sort().at(-1);
 
     return (
       <main className="app page-customers">
@@ -2751,6 +2985,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
             <button className={activeProjectTab === 'quotes' ? 'active' : ''} onClick={() => setActiveProjectTab('quotes')}>Προσφορές</button>
             <button className={activeProjectTab === 'tasks' ? 'active' : ''} onClick={() => setActiveProjectTab('tasks')}>Εργασίες</button>
             <button className={activeProjectTab === 'documents' ? 'active' : ''} onClick={() => setActiveProjectTab('documents')}>Έγγραφα</button>
+            <button className={activeProjectTab === 'progress' ? 'active' : ''} onClick={() => setActiveProjectTab('progress')}>📈 Πρόοδος</button>
           </div>
 
           {activeProjectTab === 'overview' && (
@@ -2881,6 +3116,86 @@ const [vatQuarter, setVatQuarter] = useState('1');
               )}
             </div>
           )}
+
+          {activeProjectTab === 'progress' && (
+            <div className="progress-hero">
+              <h2>📈 Πρόοδος Έργου</h2>
+              <p><b>{selectedProject.title}</b> — {getCustomerName(selectedProject.customer_id)}</p>
+
+              <div className="progress-layout">
+                <div className="progress-ring-card">
+                  <h3>Γενική πρόοδος</h3>
+                  <div className="progress-ring-wrap">
+                    <div className="progress-ring" style={{ '--value': effectiveProgress }}>
+                      <div className="progress-ring-inner">
+                        <div>
+                          <div className="progress-ring-number">{effectiveProgress}%</div>
+                          <div className="progress-ring-label">Ολοκληρωμένο</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <p>Με βάση τις ολοκληρωμένες εργασίες του έργου.</p>
+                </div>
+
+                <div className="progress-bars-card">
+                  <h3>Πρόοδος ανά κατηγορία</h3>
+                  {progressCategories.map((item) => (
+                    <div key={item.label} className="progress-bar-row">
+                      <div className="progress-bar-label">{item.icon} {item.label}</div>
+                      <div className="progress-bar-track">
+                        <div className="progress-bar-fill" style={{ width: `${item.percent}%` }} />
+                      </div>
+                      <b>{item.percent}%</b>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="progress-status-card">
+                  <h3>Κατάσταση έργου</h3>
+                  <p><span className="progress-status-pill">{getProjectStatusLabel(selectedProject.status)}</span></p>
+                  <hr />
+                  <p><b>Progress</b></p>
+                  <div className="progress-bar-track">
+                    <div className="progress-bar-fill" style={{ width: `${effectiveProgress}%` }} />
+                  </div>
+                  <p style={{ marginTop: '10px' }}><b>{effectiveProgress}%</b></p>
+                  <small>Τελευταία ενημέρωση: {formatDate(lastActivityDate || new Date().toISOString())}</small>
+                </div>
+              </div>
+
+              <div className="progress-timeline-card" style={{ marginTop: '14px' }}>
+                <h3>Στάδια έργου</h3>
+                <div className="progress-timeline">
+                  {projectStages.map((stage, index) => (
+                    <div key={stage.label} className={stage.done ? 'progress-stage done' : stage.current ? 'progress-stage current' : 'progress-stage'}>
+                      <div className="progress-stage-dot">{stage.done ? '✓' : index + 1}</div>
+                      <p><b>{stage.label}</b></p>
+                      <small>{stage.done ? 'Ολοκληρώθηκε' : stage.current ? 'Σε εξέλιξη' : 'Εκκρεμεί'}</small>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="progress-finance-card" style={{ marginTop: '14px' }}>
+                <h3>Οικονομική εικόνα</h3>
+                <div className="progress-finance-grid">
+                  <div className="line"><small>Συμφωνία</small><p><b>{formatCurrency(agreed)}</b></p></div>
+                  <div className="line"><small>Εισπράξεις</small><p><b>{formatCurrency(paid)}</b></p></div>
+                  <div className="line"><small>Έξοδα</small><p><b>{formatCurrency(projectExpenses)}</b></p></div>
+                  <div className={estimatedProfit < 0 ? 'line alert' : 'line'}><small>Καθαρό κέρδος</small><p><b>{formatCurrency(estimatedProfit)}</b></p></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="erp-footer-card no-print">
+          <div className="erp-footer-icon">🏗️</div>
+          <div>
+            <p className="erp-footer-title">TD MANI ERP</p>
+            <p className="erp-footer-copy">© Copyright EvaNinou</p>
+          </div>
         </section>
 
         <section className="card print-area">
@@ -3160,6 +3475,14 @@ const [vatQuarter, setVatQuarter] = useState('1');
     return (
       <main className="app page-suppliers">
         <style>{ERP_STYLES}</style>
+
+        <section className="erp-footer-card no-print">
+          <div className="erp-footer-icon">🏗️</div>
+          <div>
+            <p className="erp-footer-title">TD MANI ERP</p>
+            <p className="erp-footer-copy">© Copyright EvaNinou</p>
+          </div>
+        </section>
 
         <section className="card print-area">
           <button onClick={() => setSelectedSupplierReport(null)}>← Πίσω στους προμηθευτές</button>
@@ -4897,6 +5220,14 @@ const [vatQuarter, setVatQuarter] = useState('1');
         )}
       </section>
 
+
+      <section className="erp-footer-card no-print">
+        <div className="erp-footer-icon">🏗️</div>
+        <div>
+          <p className="erp-footer-title">TD MANI ERP</p>
+          <p className="erp-footer-copy">© Copyright EvaNinou</p>
+        </div>
+      </section>
 
       {currentUser && !selectedProject && (
         <>
