@@ -1,4 +1,10 @@
-export const INITIAL_CUSTOMER = { name: '', afm: '', phone: '', area: '', notes: '' };
+export const INITIAL_CUSTOMER = {
+  name: '',
+  afm: '',
+  phone: '',
+  area: '',
+  notes: ''
+};
 
 export const INITIAL_PROJECT = {
   customer_id: '',
@@ -107,6 +113,16 @@ export const INITIAL_SUPPLIER_PAYMENT = {
 };
 
 export const DEMO_USERS = [
-  { email: 'eva@tdmani.gr', password: '1234', name: 'Εύα Νίνου', role: 'Admin' },
-  { email: 'mani@tdmani.gr', password: '1234', name: 'Mani Taulant', role: 'Admin' }
+  {
+    email: 'eva@tdmani.gr',
+    password: '1234',
+    name: 'Εύα Νίνου',
+    role: 'Admin'
+  },
+  {
+    email: 'mani@tdmani.gr',
+    password: '1234',
+    name: 'Mani Taulant',
+    role: 'Admin'
+  }
 ];
