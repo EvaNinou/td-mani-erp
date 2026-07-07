@@ -6,6 +6,7 @@ import './styles.css';
 import Dashboard from './components/Dashboard/Dashboard';
 import Customers from './components/customers/Customers';
 import { normalizeText, formatCurrency, formatDate, formatGreekLongDate, formatGreekTime, formatLocalDate, getGreeting, getFirstName } from './utils/formatters';
+import { calculateQuoteValues, calculateCustomerInvoiceValues, calculateSupplierInvoiceValues, getQuarterDates, isDateInRange } from './utils/calculations';
 
 const INITIAL_CUSTOMER = { name: '', afm: '', phone: '', area: '', notes: '' };
 const INITIAL_PROJECT = { customer_id: '', title: '', address: '', area: '', agreed_amount: '', status: 'active' };
@@ -1323,24 +1324,9 @@ const [vatQuarter, setVatQuarter] = useState('1');
     return 'Εξοφλημένο';
   }
 
-  function calculateCustomerInvoiceValues(invoiceForm) {
-    const net = Number(invoiceForm.net_amount || 0);
-    const vat = net * 0.24;
-    const withholding = net * 0.03;
-    const total = net + vat;
-    const receivable = total - withholding;
-
-    return {
-      net,
-      vat,
-      withholding,
-      total,
-      receivable
-    };
-  }
 
 
-  function getCustomerProjects(customerId) {
+function getCustomerProjects(customerId) {
     return projects.filter((project) => project.customer_id === customerId && isActiveItem(project));
   }
 
@@ -1415,20 +1401,9 @@ const [vatQuarter, setVatQuarter] = useState('1');
     return 'Εξοφλημένο';
   }
 
-  function calculateSupplierInvoiceValues(invoiceForm) {
-    const net = Number(invoiceForm.net_amount || 0);
-    const vat = net * 0.24;
-    const total = net + vat;
-
-    return {
-      net,
-      vat,
-      total
-    };
-  }
 
 
-  function getSupplierTotals(supplierId) {
+function getSupplierTotals(supplierId) {
     const totalInvoices = getSupplierInvoices(supplierId)
       .reduce((sum, invoice) => sum + Number(invoice.total_amount || 0), 0);
 
@@ -1635,25 +1610,11 @@ const [vatQuarter, setVatQuarter] = useState('1');
   }
 
 
-  function getQuarterDates(yearValue, quarterValue) {
-    const year = Number(yearValue || new Date().getFullYear());
-    const quarter = Number(quarterValue || 1);
-    const startMonth = (quarter - 1) * 3;
-    const start = new Date(year, startMonth, 1);
-    const end = new Date(year, startMonth + 3, 0);
 
-    return {
-      startDate: formatLocalDate(start),
-      endDate: formatLocalDate(end)
-    };
-  }
 
-  function isDateInRange(dateString, startDate, endDate) {
-    if (!dateString) return false;
-    return dateString >= startDate && dateString <= endDate;
-  }
 
-  function getVatTotals(yearValue = vatYear, quarterValue = vatQuarter) {
+
+function getVatTotals(yearValue = vatYear, quarterValue = vatQuarter) {
     const { startDate, endDate } = getQuarterDates(yearValue, quarterValue);
 
     const outputVat = customerInvoices
@@ -2043,15 +2004,9 @@ const [vatQuarter, setVatQuarter] = useState('1');
     setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 80);
   }
 
-  function calculateQuoteValues(quoteForm) {
-    const subtotal = Number(quoteForm.subtotal || 0);
-    const vat = quoteForm.job_type === 'invoice' ? subtotal * 0.24 : 0;
-    const withholding = quoteForm.job_type === 'invoice' ? subtotal * 0.03 : 0;
-    const payable = subtotal + vat - withholding;
-    return { subtotal, vat, withholding, payable };
-  }
 
-  async function saveCustomer() {
+
+async function saveCustomer() {
     if (!newCustomer.name.trim()) {
       alert('Βάλε όνομα πελάτη');
       return;
