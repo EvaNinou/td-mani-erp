@@ -5,6 +5,7 @@ import { supabase } from './supabaseClient.js';
 import './styles.css';
 import Dashboard from './components/Dashboard/Dashboard';
 import Customers from './components/customers/Customers';
+import { normalizeText, formatCurrency, formatDate, formatGreekLongDate, formatGreekTime, formatLocalDate, getGreeting, getFirstName } from './utils/formatters';
 
 const INITIAL_CUSTOMER = { name: '', afm: '', phone: '', area: '', notes: '' };
 const INITIAL_PROJECT = { customer_id: '', title: '', address: '', area: '', agreed_amount: '', status: 'active' };
@@ -1564,10 +1565,6 @@ const [vatQuarter, setVatQuarter] = useState('1');
   }
 
 
-  function normalizeText(value) {
-    return String(value || '').toLowerCase().trim();
-  }
-
   function isActiveItem(item) {
     return !item?.is_deleted;
   }
@@ -1576,40 +1573,6 @@ const [vatQuarter, setVatQuarter] = useState('1');
     return !!item?.is_deleted;
   }
 
-
-  function formatCurrency(value) {
-    return `${Number(value || 0).toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€`;
-  }
-
-  function formatDate(value) {
-    if (!value) return '-';
-    return String(value).split('T')[0];
-  }
-
-  function formatGreekLongDate(date) {
-    return date.toLocaleDateString('el-GR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
-  }
-
-  function formatGreekTime(date) {
-    return date.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
-  }
-
-  function getGreeting(date) {
-    const hour = date.getHours();
-    if (hour < 12) return '☀️ Καλημέρα';
-    if (hour < 17) return '🌤️ Καλό μεσημέρι';
-    if (hour < 20) return '🌇 Καλό απόγευμα';
-    return '🌙 Καλησπέρα';
-  }
-
-  function getFirstName(name) {
-    return String(name || '').trim().split(' ')[0] || 'χρήστη';
-  }
 
 
   function projectMatchesSearch(project, searchValue) {
@@ -1671,13 +1634,6 @@ const [vatQuarter, setVatQuarter] = useState('1');
     return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
   }
 
-
-  function formatLocalDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
 
   function getQuarterDates(yearValue, quarterValue) {
     const year = Number(yearValue || new Date().getFullYear());
