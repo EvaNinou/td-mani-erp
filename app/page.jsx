@@ -7,25 +7,21 @@ import Dashboard from './components/Dashboard/Dashboard';
 import Customers from './components/customers/Customers';
 import { normalizeText, formatCurrency, formatDate, formatGreekLongDate, formatGreekTime, formatLocalDate, getGreeting, getFirstName } from './utils/formatters';
 import { calculateQuoteValues, calculateCustomerInvoiceValues, calculateSupplierInvoiceValues, getQuarterDates, isDateInRange } from './utils/calculations';
-
-const INITIAL_CUSTOMER = { name: '', afm: '', phone: '', area: '', notes: '' };
-const INITIAL_PROJECT = { customer_id: '', title: '', address: '', area: '', agreed_amount: '', status: 'active' };
-const INITIAL_PAYMENT = { customer_id: '', project_id: '', customer_invoice_id: '', amount: '', payment_date: '', method: 'Μετρητά', notes: '' };
-const INITIAL_EXPENSE = { customer_id: '', project_id: '', title: '', amount: '', category: 'Υλικά', notes: '' };
-const INITIAL_INVENTORY = { item_name: '', quantity: '', min_quantity: '', purchase_price: '' };
-const INITIAL_QUOTE = { project_id: '', work_type: '', description: '', subtotal: '', job_type: 'invoice', status: 'pending' };
-const INITIAL_TASK = { project_id: '', title: '', task_date: '', task_time: '', status: 'pending', notes: '' };
-const INITIAL_DOCUMENT = { customer_id: '', project_id: '', title: '', document_type: 'Τιμολόγιο', file_url: '', notes: '' };
-const INITIAL_CUSTOMER_INVOICE = { customer_id: '', project_id: '', invoice_date: '', invoice_number: '', description: '', net_amount: '', is_paid_on_issue: 'no', payment_date: '', payment_method: 'Τράπεζα', notes: '' };
-const INITIAL_SUPPLIER = { name: '', afm: '', phone: '', email: '', address: '', notes: '' };
-const INITIAL_SUPPLIER_INVOICE = { supplier_id: '', project_id: '', expense_category: '', invoice_date: '', invoice_number: '', description: '', net_amount: '', vat_amount: '', total_amount: '', notes: '' };
-const INITIAL_SUPPLIER_PAYMENT = { supplier_id: '', supplier_invoice_id: '', payment_date: '', amount: '', method: 'Τράπεζα', notes: '' };
-
-const DEMO_USERS = [
-  { email: 'eva@tdmani.gr', password: '1234', name: 'Εύα Νίνου', role: 'Admin' },
-  { email: 'mani@tdmani.gr', password: '1234', name: 'Mani Taulant', role: 'Admin' }
-];
-
+import {
+  INITIAL_CUSTOMER,
+  INITIAL_PROJECT,
+  INITIAL_PAYMENT,
+  INITIAL_EXPENSE,
+  INITIAL_INVENTORY,
+  INITIAL_QUOTE,
+  INITIAL_TASK,
+  INITIAL_DOCUMENT,
+  INITIAL_CUSTOMER_INVOICE,
+  INITIAL_SUPPLIER,
+  INITIAL_SUPPLIER_INVOICE,
+  INITIAL_SUPPLIER_PAYMENT,
+  DEMO_USERS
+} from './utils/constants';
 
 const ERP_STYLES = `:root {
   --gold: #d6a84f;
