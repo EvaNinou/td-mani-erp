@@ -1070,6 +1070,36 @@ hr {
   }
 }
 
+
+/* Inventory ERP v1.0 */
+.inventory-lines { display: grid; gap: 10px; margin: 12px 0; }
+.inventory-material-row {
+  display: grid;
+  grid-template-columns: 1.25fr 0.75fr 0.7fr 0.85fr 1fr 0.45fr;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.040) !important;
+}
+.inventory-material-row button { min-width: 44px; padding: 11px 12px; }
+.inventory-toggle-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.045) !important;
+}
+.inventory-toggle-line input { width: auto; margin: 0; }
+.inventory-movement { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.inventory-stock-number { font-size: 22px; font-weight: 950; color: var(--gold); }
+@media (max-width: 900px) { .inventory-material-row { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .inventory-material-row { grid-template-columns: 1fr; } }
+
 @media print {
   body {
     background: white !important;
@@ -1130,6 +1160,7 @@ export default function Home() {
   const [customerInvoices, setCustomerInvoices] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [inventoryMovements, setInventoryMovements] = useState([]);
   const [quotes, setQuotes] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -1180,6 +1211,9 @@ const [vatQuarter, setVatQuarter] = useState('1');
   const [documentFile, setDocumentFile] = useState(null);
   const [newSupplier, setNewSupplier] = useState(INITIAL_SUPPLIER);
   const [newSupplierInvoice, setNewSupplierInvoice] = useState(INITIAL_SUPPLIER_INVOICE);
+  const [supplierInvoiceHasMaterials, setSupplierInvoiceHasMaterials] = useState(false);
+  const [supplierInvoiceMaterialLines, setSupplierInvoiceMaterialLines] = useState([]);
+  const [openInventoryItemId, setOpenInventoryItemId] = useState(null);
   const [newSupplierPayment, setNewSupplierPayment] = useState(INITIAL_SUPPLIER_PAYMENT);
 
   useEffect(() => {
@@ -1217,6 +1251,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
       loadCustomerInvoices(),
       loadExpenses(),
       loadInventory(),
+      loadInventoryMovements(),
       loadQuotes(),
       loadTasks(),
       loadDocuments(),
@@ -1263,6 +1298,15 @@ const [vatQuarter, setVatQuarter] = useState('1');
   async function loadInventory() {
     const { data } = await supabase.from('inventory').select('*').order('created_at', { ascending: false });
     setInventory(data || []);
+  }
+
+  async function loadInventoryMovements() {
+    const { data, error } = await supabase.from('inventory_movements').select('*').order('movement_date', { ascending: false });
+    if (error) {
+      setInventoryMovements([]);
+      return;
+    }
+    setInventoryMovements(data || []);
   }
 
   async function loadQuotes() {
@@ -1406,6 +1450,58 @@ function getCustomerProjects(customerId) {
     return 'Εξοφλημένο';
   }
 
+  function getInventoryItemName(itemId) {
+    return inventory.find((item) => item.id === itemId)?.item_name || 'Υλικό';
+  }
+
+  function getInventoryItemUnit(itemId) {
+    return inventory.find((item) => item.id === itemId)?.unit || inventory.find((item) => item.id === itemId)?.measure_unit || 'τεμ.';
+  }
+
+  function getInventoryItemMovements(itemId) {
+    return inventoryMovements.filter((movement) => movement.item_id === itemId && isActiveItem(movement));
+  }
+
+  function getInventoryItemStock(itemId) {
+    return getInventoryItemMovements(itemId).reduce((sum, movement) => {
+      const quantity = Number(movement.quantity || 0);
+      if (movement.movement_type === 'USE') return sum - quantity;
+      if (movement.movement_type === 'RETURN') return sum + quantity;
+      if (movement.movement_type === 'ADJUSTMENT') return sum + quantity;
+      return sum + quantity;
+    }, 0);
+  }
+
+  function getInventoryPurchases(itemId) {
+    return getInventoryItemMovements(itemId)
+      .filter((movement) => movement.movement_type === 'PURCHASE')
+      .reduce((sum, movement) => sum + Number(movement.quantity || 0), 0);
+  }
+
+  function getInventoryUses(itemId) {
+    return getInventoryItemMovements(itemId)
+      .filter((movement) => movement.movement_type === 'USE')
+      .reduce((sum, movement) => sum + Number(movement.quantity || 0), 0);
+  }
+
+  function addSupplierInvoiceMaterialLine() {
+    setSupplierInvoiceMaterialLines([
+      ...supplierInvoiceMaterialLines,
+      { item_id: '', quantity: '', unit_price: '', destination: 'warehouse', notes: '' }
+    ]);
+  }
+
+  function updateSupplierInvoiceMaterialLine(index, field, value) {
+    setSupplierInvoiceMaterialLines(
+      supplierInvoiceMaterialLines.map((line, lineIndex) =>
+        lineIndex === index ? { ...line, [field]: value } : line
+      )
+    );
+  }
+
+  function removeSupplierInvoiceMaterialLine(index) {
+    setSupplierInvoiceMaterialLines(supplierInvoiceMaterialLines.filter((_, lineIndex) => lineIndex !== index));
+  }
 
 
 function getSupplierTotals(supplierId) {
@@ -1740,11 +1836,11 @@ function getVatTotals(yearValue = vatYear, quarterValue = vatQuarter) {
     const totalPaid = activePaymentsList.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
     const totalExpenses = activeExpensesList.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
     const totalBalance = totalAgreed - totalExpenses;
-    const lowStockCount = activeInventoryList.filter((item) => Number(item.quantity || 0) <= Number(item.min_quantity || 0)).length;
+    const lowStockCount = activeInventoryList.filter((item) => getInventoryItemStock(item.id) <= Number(item.min_quantity || 0)).length;
     const totalQuotes = activeQuotesList.reduce((sum, quote) => sum + Number(quote.payable || 0), 0);
     const pendingTasks = activeTasksList.filter((task) => task.status !== 'completed').length;
     return { totalProjects, totalAgreed, totalPaid, totalExpenses, totalBalance, lowStockCount, totalQuotes, pendingTasks };
-  }, [projects, payments, expenses, inventory, quotes, tasks]);
+  }, [projects, payments, expenses, inventory, inventoryMovements, quotes, tasks]);
 
 
   const businessStats = useMemo(() => {
@@ -1787,7 +1883,7 @@ function getVatTotals(yearValue = vatYear, quarterValue = vatQuarter) {
 
     const lowStockItems = inventory
       .filter((item) =>
-        isActiveItem(item) && Number(item.quantity || 0) <= Number(item.min_quantity || 0)
+        isActiveItem(item) && getInventoryItemStock(item.id) <= Number(item.min_quantity || 0)
       )
       .slice(0, 5);
 
@@ -1842,7 +1938,7 @@ function getVatTotals(yearValue = vatYear, quarterValue = vatQuarter) {
       customersWithOpenBalance,
       suppliersWithOpenBalance
     };
-  }, [tasks, payments, expenses, customerInvoices, inventory, customers, suppliers, projects, supplierInvoices, supplierPayments]);
+  }, [tasks, payments, expenses, customerInvoices, inventory, inventoryMovements, customers, suppliers, projects, supplierInvoices, supplierPayments]);
 
 
   const globalSearchResults = useMemo(() => {
@@ -1984,7 +2080,7 @@ function getVatTotals(yearValue = vatYear, quarterValue = vatQuarter) {
           type: 'inventory',
           icon: '📦',
           title: item.item_name || 'Υλικό',
-          meta: `Αποθήκη • Ποσότητα ${item.quantity || 0}`,
+          meta: `Αποθήκη • Υπόλοιπο ${getInventoryItemStock(item.id)} ${getInventoryItemUnit(item.id)}`,
           action: () => {
             setActivePage('inventory');
             setSelectedProject(null);
@@ -2210,9 +2306,11 @@ async function saveCustomer() {
 
     const payload = {
       item_name: newInventory.item_name,
-      quantity: Number(newInventory.quantity || 0),
+      category: newInventory.category || '',
+      unit: newInventory.unit || 'τεμ.',
       min_quantity: Number(newInventory.min_quantity || 0),
-      purchase_price: Number(newInventory.purchase_price || 0)
+      purchase_price: Number(newInventory.purchase_price || 0),
+      notes: newInventory.notes || ''
     };
 
     const query = editingInventoryId
@@ -2441,9 +2539,41 @@ async function saveCustomer() {
       if (expenseError) return alert(expenseError.message);
     }
 
+    if (supplierInvoiceHasMaterials) {
+      if (editingSupplierInvoiceId) {
+        await supabase.from('inventory_movements').delete().eq('supplier_invoice_id', savedInvoiceId);
+      }
+
+      const materialMovements = supplierInvoiceMaterialLines
+        .filter((line) => line.item_id && Number(line.quantity || 0) > 0)
+        .map((line) => ({
+          item_id: line.item_id,
+          movement_date: newSupplierInvoice.invoice_date,
+          movement_type: line.destination === 'project' ? 'USE' : 'PURCHASE',
+          quantity: Number(line.quantity || 0),
+          unit_price: Number(line.unit_price || 0),
+          project_id: line.destination === 'project' ? (newSupplierInvoice.project_id || null) : null,
+          supplier_id: newSupplierInvoice.supplier_id,
+          supplier_invoice_id: savedInvoiceId,
+          notes: line.destination === 'project'
+            ? `Απευθείας χρήση στο έργο από τιμολόγιο προμηθευτή${newSupplierInvoice.invoice_number ? ` ${newSupplierInvoice.invoice_number}` : ''}`
+            : `Αγορά υλικού από τιμολόγιο προμηθευτή${newSupplierInvoice.invoice_number ? ` ${newSupplierInvoice.invoice_number}` : ''}`
+        }));
+
+      if (materialMovements.length > 0) {
+        const { error: movementError } = await supabase
+          .from('inventory_movements')
+          .insert(materialMovements);
+
+        if (movementError) return alert(movementError.message);
+      }
+    }
+
     setNewSupplierInvoice(INITIAL_SUPPLIER_INVOICE);
+    setSupplierInvoiceHasMaterials(false);
+    setSupplierInvoiceMaterialLines([]);
     setEditingSupplierInvoiceId(null);
-    await Promise.all([loadSupplierInvoices(), loadExpenses()]);
+    await Promise.all([loadSupplierInvoices(), loadExpenses(), loadInventoryMovements()]);
   }
 
   async function saveSupplierPayment() {
@@ -2544,9 +2674,11 @@ async function saveCustomer() {
   function editInventory(item) {
     setNewInventory({
       item_name: item.item_name || '',
-      quantity: String(item.quantity || ''),
+      category: item.category || '',
+      unit: item.unit || item.measure_unit || 'τεμ.',
       min_quantity: String(item.min_quantity || ''),
-      purchase_price: String(item.purchase_price || '')
+      purchase_price: String(item.purchase_price || ''),
+      notes: item.notes || ''
     });
     setEditingInventoryId(item.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2659,6 +2791,8 @@ async function saveCustomer() {
     setNewCustomerInvoice(INITIAL_CUSTOMER_INVOICE);
     setNewExpense(INITIAL_EXPENSE);
     setNewInventory(INITIAL_INVENTORY);
+    setSupplierInvoiceHasMaterials(false);
+    setSupplierInvoiceMaterialLines([]);
     setNewQuote(INITIAL_QUOTE);
     setNewTask(INITIAL_TASK);
     setNewDocument(INITIAL_DOCUMENT);
@@ -4578,6 +4712,48 @@ async function saveCustomer() {
           <small>Το τιμολόγιο θα περαστεί αυτόματα και στα έξοδα του έργου.</small>
         </div>
 
+        <label className="inventory-toggle-line">
+          <input
+            type="checkbox"
+            checked={supplierInvoiceHasMaterials}
+            onChange={(e) => {
+              setSupplierInvoiceHasMaterials(e.target.checked);
+              if (e.target.checked && supplierInvoiceMaterialLines.length === 0) {
+                setSupplierInvoiceMaterialLines([{ item_id: '', quantity: '', unit_price: '', destination: 'warehouse', notes: '' }]);
+              }
+            }}
+          />
+          <span><b>Περιέχει υλικά αποθήκης</b><br /><small>Περνάς μόνο τις γραμμές που θέλεις να επηρεάσουν την αποθήκη ή το έργο.</small></span>
+        </label>
+
+        {supplierInvoiceHasMaterials && (
+          <div className="line">
+            <h3>Γραμμές υλικών</h3>
+            <div className="inventory-lines">
+              {supplierInvoiceMaterialLines.map((line, index) => (
+                <div key={index} className="inventory-material-row">
+                  <select value={line.item_id} onChange={(e) => updateSupplierInvoiceMaterialLine(index, 'item_id', e.target.value)}>
+                    <option value="">Διάλεξε υλικό</option>
+                    {inventory.filter(isActiveItem).map((item) => (
+                      <option key={item.id} value={item.id}>{item.item_name}</option>
+                    ))}
+                  </select>
+                  <input placeholder="Ποσότητα" value={line.quantity} onChange={(e) => updateSupplierInvoiceMaterialLine(index, 'quantity', e.target.value)} />
+                  <input placeholder="Τιμή μον." value={line.unit_price} onChange={(e) => updateSupplierInvoiceMaterialLine(index, 'unit_price', e.target.value)} />
+                  <p><small>Μονάδα</small><br /><b>{line.item_id ? getInventoryItemUnit(line.item_id) : '-'}</b></p>
+                  <select value={line.destination} onChange={(e) => updateSupplierInvoiceMaterialLine(index, 'destination', e.target.value)}>
+                    <option value="warehouse">Ενημέρωση αποθήκης</option>
+                    <option value="project">Απευθείας στο έργο</option>
+                  </select>
+                  <button onClick={() => removeSupplierInvoiceMaterialLine(index)}>×</button>
+                </div>
+              ))}
+            </div>
+            <button onClick={addSupplierInvoiceMaterialLine}>+ Προσθήκη γραμμής υλικού</button>
+            <small>Οι γραμμές “Ενημέρωση αποθήκης” αυξάνουν το υπόλοιπο. Οι γραμμές “Απευθείας στο έργο” χρεώνονται στο έργο χωρίς να μπουν στην αποθήκη.</small>
+          </div>
+        )}
+
         <textarea placeholder="Σημειώσεις" value={newSupplierInvoice.notes} onChange={(e) => setNewSupplierInvoice({ ...newSupplierInvoice, notes: e.target.value })} />
 
         <button onClick={saveSupplierInvoice}>{editingSupplierInvoiceId ? 'Αποθήκευση αλλαγών τιμολογίου' : 'Αποθήκευση τιμολογίου'}</button>
@@ -4712,9 +4888,12 @@ async function saveCustomer() {
         <button onClick={() => setActivePage('income-expenses')}>← Πίσω στα Έσοδα / Έξοδα</button>
         <h2>{editingInventoryId ? 'Επεξεργασία Υλικού' : 'Νέο Υλικό'}</h2>
         <input placeholder="Υλικό" value={newInventory.item_name} onChange={(e) => setNewInventory({ ...newInventory, item_name: e.target.value })} />
-        <input placeholder="Ποσότητα" value={newInventory.quantity} onChange={(e) => setNewInventory({ ...newInventory, quantity: e.target.value })} />
+        <input placeholder="Κατηγορία π.χ. Τσιμέντα, Σίδερα, Πλακάκια" value={newInventory.category || ''} onChange={(e) => setNewInventory({ ...newInventory, category: e.target.value })} />
+        <input placeholder="Μονάδα μέτρησης π.χ. σακιά, kg, τεμ." value={newInventory.unit || ''} onChange={(e) => setNewInventory({ ...newInventory, unit: e.target.value })} />
         <input placeholder="Ελάχιστο απόθεμα" value={newInventory.min_quantity} onChange={(e) => setNewInventory({ ...newInventory, min_quantity: e.target.value })} />
-        <input placeholder="Τιμή αγοράς" value={newInventory.purchase_price} onChange={(e) => setNewInventory({ ...newInventory, purchase_price: e.target.value })} />
+        <input placeholder="Ενδεικτική τιμή αγοράς" value={newInventory.purchase_price} onChange={(e) => setNewInventory({ ...newInventory, purchase_price: e.target.value })} />
+        <textarea placeholder="Σημειώσεις" value={newInventory.notes || ''} onChange={(e) => setNewInventory({ ...newInventory, notes: e.target.value })} />
+        <small>Η ποσότητα δεν αλλάζει χειροκίνητα. Υπολογίζεται αυτόματα από τις κινήσεις αποθήκης.</small>
         <button onClick={saveInventory}>{editingInventoryId ? 'Αποθήκευση αλλαγών υλικού' : 'Αποθήκευση υλικού'}</button>
       </section>
 
@@ -4744,7 +4923,7 @@ async function saveCustomer() {
       <section className="card page-section inventory-section">
         <h2>Αποθήκη</h2>
         {inventory.filter(isActiveItem).length === 0 ? <p>Δεν υπάρχουν υλικά ακόμα.</p> : inventory.filter(isActiveItem).map((item) => {
-          const lowStock = Number(item.quantity || 0) <= Number(item.min_quantity || 0);
+          const lowStock = getInventoryItemStock(item.id) <= Number(item.min_quantity || 0);
 
           return (
             <div key={item.id} className={lowStock ? 'line alert' : 'line'}>
