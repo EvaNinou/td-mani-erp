@@ -2753,6 +2753,23 @@ async function saveCustomer() {
       total_amount: String(invoice.total_amount || ''),
       notes: invoice.notes || ''
     });
+
+    const invoiceMaterialMovements = inventoryMovements
+      .filter((movement) => movement.supplier_invoice_id === invoice.id && isActiveItem(movement));
+
+    setSupplierInvoiceHasMaterials(invoiceMaterialMovements.length > 0);
+    setSupplierInvoiceMaterialLines(
+      invoiceMaterialMovements.length > 0
+        ? invoiceMaterialMovements.map((movement) => ({
+            item_id: movement.item_id || '',
+            quantity: String(movement.quantity || ''),
+            unit_price: String(movement.unit_price || ''),
+            destination: movement.movement_type === 'USE' ? 'project' : 'warehouse',
+            notes: movement.notes || ''
+          }))
+        : []
+    );
+
     setEditingSupplierInvoiceId(invoice.id);
     setActivePage('suppliers');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -4923,15 +4940,34 @@ async function saveCustomer() {
       <section className="card page-section inventory-section">
         <h2>Αποθήκη</h2>
         {inventory.filter(isActiveItem).length === 0 ? <p>Δεν υπάρχουν υλικά ακόμα.</p> : inventory.filter(isActiveItem).map((item) => {
-          const lowStock = getInventoryItemStock(item.id) <= Number(item.min_quantity || 0);
+          const stock = getInventoryItemStock(item.id);
+          const purchases = getInventoryPurchases(item.id);
+          const uses = getInventoryUses(item.id);
+          const unit = getInventoryItemUnit(item.id);
+          const lowStock = stock <= Number(item.min_quantity || 0);
+          const itemMovements = getInventoryItemMovements(item.id);
 
           return (
             <div key={item.id} className={lowStock ? 'line alert' : 'line'}>
               <p><b>{item.item_name}</b></p>
-              <p>Ποσότητα: {item.quantity}</p>
-              <p>Ελάχιστο: {item.min_quantity}</p>
-              <p>Τιμή αγοράς: {item.purchase_price}€</p>
+              <p>Υπόλοιπο: <b>{stock} {unit}</b></p>
+              <p>Αγορές: {purchases} {unit} — Χρήσεις σε έργα: {uses} {unit}</p>
+              <p>Ελάχιστο: {item.min_quantity || 0} {unit}</p>
+              <p>Τιμή αγοράς: {item.purchase_price || 0}€</p>
               {lowStock && <p><b>⚠️ Χαμηλό απόθεμα</b></p>}
+
+              {itemMovements.length > 0 && (
+                <div className="inventory-movements">
+                  <h4>Κινήσεις</h4>
+                  {itemMovements.slice(0, 6).map((movement) => (
+                    <div key={movement.id} className="inventory-movement">
+                      <span>{formatDate(movement.movement_date)} — {movement.movement_type === 'USE' ? 'Χρήση σε έργο' : movement.movement_type === 'PURCHASE' ? 'Αγορά' : movement.movement_type}</span>
+                      <b>{movement.movement_type === 'USE' ? '-' : '+'}{movement.quantity} {unit}</b>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <button onClick={() => editInventory(item)}>✏️ Επεξεργασία</button>
               <button onClick={() => deleteItem('inventory', item.id)}>🗑 Διαγραφή υλικού</button>
             </div>
