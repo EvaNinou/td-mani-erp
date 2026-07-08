@@ -22,6 +22,11 @@ import {
   INITIAL_SUPPLIER_PAYMENT,
   DEMO_USERS
 } from './utils/constants';
+import {
+  getCustomers,
+  createCustomer,
+  updateCustomer
+} from './services/customers';
 
 const ERP_STYLES = `:root {
   --gold: #d6a84f;
@@ -1227,8 +1232,12 @@ const [vatQuarter, setVatQuarter] = useState('1');
   }
 
   async function loadCustomers() {
-    const { data } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
-    setCustomers(data || []);
+    try {
+      const data = await getCustomers(supabase);
+      setCustomers(data);
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
   async function loadProjects() {
@@ -2008,16 +2017,19 @@ async function saveCustomer() {
       return;
     }
 
-    const query = editingCustomerId
-      ? supabase.from('customers').update(newCustomer).eq('id', editingCustomerId)
-      : supabase.from('customers').insert([newCustomer]);
+    try {
+      if (editingCustomerId) {
+        await updateCustomer(supabase, editingCustomerId, newCustomer);
+      } else {
+        await createCustomer(supabase, newCustomer);
+      }
 
-    const { error } = await query;
-    if (error) return alert(error.message);
-
-    setNewCustomer(INITIAL_CUSTOMER);
-    setEditingCustomerId(null);
-    loadCustomers();
+      setNewCustomer(INITIAL_CUSTOMER);
+      setEditingCustomerId(null);
+      loadCustomers();
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
   async function saveProject() {
