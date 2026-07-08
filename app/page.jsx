@@ -19,8 +19,7 @@ import {
   INITIAL_CUSTOMER_INVOICE,
   INITIAL_SUPPLIER,
   INITIAL_SUPPLIER_INVOICE,
-  INITIAL_SUPPLIER_PAYMENT,
-  DEMO_USERS
+  INITIAL_SUPPLIER_PAYMENT
 } from './utils/constants';
 import {
   getCustomers,
@@ -1211,6 +1210,35 @@ hr {
 @media (max-width: 900px) { .inventory-material-row { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .inventory-material-row { grid-template-columns: 1fr; } }
 
+.app-copyright {
+  margin: 18px 0 92px;
+  text-align: center;
+  color: rgba(214,168,79,0.72);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.login-copyright {
+  margin-top: 16px;
+  color: rgba(214,168,79,0.74);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.auth-loading {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+}
+
+.auth-error-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 @media print {
   body {
     background: white !important;
@@ -1259,6 +1287,8 @@ export default function Home() {
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickReturnToDashboard, setQuickReturnToDashboard] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
   const [globalSearch, setGlobalSearch] = useState('');
@@ -1329,6 +1359,34 @@ const [vatQuarter, setVatQuarter] = useState('1');
 
   useEffect(() => {
     refreshAll();
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function initAuthSession() {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      const appUser = data?.session?.user ? buildAppUser(data.session.user) : null;
+      setCurrentUser(appUser);
+      setSelectedUser(appUser?.name || 'Mani Taulant');
+      setAuthLoading(false);
+    }
+
+    initAuthSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const appUser = session?.user ? buildAppUser(session.user) : null;
+      setCurrentUser(appUser);
+      setSelectedUser(appUser?.name || 'Mani Taulant');
+      setAuthLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      listener?.subscription?.unsubscribe?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -3088,22 +3146,58 @@ async function saveCustomer() {
     return {};
   }
 
-  function loginUser() {
-    const user = DEMO_USERS.find(
-      (item) => item.email === loginForm.email && item.password === loginForm.password
-    );
+  function buildAppUser(authUser) {
+    const email = authUser?.email || '';
+    const emailName = email.split('@')[0] || 'Χρήστης';
+    const cleanName = emailName
+      .replace(/[._-]+/g, ' ')
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
 
-    if (!user) {
+    const normalizedEmail = email.toLowerCase();
+
+    return {
+      id: authUser?.id,
+      email,
+      name: normalizedEmail.includes('eva') ? 'Εύα Νίνου' : normalizedEmail.includes('mani') ? 'Mani Taulant' : cleanName,
+      role: normalizedEmail.includes('eva') ? 'Admin' : normalizedEmail.includes('mani') ? 'Manager' : 'User'
+    };
+  }
+
+  async function loginUser() {
+    const email = loginForm.email.trim();
+
+    if (!email || !loginForm.password) {
+      alert('Συμπλήρωσε email και password');
+      return;
+    }
+
+    setLoginLoading(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: loginForm.password
+    });
+
+    setLoginLoading(false);
+
+    if (error) {
       alert('Λάθος email ή password');
       return;
     }
 
-    setCurrentUser(user);
-    setSelectedUser(user.name);
-    setLoginForm({ email: '', password: '' });
+    if (data?.user) {
+      const appUser = buildAppUser(data.user);
+      setCurrentUser(appUser);
+      setSelectedUser(appUser.name);
+      setLoginForm({ email: '', password: '' });
+    }
   }
 
-  function logoutUser() {
+  async function logoutUser() {
+    await supabase.auth.signOut();
     setCurrentUser(null);
     setSelectedUser('Mani Taulant');
   }
@@ -3126,6 +3220,27 @@ async function saveCustomer() {
     setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 80);
   }
 
+  if (authLoading) {
+    return (
+      <main className={`app page-${activePage}`}>
+        <style>{ERP_STYLES}</style>
+        <section className="card login-card auth-loading">
+          <div>
+            <div className="brand">
+              <div className="logo"><img src={TD_MANI_LOGO} alt="TD MANI" /></div>
+              <div>
+                <h1>T D MANI</h1>
+                <p>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</p>
+              </div>
+            </div>
+            <h2>Φόρτωση...</h2>
+            <p className="login-copyright">© 2026 EvaNinou</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   if (!currentUser) {
     return (
       <main className={`app page-${activePage}`}>
@@ -3145,6 +3260,9 @@ async function saveCustomer() {
             placeholder="Email"
             value={loginForm.email}
             onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') loginUser();
+            }}
           />
 
           <input
@@ -3152,21 +3270,22 @@ async function saveCustomer() {
             type="password"
             value={loginForm.password}
             onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') loginUser();
+            }}
           />
 
-          <button onClick={loginUser}>Σύνδεση</button>
+          <button onClick={loginUser} disabled={loginLoading}>
+            {loginLoading ? 'Σύνδεση...' : 'Σύνδεση'}
+          </button>
 
           <hr />
 
-          <p><b>Demo χρήστες:</b></p>
-          <button onClick={() => setLoginForm({ email: 'eva@tdmani.gr', password: '1234' })}>
-            👩 Εύα / Admin
-          </button>
-          <button onClick={() => setLoginForm({ email: 'mani@tdmani.gr', password: '1234' })}>
-            👷 Mani / Admin
-          </button>
+          <p className="auth-error-note">
+            Χρησιμοποίησε τους πραγματικούς κωδικούς που δημιουργήθηκαν στο Supabase.
+          </p>
 
-          <small>Demo login για δοκιμή. Στο τελικό ERP θα το αλλάξουμε σε Supabase Auth.</small>
+          <p className="login-copyright">© 2026 EvaNinou</p>
         </section>
       </main>
     );
@@ -5314,6 +5433,8 @@ async function saveCustomer() {
         )}
       </section>
 
+
+      <p className="app-copyright no-print">© 2026 EvaNinou</p>
 
       {currentUser && !selectedProject && (
         <>
