@@ -1173,6 +1173,173 @@ hr {
 }
 
 
+/* UI Polish v1 - Premium effects without changing logic */
+.app {
+  animation: appSoftEnter 0.34s ease both;
+}
+
+@keyframes appSoftEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page-section {
+  animation: sectionFadeUp 0.26s ease both;
+}
+
+@keyframes sectionFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.075), transparent 32%, rgba(214,168,79,0.045));
+  opacity: 0.65;
+}
+
+.card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.line {
+  position: relative;
+  overflow: hidden;
+}
+
+.line::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 99px;
+  background: linear-gradient(180deg, rgba(214,168,79,0.95), rgba(122,85,29,0.55));
+  opacity: 0.72;
+}
+
+.line > * {
+  position: relative;
+  z-index: 1;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: fit-content;
+  min-height: 28px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.18);
+}
+
+.status-paid,
+.status-completed,
+.status-active {
+  color: #b9ff9e;
+  border-color: rgba(94,220,90,0.36);
+  background: rgba(72,180,70,0.16);
+}
+
+.status-partial,
+.status-pending {
+  color: #ffd98a;
+  border-color: rgba(255,193,7,0.38);
+  background: rgba(255,193,7,0.14);
+}
+
+.status-unpaid,
+.status-danger {
+  color: #ffb0aa;
+  border-color: rgba(255,107,95,0.45);
+  background: rgba(255,107,95,0.14);
+}
+
+.status-neutral {
+  color: var(--text);
+  border-color: rgba(214,168,79,0.24);
+  background: rgba(255,255,255,0.065);
+}
+
+.erp-nav button.active,
+.quick-create-fab,
+button:not(.global-search-result):not(.quick-create-option) {
+  box-shadow: 0 10px 24px rgba(214,168,79,0.10), 0 14px 34px rgba(0,0,0,0.20);
+}
+
+.erp-nav button:hover,
+.quick-create-option:hover,
+.global-search-result:hover {
+  transform: translateY(-1px);
+}
+
+input, select, textarea {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  transform: translateY(-1px);
+}
+
+.dashboard-welcome {
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-welcome::after {
+  content: '';
+  position: absolute;
+  right: -48px;
+  top: -60px;
+  width: 170px;
+  height: 170px;
+  border-radius: 50%;
+  background: rgba(214,168,79,0.10);
+  filter: blur(2px);
+}
+
+.report-table tr {
+  transition: background 0.18s ease;
+}
+
+.report-table tbody tr:hover,
+.report-table tr:hover td {
+  background: rgba(214,168,79,0.055) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app,
+  .page-section,
+  .card,
+  .line,
+  button,
+  input,
+  select,
+  textarea {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+
 /* Inventory ERP v1.0 */
 .inventory-lines { display: grid; gap: 10px; margin: 12px 0; }
 .inventory-material-row {
@@ -1570,6 +1737,22 @@ function getCustomerProjects(customerId) {
     if (paid <= 0) return 'Απλήρωτο';
     if (paid < total) return 'Μερικώς πληρωμένο';
     return 'Εξοφλημένο';
+  }
+
+
+  function getStatusBadgeClass(status) {
+    const value = normalizeText(status);
+
+    if (value.includes('εξοφλη') || value.includes('completed') || value.includes('ολοκληρω')) return 'status-paid';
+    if (value.includes('μερικ') || value.includes('pending') || value.includes('αναμον')) return 'status-partial';
+    if (value.includes('απληρω') || value.includes('καθυστερ') || value.includes('overdue')) return 'status-unpaid';
+    if (value.includes('active') || value.includes('ενεργ')) return 'status-active';
+
+    return 'status-neutral';
+  }
+
+  function renderStatusBadge(status) {
+    return <span className={`status-badge ${getStatusBadgeClass(status)}`}>{status || '-'}</span>;
   }
 
   function getInventoryItemName(itemId) {
@@ -3289,7 +3472,7 @@ async function saveCustomer() {
               <p><b>ΑΦΜ:</b> {getCustomerAfm(selectedProject.customer_id)}</p>
               <p><b>Περιοχή:</b> {selectedProject.area || '-'}</p>
               <p><b>Διεύθυνση:</b> {selectedProject.address || '-'}</p>
-              <p><b>Status:</b> {getProjectStatusLabel(selectedProject.status)}</p>
+              <p><b>Status:</b> {renderStatusBadge(getProjectStatusLabel(selectedProject.status))}</p>
               <button onClick={() => editProject(selectedProject)}>✏️ Επεξεργασία έργου</button>
               <button onClick={() => window.print()}>📄 Export / Print PDF</button>
             </div>
@@ -3307,7 +3490,7 @@ async function saveCustomer() {
                     <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
                     <p>Καθαρή: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€ | Παρακράτηση: {invoice.withholding_amount || 0}€</p>
                     <p>Πληρωμένα: {getCustomerInvoicePaid(invoice.id)}€</p>
-                    <p>Status: <b>{getCustomerInvoiceStatus(invoice)}</b></p>
+                    <p>Status: {renderStatusBadge(getCustomerInvoiceStatus(invoice))}</p>
                     <button onClick={() => editCustomerInvoice(invoice)}>✏️ Επεξεργασία</button>
                   </div>
                 ))
@@ -3508,7 +3691,7 @@ async function saveCustomer() {
             <div className="grid">
               <div className="line"><p><b>{getCustomerName(selectedProject.customer_id)}</b></p><small>Πελάτης</small></div>
               <div className="line"><p><b>{getCustomerAfm(selectedProject.customer_id)}</b></p><small>ΑΦΜ πελάτη</small></div>
-              <div className="line"><p><b>{getProjectStatusLabel(selectedProject.status)}</b></p><small>Status</small></div>
+              <div className="line"><p>{renderStatusBadge(getProjectStatusLabel(selectedProject.status))}</p><small>Status</small></div>
               <div className="line"><p><b>{selectedProject.area || '-'}</b></p><small>Περιοχή</small></div>
             </div>
             <p><b>Διεύθυνση:</b> {selectedProject.address || '-'}</p>
@@ -3555,7 +3738,7 @@ async function saveCustomer() {
                       <td>{formatCurrency(invoice.vat_amount)}</td>
                       <td>{formatCurrency(invoice.withholding_amount)}</td>
                       <td>{formatCurrency(invoice.receivable_amount)}</td>
-                      <td>{getCustomerInvoiceStatus(invoice)}</td>
+                      <td>{renderStatusBadge(getCustomerInvoiceStatus(invoice))}</td>
                     </tr>
                   ))}
                   <tr className="report-total-row">
@@ -3661,7 +3844,7 @@ async function saveCustomer() {
                       <td>{formatCurrency(invoice.net_amount)}</td>
                       <td>{formatCurrency(invoice.vat_amount)}</td>
                       <td>{formatCurrency(invoice.total_amount)}</td>
-                      <td>{getSupplierInvoiceStatus(invoice)}</td>
+                      <td>{renderStatusBadge(getSupplierInvoiceStatus(invoice))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -3815,7 +3998,7 @@ async function saveCustomer() {
                 <p>ΦΠΑ 24%: {invoice.vat_amount || 0}€</p>
                 <p>Σύνολο: {invoice.total_amount || 0}€</p>
                 <p>Πληρωμένα: {getSupplierInvoicePaid(invoice.id)}€</p>
-                <p>Status: <b>{getSupplierInvoiceStatus(invoice)}</b></p>
+                <p>Status: {renderStatusBadge(getSupplierInvoiceStatus(invoice))}</p>
                 <p>Περιγραφή: {invoice.description || '-'}</p>
               </div>
             ))
@@ -4095,7 +4278,7 @@ async function saveCustomer() {
                       <div className="line"><p><b>{reportProject.title}</b></p><small>Έργο</small></div>
                       <div className="line"><p><b>{getCustomerName(reportProject.customer_id)}</b></p><small>Πελάτης</small></div>
                       <div className="line"><p><b>{getCustomerAfm(reportProject.customer_id)}</b></p><small>ΑΦΜ πελάτη</small></div>
-                      <div className="line"><p><b>{getProjectStatusLabel(reportProject.status)}</b></p><small>Status</small></div>
+                      <div className="line"><p>{renderStatusBadge(getProjectStatusLabel(reportProject.status))}</p><small>Status</small></div>
                       <div className="line"><p><b>{reportProject.area || '-'}</b></p><small>Περιοχή</small></div>
                       <div className="line"><p><b>{reportProject.address || '-'}</b></p><small>Διεύθυνση</small></div>
                     </div>
@@ -4140,7 +4323,7 @@ async function saveCustomer() {
                             <td>{formatCurrency(invoice.vat_amount)}</td>
                             <td>{formatCurrency(invoice.total_amount)}</td>
                             <td>{formatCurrency(invoice.receivable_amount)}</td>
-                            <td>{getCustomerInvoiceStatus(invoice)}</td>
+                            <td>{renderStatusBadge(getCustomerInvoiceStatus(invoice))}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -4226,7 +4409,7 @@ async function saveCustomer() {
                             <td>{formatCurrency(invoice.net_amount)}</td>
                             <td>{formatCurrency(invoice.vat_amount)}</td>
                             <td>{formatCurrency(invoice.total_amount)}</td>
-                            <td>{getSupplierInvoiceStatus(invoice)}</td>
+                            <td>{renderStatusBadge(getSupplierInvoiceStatus(invoice))}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -4333,7 +4516,7 @@ async function saveCustomer() {
               <p><b>{task.title}</b></p>
               <p>Έργο: {getProjectTitle(task.project_id)}</p>
               <p>Ημερομηνία: {task.task_date} {task.task_time || ''}</p>
-              <p>Status: {task.status}</p>
+              <p>Status: {renderStatusBadge(task.status)}</p>
               <small>{task.notes}</small>
               <button onClick={() => editTask(task)}>✏️ Επεξεργασία</button>
               <button onClick={() => deleteItem('tasks', task.id)}>🗑 Διαγραφή εργασίας</button>
@@ -4503,7 +4686,7 @@ async function saveCustomer() {
               <p>Καθαρή: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€ | Παρακράτηση: {invoice.withholding_amount || 0}€</p>
               <p>Σύνολο: {invoice.total_amount || 0}€</p>
               <p>Πληρωμένα: {getCustomerInvoicePaid(invoice.id)}€</p>
-              <p>Status: <b>{getCustomerInvoiceStatus(invoice)}</b></p>
+              <p>Status: {renderStatusBadge(getCustomerInvoiceStatus(invoice))}</p>
               <small>{invoice.description || invoice.notes}</small>
               <button onClick={() => editCustomerInvoice(invoice)}>✏️ Επεξεργασία</button>
               <button onClick={() => deleteItem('customer_invoices', invoice.id)}>🗑 Διαγραφή τιμολογίου</button>
@@ -4723,7 +4906,7 @@ async function saveCustomer() {
                 <h3>{row.project.title}</h3>
                 <p><b>Περιοχή:</b> {row.project.area || '-'}</p>
                 <p><b>Διεύθυνση:</b> {row.project.address || '-'}</p>
-                <p><b>Status:</b> {row.project.status}</p>
+                <p><b>Status:</b> {renderStatusBadge(getProjectStatusLabel(row.project.status))}</p>
                 <p>Συμφωνία: {row.agreed}€</p>
                 <p>Πληρωμές: {row.paid}€</p>
                 <p>Έξοδα: {row.expenses}€</p>
@@ -5040,7 +5223,7 @@ async function saveCustomer() {
                             <p>Σύνολο τιμολογίου: <b>{formatCurrency(invoice.total_amount)}</b></p>
                             <p>Πληρωμένο: <b>{formatCurrency(paidAmount)}</b></p>
                             <p>Υπόλοιπο: <b>{formatCurrency(balanceAmount)}</b></p>
-                            <p>Status: <b>{status}</b></p>
+                            <p>Status: {renderStatusBadge(status)}</p>
                             <small>{invoice.notes}</small>
                             <button onClick={() => {
                               setNewSupplierPayment({
