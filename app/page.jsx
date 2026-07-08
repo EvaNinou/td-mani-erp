@@ -794,6 +794,108 @@ hr {
   h2 { font-size: 19px; }
 }
 
+
+/* iPad / Tablet Header Fix */
+@media (min-width: 561px) and (max-width: 1024px) {
+  .app {
+    padding: 10px 12px;
+  }
+
+  .top {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 60 !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    margin-bottom: 10px !important;
+    padding: 9px 12px !important;
+    border-radius: 18px !important;
+  }
+
+  .brand {
+    min-width: 0 !important;
+    flex: 0 1 auto !important;
+    gap: 10px !important;
+  }
+
+  .brand h1 {
+    font-size: 18px !important;
+    line-height: 1.1 !important;
+    margin-bottom: 2px !important;
+    letter-spacing: 0.05em !important;
+    white-space: nowrap !important;
+  }
+
+  .brand small {
+    display: block !important;
+    max-width: 310px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+  }
+
+  .logo {
+    width: 50px !important;
+    height: 42px !important;
+    flex: 0 0 50px !important;
+    border-radius: 14px !important;
+    font-size: 20px !important;
+  }
+
+  .global-search {
+    flex: 0 1 330px !important;
+    max-width: 330px !important;
+  }
+
+  .global-search input {
+    height: 42px !important;
+    min-height: 42px !important;
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
+    font-size: 14px !important;
+  }
+
+  .erp-nav {
+    position: sticky !important;
+    top: 70px !important;
+    z-index: 55 !important;
+    margin-bottom: 12px !important;
+    padding: 7px !important;
+    border-radius: 16px !important;
+  }
+
+  .erp-nav button {
+    padding: 8px 10px !important;
+    font-size: 13px !important;
+    min-width: max-content !important;
+  }
+
+  .card {
+    margin: 12px 0 !important;
+  }
+}
+
+@media (min-width: 561px) and (max-width: 820px) {
+  .top {
+    flex-wrap: wrap !important;
+  }
+
+  .global-search {
+    flex: 1 1 100% !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .erp-nav {
+    top: 118px !important;
+  }
+}
+
+
 @media (max-width: 560px) {
   .app { padding: 10px; }
 
