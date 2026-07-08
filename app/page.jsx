@@ -794,108 +794,6 @@ hr {
   h2 { font-size: 19px; }
 }
 
-
-/* iPad / Tablet Header Fix */
-@media (min-width: 561px) and (max-width: 1024px) {
-  .app {
-    padding: 10px 12px;
-  }
-
-  .top {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 60 !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: 10px !important;
-    margin-bottom: 10px !important;
-    padding: 9px 12px !important;
-    border-radius: 18px !important;
-  }
-
-  .brand {
-    min-width: 0 !important;
-    flex: 0 1 auto !important;
-    gap: 10px !important;
-  }
-
-  .brand h1 {
-    font-size: 18px !important;
-    line-height: 1.1 !important;
-    margin-bottom: 2px !important;
-    letter-spacing: 0.05em !important;
-    white-space: nowrap !important;
-  }
-
-  .brand small {
-    display: block !important;
-    max-width: 310px !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-    font-size: 12px !important;
-    line-height: 1.2 !important;
-  }
-
-  .logo {
-    width: 50px !important;
-    height: 42px !important;
-    flex: 0 0 50px !important;
-    border-radius: 14px !important;
-    font-size: 20px !important;
-  }
-
-  .global-search {
-    flex: 0 1 330px !important;
-    max-width: 330px !important;
-  }
-
-  .global-search input {
-    height: 42px !important;
-    min-height: 42px !important;
-    padding-top: 9px !important;
-    padding-bottom: 9px !important;
-    font-size: 14px !important;
-  }
-
-  .erp-nav {
-    position: sticky !important;
-    top: 70px !important;
-    z-index: 55 !important;
-    margin-bottom: 12px !important;
-    padding: 7px !important;
-    border-radius: 16px !important;
-  }
-
-  .erp-nav button {
-    padding: 8px 10px !important;
-    font-size: 13px !important;
-    min-width: max-content !important;
-  }
-
-  .card {
-    margin: 12px 0 !important;
-  }
-}
-
-@media (min-width: 561px) and (max-width: 820px) {
-  .top {
-    flex-wrap: wrap !important;
-  }
-
-  .global-search {
-    flex: 1 1 100% !important;
-    max-width: none !important;
-    width: 100% !important;
-  }
-
-  .erp-nav {
-    top: 118px !important;
-  }
-}
-
-
 @media (max-width: 560px) {
   .app { padding: 10px; }
 
@@ -1072,10 +970,10 @@ hr {
 
 
 .quick-create-fab {
-  position: fixed;
-  right: 22px;
-  bottom: 22px;
-  z-index: 140;
+  position: fixed !important;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: 160;
   width: 68px;
   height: 68px;
   min-width: 68px;
@@ -1088,7 +986,7 @@ hr {
   font-size: 34px;
   line-height: 1;
   box-shadow: 0 20px 44px rgba(0,0,0,0.48), 0 0 0 1px rgba(214,168,79,0.28);
-  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
 }
 
 .quick-create-fab:hover {
@@ -1098,48 +996,110 @@ hr {
 
 .quick-create-fab.open {
   transform: rotate(45deg);
+  border-color: rgba(255,255,255,0.22);
 }
 
 .quick-create-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 80;
-  background: rgba(0,0,0,0.58);
-  backdrop-filter: blur(5px);
-  animation: quickFade 0.20s ease both;
+  z-index: 130;
+  background: rgba(0,0,0,0.42);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: quickFade 0.18s ease both;
 }
 
 .quick-create-panel {
   position: fixed;
-  right: 22px;
-  bottom: 100px;
-  z-index: 120;
-  width: min(430px, calc(100vw - 44px));
-  max-height: calc(100vh - 130px);
+  right: max(20px, env(safe-area-inset-right));
+  bottom: calc(max(20px, env(safe-area-inset-bottom)) + 82px);
+  z-index: 150;
+  width: min(330px, calc(100vw - 34px));
   height: auto;
-  padding: 22px;
-  overflow-y: auto;
-  background: rgba(13,13,15,0.985) !important;
-  border: 1px solid rgba(214,168,79,0.30);
-  border-radius: 26px;
-  box-shadow: 0 26px 70px rgba(0,0,0,0.56), inset 0 1px 0 rgba(255,255,255,0.04);
-  animation: quickPopUp 0.24s ease both;
-  overscroll-behavior: contain;
+  max-height: calc(100vh - 120px);
+  padding: 0;
+  overflow: visible;
+  background: transparent !important;
+  border: none;
+  box-shadow: none;
+  animation: quickDialIn 0.20s ease both;
+}
+
+.quick-create-title,
+.quick-create-subtitle,
+.quick-create-panel hr,
+.quick-create-panel > small {
+  display: none !important;
 }
 
 .quick-create-option {
+  --dial-color: var(--gold);
   width: 100%;
-  margin: 9px 0;
-  padding: 15px;
-  text-align: left;
-  background: rgba(255,255,255,0.06) !important;
+  min-height: 54px;
+  margin: 8px 0;
+  padding: 8px 12px 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  text-align: right;
+  background: transparent !important;
   color: var(--text) !important;
-  border-color: var(--border);
+  border: none !important;
+  box-shadow: none !important;
+  opacity: 0;
+  transform: translateY(12px) scale(0.96);
+  animation: speedDialItem 0.22s ease forwards;
 }
 
+.quick-create-option:nth-of-type(1) { animation-delay: 0.02s; }
+.quick-create-option:nth-of-type(2) { animation-delay: 0.05s; }
+.quick-create-option:nth-of-type(3) { animation-delay: 0.08s; }
+.quick-create-option:nth-of-type(4) { animation-delay: 0.11s; }
+.quick-create-option:nth-of-type(5) { animation-delay: 0.14s; }
+.quick-create-option:nth-of-type(6) { animation-delay: 0.17s; }
+.quick-create-option:nth-of-type(7) { animation-delay: 0.20s; }
+
 .quick-create-option:hover {
-  border-color: rgba(214,168,79,0.55);
+  transform: translateY(-1px) scale(1.01);
 }
+
+.quick-create-option .dial-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(214,168,79,0.28);
+  background: rgba(13,13,15,0.92);
+  color: var(--text);
+  font-weight: 950;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.05);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.quick-create-option .dial-icon {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--dial-color) 45%, transparent);
+  background: radial-gradient(circle at top left, color-mix(in srgb, var(--dial-color) 34%, transparent), rgba(255,255,255,0.06)) !important;
+  font-size: 22px;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+.quick-create-option.dial-customer { --dial-color: #62a8ff; }
+.quick-create-option.dial-project { --dial-color: #d6a84f; }
+.quick-create-option.dial-invoice { --dial-color: #77d970; }
+.quick-create-option.dial-payment { --dial-color: #3ee6a8; }
+.quick-create-option.dial-supplier-invoice { --dial-color: #ffb057; }
+.quick-create-option.dial-supplier-payment { --dial-color: #b98cff; }
+.quick-create-option.dial-inventory { --dial-color: #b8c0cc; }
 
 .quick-return-card {
   border-color: rgba(214,168,79,0.45);
@@ -1151,22 +1111,32 @@ hr {
   to { opacity: 1; }
 }
 
-@keyframes quickSlide {
-  from { transform: translateX(100%); opacity: 0.8; }
-  to { transform: translateX(0); opacity: 1; }
+@keyframes quickDialIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes quickPopUp {
-  from { transform: translateY(18px) scale(0.98); opacity: 0; }
-  to { transform: translateY(0) scale(1); opacity: 1; }
+@keyframes speedDialItem {
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@media (max-width: 1024px) {
+  .quick-create-fab {
+    position: fixed !important;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
 
+  .quick-create-panel {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + 78px);
+  }
+}
 
 @media (max-width: 560px) {
   .quick-create-fab {
-    right: 15px;
-    bottom: 15px;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
     width: 62px;
     height: 62px;
     min-width: 62px;
@@ -1174,199 +1144,31 @@ hr {
   }
 
   .quick-create-panel {
-    left: 10px;
-    right: 10px;
-    bottom: 88px;
-    width: auto;
-    max-height: calc(100vh - 112px);
-    border-left: 1px solid rgba(214,168,79,0.30);
-    border-radius: 24px;
-    padding: 18px;
-  }
-}
-
-
-@media (min-width: 561px) and (max-width: 1024px) {
-  .quick-create-fab {
-    right: 18px;
-    bottom: 18px;
-    width: 64px;
-    height: 64px;
-    min-width: 64px;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 70px);
+    width: min(315px, calc(100vw - 20px));
+    max-height: calc(100vh - 98px);
+    overflow-y: auto;
+    padding: 4px 0;
   }
 
-  .quick-create-panel {
-    right: 18px;
-    bottom: 96px;
-    width: min(430px, calc(100vw - 36px));
-    max-height: calc(100vh - 126px);
+  .quick-create-option {
+    min-height: 50px;
+    margin: 6px 0;
+    padding: 6px 8px;
   }
-}
 
+  .quick-create-option .dial-label {
+    min-height: 34px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
 
-/* UI Polish v1 - Premium effects without changing logic */
-.app {
-  animation: appSoftEnter 0.34s ease both;
-}
-
-@keyframes appSoftEnter {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.page-section {
-  animation: sectionFadeUp 0.26s ease both;
-}
-
-@keyframes sectionFadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.card {
-  position: relative;
-  overflow: hidden;
-}
-
-.card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(135deg, rgba(255,255,255,0.075), transparent 32%, rgba(214,168,79,0.045));
-  opacity: 0.65;
-}
-
-.card > * {
-  position: relative;
-  z-index: 1;
-}
-
-.line {
-  position: relative;
-  overflow: hidden;
-}
-
-.line::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  border-radius: 99px;
-  background: linear-gradient(180deg, rgba(214,168,79,0.95), rgba(122,85,29,0.55));
-  opacity: 0.72;
-}
-
-.line > * {
-  position: relative;
-  z-index: 1;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: fit-content;
-  min-height: 28px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  font-size: 12px;
-  font-weight: 950;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.18);
-}
-
-.status-paid,
-.status-completed,
-.status-active {
-  color: #b9ff9e;
-  border-color: rgba(94,220,90,0.36);
-  background: rgba(72,180,70,0.16);
-}
-
-.status-partial,
-.status-pending {
-  color: #ffd98a;
-  border-color: rgba(255,193,7,0.38);
-  background: rgba(255,193,7,0.14);
-}
-
-.status-unpaid,
-.status-danger {
-  color: #ffb0aa;
-  border-color: rgba(255,107,95,0.45);
-  background: rgba(255,107,95,0.14);
-}
-
-.status-neutral {
-  color: var(--text);
-  border-color: rgba(214,168,79,0.24);
-  background: rgba(255,255,255,0.065);
-}
-
-.erp-nav button.active,
-.quick-create-fab,
-button:not(.global-search-result):not(.quick-create-option) {
-  box-shadow: 0 10px 24px rgba(214,168,79,0.10), 0 14px 34px rgba(0,0,0,0.20);
-}
-
-.erp-nav button:hover,
-.quick-create-option:hover,
-.global-search-result:hover {
-  transform: translateY(-1px);
-}
-
-input, select, textarea {
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, transform 0.18s ease;
-}
-
-input:focus, select:focus, textarea:focus {
-  transform: translateY(-1px);
-}
-
-.dashboard-welcome {
-  position: relative;
-  overflow: hidden;
-}
-
-.dashboard-welcome::after {
-  content: '';
-  position: absolute;
-  right: -48px;
-  top: -60px;
-  width: 170px;
-  height: 170px;
-  border-radius: 50%;
-  background: rgba(214,168,79,0.10);
-  filter: blur(2px);
-}
-
-.report-table tr {
-  transition: background 0.18s ease;
-}
-
-.report-table tbody tr:hover,
-.report-table tr:hover td {
-  background: rgba(214,168,79,0.055) !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app,
-  .page-section,
-  .card,
-  .line,
-  button,
-  input,
-  select,
-  textarea {
-    animation: none !important;
-    transition: none !important;
-    transform: none !important;
+  .quick-create-option .dial-icon {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    font-size: 20px;
   }
 }
 
@@ -1768,22 +1570,6 @@ function getCustomerProjects(customerId) {
     if (paid <= 0) return 'Απλήρωτο';
     if (paid < total) return 'Μερικώς πληρωμένο';
     return 'Εξοφλημένο';
-  }
-
-
-  function getStatusBadgeClass(status) {
-    const value = normalizeText(status);
-
-    if (value.includes('εξοφλη') || value.includes('completed') || value.includes('ολοκληρω')) return 'status-paid';
-    if (value.includes('μερικ') || value.includes('pending') || value.includes('αναμον')) return 'status-partial';
-    if (value.includes('απληρω') || value.includes('καθυστερ') || value.includes('overdue')) return 'status-unpaid';
-    if (value.includes('active') || value.includes('ενεργ')) return 'status-active';
-
-    return 'status-neutral';
-  }
-
-  function renderStatusBadge(status) {
-    return <span className={`status-badge ${getStatusBadgeClass(status)}`}>{status || '-'}</span>;
   }
 
   function getInventoryItemName(itemId) {
@@ -3503,7 +3289,7 @@ async function saveCustomer() {
               <p><b>ΑΦΜ:</b> {getCustomerAfm(selectedProject.customer_id)}</p>
               <p><b>Περιοχή:</b> {selectedProject.area || '-'}</p>
               <p><b>Διεύθυνση:</b> {selectedProject.address || '-'}</p>
-              <p><b>Status:</b> {renderStatusBadge(getProjectStatusLabel(selectedProject.status))}</p>
+              <p><b>Status:</b> {getProjectStatusLabel(selectedProject.status)}</p>
               <button onClick={() => editProject(selectedProject)}>✏️ Επεξεργασία έργου</button>
               <button onClick={() => window.print()}>📄 Export / Print PDF</button>
             </div>
@@ -3521,7 +3307,7 @@ async function saveCustomer() {
                     <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
                     <p>Καθαρή: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€ | Παρακράτηση: {invoice.withholding_amount || 0}€</p>
                     <p>Πληρωμένα: {getCustomerInvoicePaid(invoice.id)}€</p>
-                    <p>Status: {renderStatusBadge(getCustomerInvoiceStatus(invoice))}</p>
+                    <p>Status: <b>{getCustomerInvoiceStatus(invoice)}</b></p>
                     <button onClick={() => editCustomerInvoice(invoice)}>✏️ Επεξεργασία</button>
                   </div>
                 ))
@@ -3722,7 +3508,7 @@ async function saveCustomer() {
             <div className="grid">
               <div className="line"><p><b>{getCustomerName(selectedProject.customer_id)}</b></p><small>Πελάτης</small></div>
               <div className="line"><p><b>{getCustomerAfm(selectedProject.customer_id)}</b></p><small>ΑΦΜ πελάτη</small></div>
-              <div className="line"><p>{renderStatusBadge(getProjectStatusLabel(selectedProject.status))}</p><small>Status</small></div>
+              <div className="line"><p><b>{getProjectStatusLabel(selectedProject.status)}</b></p><small>Status</small></div>
               <div className="line"><p><b>{selectedProject.area || '-'}</b></p><small>Περιοχή</small></div>
             </div>
             <p><b>Διεύθυνση:</b> {selectedProject.address || '-'}</p>
@@ -3769,7 +3555,7 @@ async function saveCustomer() {
                       <td>{formatCurrency(invoice.vat_amount)}</td>
                       <td>{formatCurrency(invoice.withholding_amount)}</td>
                       <td>{formatCurrency(invoice.receivable_amount)}</td>
-                      <td>{renderStatusBadge(getCustomerInvoiceStatus(invoice))}</td>
+                      <td>{getCustomerInvoiceStatus(invoice)}</td>
                     </tr>
                   ))}
                   <tr className="report-total-row">
@@ -3875,7 +3661,7 @@ async function saveCustomer() {
                       <td>{formatCurrency(invoice.net_amount)}</td>
                       <td>{formatCurrency(invoice.vat_amount)}</td>
                       <td>{formatCurrency(invoice.total_amount)}</td>
-                      <td>{renderStatusBadge(getSupplierInvoiceStatus(invoice))}</td>
+                      <td>{getSupplierInvoiceStatus(invoice)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -4029,7 +3815,7 @@ async function saveCustomer() {
                 <p>ΦΠΑ 24%: {invoice.vat_amount || 0}€</p>
                 <p>Σύνολο: {invoice.total_amount || 0}€</p>
                 <p>Πληρωμένα: {getSupplierInvoicePaid(invoice.id)}€</p>
-                <p>Status: {renderStatusBadge(getSupplierInvoiceStatus(invoice))}</p>
+                <p>Status: <b>{getSupplierInvoiceStatus(invoice)}</b></p>
                 <p>Περιγραφή: {invoice.description || '-'}</p>
               </div>
             ))
@@ -4309,7 +4095,7 @@ async function saveCustomer() {
                       <div className="line"><p><b>{reportProject.title}</b></p><small>Έργο</small></div>
                       <div className="line"><p><b>{getCustomerName(reportProject.customer_id)}</b></p><small>Πελάτης</small></div>
                       <div className="line"><p><b>{getCustomerAfm(reportProject.customer_id)}</b></p><small>ΑΦΜ πελάτη</small></div>
-                      <div className="line"><p>{renderStatusBadge(getProjectStatusLabel(reportProject.status))}</p><small>Status</small></div>
+                      <div className="line"><p><b>{getProjectStatusLabel(reportProject.status)}</b></p><small>Status</small></div>
                       <div className="line"><p><b>{reportProject.area || '-'}</b></p><small>Περιοχή</small></div>
                       <div className="line"><p><b>{reportProject.address || '-'}</b></p><small>Διεύθυνση</small></div>
                     </div>
@@ -4354,7 +4140,7 @@ async function saveCustomer() {
                             <td>{formatCurrency(invoice.vat_amount)}</td>
                             <td>{formatCurrency(invoice.total_amount)}</td>
                             <td>{formatCurrency(invoice.receivable_amount)}</td>
-                            <td>{renderStatusBadge(getCustomerInvoiceStatus(invoice))}</td>
+                            <td>{getCustomerInvoiceStatus(invoice)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -4440,7 +4226,7 @@ async function saveCustomer() {
                             <td>{formatCurrency(invoice.net_amount)}</td>
                             <td>{formatCurrency(invoice.vat_amount)}</td>
                             <td>{formatCurrency(invoice.total_amount)}</td>
-                            <td>{renderStatusBadge(getSupplierInvoiceStatus(invoice))}</td>
+                            <td>{getSupplierInvoiceStatus(invoice)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -4547,7 +4333,7 @@ async function saveCustomer() {
               <p><b>{task.title}</b></p>
               <p>Έργο: {getProjectTitle(task.project_id)}</p>
               <p>Ημερομηνία: {task.task_date} {task.task_time || ''}</p>
-              <p>Status: {renderStatusBadge(task.status)}</p>
+              <p>Status: {task.status}</p>
               <small>{task.notes}</small>
               <button onClick={() => editTask(task)}>✏️ Επεξεργασία</button>
               <button onClick={() => deleteItem('tasks', task.id)}>🗑 Διαγραφή εργασίας</button>
@@ -4717,7 +4503,7 @@ async function saveCustomer() {
               <p>Καθαρή: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€ | Παρακράτηση: {invoice.withholding_amount || 0}€</p>
               <p>Σύνολο: {invoice.total_amount || 0}€</p>
               <p>Πληρωμένα: {getCustomerInvoicePaid(invoice.id)}€</p>
-              <p>Status: {renderStatusBadge(getCustomerInvoiceStatus(invoice))}</p>
+              <p>Status: <b>{getCustomerInvoiceStatus(invoice)}</b></p>
               <small>{invoice.description || invoice.notes}</small>
               <button onClick={() => editCustomerInvoice(invoice)}>✏️ Επεξεργασία</button>
               <button onClick={() => deleteItem('customer_invoices', invoice.id)}>🗑 Διαγραφή τιμολογίου</button>
@@ -4937,7 +4723,7 @@ async function saveCustomer() {
                 <h3>{row.project.title}</h3>
                 <p><b>Περιοχή:</b> {row.project.area || '-'}</p>
                 <p><b>Διεύθυνση:</b> {row.project.address || '-'}</p>
-                <p><b>Status:</b> {renderStatusBadge(getProjectStatusLabel(row.project.status))}</p>
+                <p><b>Status:</b> {row.project.status}</p>
                 <p>Συμφωνία: {row.agreed}€</p>
                 <p>Πληρωμές: {row.paid}€</p>
                 <p>Έξοδα: {row.expenses}€</p>
@@ -5254,7 +5040,7 @@ async function saveCustomer() {
                             <p>Σύνολο τιμολογίου: <b>{formatCurrency(invoice.total_amount)}</b></p>
                             <p>Πληρωμένο: <b>{formatCurrency(paidAmount)}</b></p>
                             <p>Υπόλοιπο: <b>{formatCurrency(balanceAmount)}</b></p>
-                            <p>Status: {renderStatusBadge(status)}</p>
+                            <p>Status: <b>{status}</b></p>
                             <small>{invoice.notes}</small>
                             <button onClick={() => {
                               setNewSupplierPayment({
@@ -5525,77 +5311,89 @@ async function saveCustomer() {
           {quickCreateOpen && (
             <>
               <div className="quick-create-backdrop no-print" onClick={() => setQuickCreateOpen(false)} />
-              <aside className="quick-create-panel no-print">
-                <h2>➕ Νέα Καταχώριση</h2>
-                <p>Διάλεξε τι θέλεις να καταχωρήσεις.</p>
+              <aside className="quick-create-panel no-print" aria-label="Γρήγορη νέα καταχώριση">
+                <h2 className="quick-create-title">➕ Νέα Καταχώριση</h2>
+                <p className="quick-create-subtitle">Διάλεξε τι θέλεις να καταχωρήσεις.</p>
 
                 <button
-                  className="quick-create-option"
+                  className="quick-create-option dial-customer"
                   onClick={() => goToQuickCreate('customers', () => {
                     setNewCustomer(INITIAL_CUSTOMER);
                     setEditingCustomerId(null);
                   })}
                 >
-                  👤 Νέος Πελάτης<br />
-                  <small>Άνοιγμα φόρμας πελάτη</small>
+                  <span className="dial-label">Νέος Πελάτης</span>
+                  <span className="dial-icon">👤</span>
                 </button>
 
                 <button
-                  className="quick-create-option"
+                  className="quick-create-option dial-project"
                   onClick={() => goToQuickCreate('customers', () => {
                     setNewProject(INITIAL_PROJECT);
                     setEditingProjectId(null);
                   })}
                 >
-                  🏗️ Νέο Έργο<br />
-                  <small>Άνοιγμα φόρμας έργου</small>
+                  <span className="dial-label">Νέο Έργο</span>
+                  <span className="dial-icon">🏗️</span>
                 </button>
 
                 <button
-                  className="quick-create-option"
+                  className="quick-create-option dial-invoice"
                   onClick={() => goToQuickCreate('customer-invoices', () => {
                     setNewCustomerInvoice(INITIAL_CUSTOMER_INVOICE);
                     setEditingCustomerInvoiceId(null);
                   })}
                 >
-                  🧾 Νέο Τιμολόγιο Πελάτη<br />
-                  <small>Έσοδο, ΦΠΑ, παρακράτηση και εισπρακτέο</small>
+                  <span className="dial-label">Τιμολόγιο Πελάτη</span>
+                  <span className="dial-icon">🧾</span>
                 </button>
 
                 <button
-                  className="quick-create-option"
+                  className="quick-create-option dial-payment"
                   onClick={() => goToQuickCreate('finance', () => {
                     setNewPayment(INITIAL_PAYMENT);
                     setEditingPaymentId(null);
                     setShowPayments(true);
                   })}
                 >
-                  💰 Νέα Είσπραξη<br />
-                  <small>Καταχώριση πληρωμής πελάτη</small>
+                  <span className="dial-label">Νέα Είσπραξη</span>
+                  <span className="dial-icon">💰</span>
                 </button>
 
                 <button
-                  className="quick-create-option"
+                  className="quick-create-option dial-supplier-invoice"
                   onClick={() => goToQuickCreate('suppliers', () => {
                     setNewSupplierInvoice(INITIAL_SUPPLIER_INVOICE);
                     setEditingSupplierInvoiceId(null);
                     setOpenSupplierId(null);
                   })}
                 >
-                  🚚 Νέο Τιμολόγιο Προμηθευτή<br />
-                  <small>Έξοδο έργου, ΦΠΑ εισροών και υπόλοιπο προμηθευτή</small>
+                  <span className="dial-label">Τιμολόγιο Προμηθευτή</span>
+                  <span className="dial-icon">🚚</span>
                 </button>
 
                 <button
-                  className="quick-create-option"
+                  className="quick-create-option dial-supplier-payment"
                   onClick={() => goToQuickCreate('suppliers', () => {
                     setNewSupplierPayment(INITIAL_SUPPLIER_PAYMENT);
                     setEditingSupplierPaymentId(null);
                     setOpenSupplierId(null);
                   })}
                 >
-                  💳 Νέα Πληρωμή Προμηθευτή<br />
-                  <small>Καταχώριση πληρωμής προς προμηθευτή</small>
+                  <span className="dial-label">Πληρωμή Προμηθευτή</span>
+                  <span className="dial-icon">💳</span>
+                </button>
+
+                <button
+                  className="quick-create-option dial-inventory"
+                  onClick={() => goToQuickCreate('inventory', () => {
+                    setNewInventory(INITIAL_INVENTORY);
+                    setEditingInventoryId(null);
+                    setOpenInventoryItemId(null);
+                  })}
+                >
+                  <span className="dial-label">Νέο Υλικό</span>
+                  <span className="dial-icon">📦</span>
                 </button>
 
                 <hr />
