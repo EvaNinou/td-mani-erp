@@ -2823,6 +2823,17 @@ async function saveCustomer() {
     const confirmDelete = confirm('Να μεταφερθεί στον Κάδο;');
     if (!confirmDelete) return;
 
+    // Όταν σβήνεται τιμολόγιο προμηθευτή, σβήνουμε λογικά και τις κινήσεις αποθήκης του.
+    // Έτσι δεν μένουν υλικά στην αποθήκη από διαγραμμένο τιμολόγιο.
+    if (table === 'supplier_invoices') {
+      const { error: movementError } = await supabase
+        .from('inventory_movements')
+        .update({ is_deleted: true })
+        .eq('supplier_invoice_id', id);
+
+      if (movementError) return alert(movementError.message);
+    }
+
     const { error } = await supabase.from(table).update({ is_deleted: true }).eq('id', id);
     if (error) return alert(error.message);
 
@@ -2835,6 +2846,16 @@ async function saveCustomer() {
   }
 
   async function restoreItem(table, id) {
+    // Αν επαναφέρεις τιμολόγιο προμηθευτή από τον Κάδο, επαναφέρουμε και τις κινήσεις αποθήκης του.
+    if (table === 'supplier_invoices') {
+      const { error: movementError } = await supabase
+        .from('inventory_movements')
+        .update({ is_deleted: false })
+        .eq('supplier_invoice_id', id);
+
+      if (movementError) return alert(movementError.message);
+    }
+
     const { error } = await supabase.from(table).update({ is_deleted: false }).eq('id', id);
     if (error) return alert(error.message);
 
@@ -2869,6 +2890,11 @@ async function saveCustomer() {
       await supabase.from('quotes').delete().eq('project_id', id);
       await supabase.from('tasks').delete().eq('project_id', id);
       await supabase.from('documents').delete().eq('project_id', id);
+      const projectSupplierInvoices = supplierInvoices.filter((invoice) => invoice.project_id === id);
+      for (const invoice of projectSupplierInvoices) {
+        await supabase.from('inventory_movements').delete().eq('supplier_invoice_id', invoice.id);
+      }
+      await supabase.from('inventory_movements').delete().eq('project_id', id);
       await supabase.from('supplier_invoices').delete().eq('project_id', id);
     }
 
@@ -2876,13 +2902,18 @@ async function saveCustomer() {
       const invoicesToDelete = supplierInvoices.filter((invoice) => invoice.supplier_id === id);
       for (const invoice of invoicesToDelete) {
         await supabase.from('expenses').delete().eq('supplier_invoice_id', invoice.id);
+        await supabase.from('inventory_movements').delete().eq('supplier_invoice_id', invoice.id);
       }
 
+      await supabase.from('inventory_movements').delete().eq('supplier_id', id);
       await supabase.from('supplier_invoices').delete().eq('supplier_id', id);
       await supabase.from('supplier_payments').delete().eq('supplier_id', id);
     }
 
     if (table === 'supplier_invoices') {
+      // Πρώτα διαγράφουμε τις κινήσεις αποθήκης, πριν διαγραφεί το τιμολόγιο.
+      // Αλλιώς λόγω FK on delete set null μένουν ορφανές κινήσεις και φαίνονται ακόμα στην αποθήκη.
+      await supabase.from('inventory_movements').delete().eq('supplier_invoice_id', id);
       await supabase.from('expenses').delete().eq('supplier_invoice_id', id);
       await supabase.from('supplier_payments').delete().eq('supplier_invoice_id', id);
     }
