@@ -1441,6 +1441,26 @@ function getCustomerProjects(customerId) {
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   }
 
+  function getSupplierInvoiceBalance(invoice) {
+    const total = Number(invoice?.total_amount || 0);
+    const paid = getSupplierInvoicePaid(invoice?.id);
+    return Math.max(0, total - paid);
+  }
+
+  function getSupplierOpenInvoices(supplierId, currentInvoiceId = '') {
+    if (!supplierId) return [];
+
+    return getSupplierInvoices(supplierId).filter((invoice) =>
+      getSupplierInvoiceBalance(invoice) > 0 || invoice.id === currentInvoiceId
+    );
+  }
+
+  function getSupplierAdvancePayments(supplierId) {
+    if (!supplierId) return [];
+
+    return getSupplierPayments(supplierId).filter((payment) => !payment.supplier_invoice_id);
+  }
+
   function getSupplierInvoiceStatus(invoice) {
     const paid = getSupplierInvoicePaid(invoice.id);
     const total = Number(invoice.total_amount || 0);
@@ -4822,15 +4842,26 @@ async function saveCustomer() {
 
         <select
           value={newSupplierPayment.supplier_invoice_id || ''}
-          onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, supplier_invoice_id: e.target.value })}
+          onChange={(e) => {
+            const invoiceId = e.target.value;
+            const selectedInvoice = supplierInvoices.find((invoice) => invoice.id === invoiceId);
+            const openBalance = selectedInvoice ? getSupplierInvoiceBalance(selectedInvoice) : '';
+
+            setNewSupplierPayment({
+              ...newSupplierPayment,
+              supplier_invoice_id: invoiceId,
+              amount: selectedInvoice && !editingSupplierPaymentId ? String(openBalance) : newSupplierPayment.amount
+            });
+          }}
         >
-          <option value="">Σύνδεση με τιμολόγιο (προαιρετικό)</option>
-          {getSupplierInvoices(newSupplierPayment.supplier_id).map((invoice) => (
+          <option value="">Χωρίς τιμολόγιο / Προκαταβολή</option>
+          {getSupplierOpenInvoices(newSupplierPayment.supplier_id, newSupplierPayment.supplier_invoice_id).map((invoice) => (
             <option key={invoice.id} value={invoice.id}>
-              {invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.total_amount}€ — {invoice.invoice_date || '-'}
+              {invoice.invoice_number || 'Χωρίς αριθμό'} — Υπόλοιπο {formatCurrency(getSupplierInvoiceBalance(invoice))} — Σύνολο {formatCurrency(invoice.total_amount)} — {invoice.invoice_date || '-'}
             </option>
           ))}
         </select>
+        <small>Αν είναι προκαταβολή, άφησέ το στο “Χωρίς τιμολόγιο”. Αν αφορά συγκεκριμένο τιμολόγιο, διάλεξέ το για να ενημερωθεί αυτόματα το πληρωμένο, το υπόλοιπο και το status.</small>
 
         <input type="date" value={newSupplierPayment.payment_date} onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, payment_date: e.target.value })} />
         <input placeholder="Ποσό πληρωμής" value={newSupplierPayment.amount} onChange={(e) => setNewSupplierPayment({ ...newSupplierPayment, amount: e.target.value })} />
@@ -4891,21 +4922,41 @@ async function saveCustomer() {
                     {getSupplierInvoices(supplier.id).length === 0 ? (
                       <p>Δεν υπάρχουν τιμολόγια.</p>
                     ) : (
-                      getSupplierInvoices(supplier.id).map((invoice) => (
-                        <div key={invoice.id} className="line">
-                          <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.total_amount}€</b></p>
-                          <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
-                          <p>Έργο: {invoice.project_id ? getProjectTitle(invoice.project_id) : 'Χωρίς έργο / Γενικό έξοδο'}</p>
-                          <p>Κατηγορία εξόδου: {invoice.expense_category || '-'}</p>
-                          <p>Περιγραφή: {invoice.description || '-'}</p>
-                          <p>Καθαρή αξία: {invoice.net_amount || 0}€ | ΦΠΑ 24%: {invoice.vat_amount || 0}€</p>
-                          <p>Πληρωμένα στο τιμολόγιο: {getSupplierInvoicePaid(invoice.id)}€</p>
-                          <p>Status: <b>{getSupplierInvoiceStatus(invoice)}</b></p>
-                          <small>{invoice.notes}</small>
-                          <button onClick={() => editSupplierInvoice(invoice)}>✏️ Επεξεργασία τιμολογίου</button>
-                          <button onClick={() => deleteItem('supplier_invoices', invoice.id)}>🗑 Διαγραφή τιμολογίου</button>
-                        </div>
-                      ))
+                      getSupplierInvoices(supplier.id).map((invoice) => {
+                        const paidAmount = getSupplierInvoicePaid(invoice.id);
+                        const balanceAmount = getSupplierInvoiceBalance(invoice);
+                        const status = getSupplierInvoiceStatus(invoice);
+
+                        return (
+                          <div key={invoice.id} className={status === 'Εξοφλημένο' ? 'line' : 'line alert'}>
+                            <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {formatCurrency(invoice.total_amount)}</b></p>
+                            <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
+                            <p>Έργο: {invoice.project_id ? getProjectTitle(invoice.project_id) : 'Χωρίς έργο / Γενικό έξοδο'}</p>
+                            <p>Κατηγορία εξόδου: {invoice.expense_category || '-'}</p>
+                            <p>Περιγραφή: {invoice.description || '-'}</p>
+                            <p>Καθαρή αξία: {formatCurrency(invoice.net_amount)} | ΦΠΑ 24%: {formatCurrency(invoice.vat_amount)}</p>
+                            <p>Σύνολο τιμολογίου: <b>{formatCurrency(invoice.total_amount)}</b></p>
+                            <p>Πληρωμένο: <b>{formatCurrency(paidAmount)}</b></p>
+                            <p>Υπόλοιπο: <b>{formatCurrency(balanceAmount)}</b></p>
+                            <p>Status: <b>{status}</b></p>
+                            <small>{invoice.notes}</small>
+                            <button onClick={() => {
+                              setNewSupplierPayment({
+                                supplier_id: invoice.supplier_id,
+                                supplier_invoice_id: invoice.id,
+                                payment_date: formatLocalDate(new Date()),
+                                amount: String(balanceAmount),
+                                method: 'Τράπεζα',
+                                notes: ''
+                              });
+                              setEditingSupplierPaymentId(null);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}>💳 Πληρωμή τιμολογίου</button>
+                            <button onClick={() => editSupplierInvoice(invoice)}>✏️ Επεξεργασία τιμολογίου</button>
+                            <button onClick={() => deleteItem('supplier_invoices', invoice.id)}>🗑 Διαγραφή τιμολογίου</button>
+                          </div>
+                        );
+                      })
                     )}
 
                     <h3>Πληρωμές Προμηθευτή</h3>
@@ -4914,9 +4965,9 @@ async function saveCustomer() {
                     ) : (
                       getSupplierPayments(supplier.id).map((payment) => (
                         <div key={payment.id} className="line">
-                          <p><b>{payment.amount}€</b> — {payment.method}</p>
+                          <p><b>{formatCurrency(payment.amount)}</b> — {payment.method}</p>
                           <p>Ημερομηνία: {payment.payment_date || '-'}</p>
-                          <p>Τιμολόγιο: {payment.supplier_invoice_id ? (supplierInvoices.find((invoice) => invoice.id === payment.supplier_invoice_id)?.invoice_number || 'Συνδεδεμένο') : 'Γενική πληρωμή'}</p>
+                          <p>Σύνδεση: {payment.supplier_invoice_id ? (supplierInvoices.find((invoice) => invoice.id === payment.supplier_invoice_id)?.invoice_number || 'Συνδεδεμένο τιμολόγιο') : 'Χωρίς τιμολόγιο / Προκαταβολή'}</p>
                           <small>{payment.notes}</small>
                           <button onClick={() => editSupplierPayment(payment)}>✏️ Επεξεργασία πληρωμής</button>
                           <button onClick={() => deleteItem('supplier_payments', payment.id)}>🗑 Διαγραφή πληρωμής</button>
