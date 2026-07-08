@@ -1075,7 +1075,7 @@ hr {
   position: fixed;
   right: 22px;
   bottom: 22px;
-  z-index: 100;
+  z-index: 140;
   width: 68px;
   height: 68px;
   min-width: 68px;
@@ -1111,17 +1111,20 @@ hr {
 
 .quick-create-panel {
   position: fixed;
-  top: 0;
-  right: 0;
-  z-index: 90;
-  width: min(430px, 100%);
-  height: 100vh;
+  right: 22px;
+  bottom: 100px;
+  z-index: 120;
+  width: min(430px, calc(100vw - 44px));
+  max-height: calc(100vh - 130px);
+  height: auto;
   padding: 22px;
   overflow-y: auto;
   background: rgba(13,13,15,0.985) !important;
-  border-left: 1px solid rgba(214,168,79,0.30);
-  box-shadow: -26px 0 54px rgba(0,0,0,0.46);
-  animation: quickSlide 0.24s ease both;
+  border: 1px solid rgba(214,168,79,0.30);
+  border-radius: 26px;
+  box-shadow: 0 26px 70px rgba(0,0,0,0.56), inset 0 1px 0 rgba(255,255,255,0.04);
+  animation: quickPopUp 0.24s ease both;
+  overscroll-behavior: contain;
 }
 
 .quick-create-option {
@@ -1153,6 +1156,11 @@ hr {
   to { transform: translateX(0); opacity: 1; }
 }
 
+@keyframes quickPopUp {
+  from { transform: translateY(18px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
 
 
 @media (max-width: 560px) {
@@ -1166,9 +1174,32 @@ hr {
   }
 
   .quick-create-panel {
-    width: 100%;
-    border-left: none;
+    left: 10px;
+    right: 10px;
+    bottom: 88px;
+    width: auto;
+    max-height: calc(100vh - 112px);
+    border-left: 1px solid rgba(214,168,79,0.30);
+    border-radius: 24px;
     padding: 18px;
+  }
+}
+
+
+@media (min-width: 561px) and (max-width: 1024px) {
+  .quick-create-fab {
+    right: 18px;
+    bottom: 18px;
+    width: 64px;
+    height: 64px;
+    min-width: 64px;
+  }
+
+  .quick-create-panel {
+    right: 18px;
+    bottom: 96px;
+    width: min(430px, calc(100vw - 36px));
+    max-height: calc(100vh - 126px);
   }
 }
 
