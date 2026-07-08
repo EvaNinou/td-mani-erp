@@ -1312,7 +1312,7 @@ const [vatQuarter, setVatQuarter] = useState('1');
   }
 
   function getCustomerInvoicePayments(invoiceId) {
-    return payments.filter((payment) => payment.customer_invoice_id === invoiceId && isActiveItem(payment));
+    return payments.filter((payment) => payment.customer_invoice_id === invoiceId && isActivePayment(payment));
   }
 
   function getCustomerInvoicePaid(invoiceId) {
@@ -1350,7 +1350,7 @@ function getCustomerProjects(customerId) {
 
   function getProjectPaid(projectId) {
     return payments
-      .filter((payment) => payment.project_id === projectId && isActiveItem(payment))
+      .filter((payment) => payment.project_id === projectId && isActivePayment(payment))
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   }
 
@@ -1501,7 +1501,7 @@ function getSupplierTotals(supplierId) {
   }
 
   function getProjectPayments(projectId) {
-    return payments.filter((payment) => payment.project_id === projectId && isActiveItem(payment));
+    return payments.filter((payment) => payment.project_id === projectId && isActivePayment(payment));
   }
 
   function getCustomerTotals(customerId) {
@@ -1510,7 +1510,7 @@ function getSupplierTotals(supplierId) {
 
     const agreed = customerProjects.reduce((sum, project) => sum + Number(project.agreed_amount || 0), 0);
     const paid = payments
-      .filter((payment) => projectIds.includes(payment.project_id) && isActiveItem(payment))
+      .filter((payment) => projectIds.includes(payment.project_id) && isActivePayment(payment))
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
     const projectExpenses = expenses
       .filter((expense) => projectIds.includes(expense.project_id) && isActiveItem(expense))
@@ -1547,6 +1547,26 @@ function getSupplierTotals(supplierId) {
 
   function isActiveItem(item) {
     return !item?.is_deleted;
+  }
+
+  function isAutomaticInvoicePayment(payment) {
+    return String(payment?.notes || '').includes('Αυτόματη πληρωμή από τιμολόγιο εσόδου');
+  }
+
+  function isActivePayment(payment) {
+    return isActiveItem(payment) && !isAutomaticInvoicePayment(payment);
+  }
+
+  function getCustomerInvoiceBalance(invoice) {
+    const receivable = Number(invoice?.receivable_amount || 0);
+    const paid = getCustomerInvoicePaid(invoice?.id);
+    return Math.max(0, receivable - paid);
+  }
+
+  function getAvailableCustomerInvoicesForPayment(customerId, projectId = '', selectedInvoiceId = '') {
+    return getCustomerInvoices(customerId)
+      .filter((invoice) => !projectId || invoice.project_id === projectId)
+      .filter((invoice) => invoice.id === selectedInvoiceId || getCustomerInvoiceBalance(invoice) > 0);
   }
 
   function isDeletedItem(item) {
@@ -1656,7 +1676,7 @@ function getVatTotals(yearValue = vatYear, quarterValue = vatQuarter) {
   }
 
   const dashboardStats = useMemo(() => {
-    const monthlyIncome = payments.filter((payment) => isActiveItem(payment) && isCurrentMonth(payment.created_at))
+    const monthlyIncome = payments.filter((payment) => isActivePayment(payment) && isCurrentMonth(payment.created_at))
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 
     const monthlyExpenses = expenses.filter((expense) => isActiveItem(expense) && isCurrentMonth(expense.created_at))
@@ -1709,7 +1729,7 @@ function getVatTotals(yearValue = vatYear, quarterValue = vatQuarter) {
 
   const totals = useMemo(() => {
     const activeProjectsList = projects.filter(isActiveItem);
-    const activePaymentsList = payments.filter(isActiveItem);
+    const activePaymentsList = payments.filter(isActivePayment);
     const activeExpensesList = expenses.filter(isActiveItem);
     const activeInventoryList = inventory.filter(isActiveItem);
     const activeQuotesList = quotes.filter(isActiveItem);
@@ -1751,7 +1771,7 @@ function getVatTotals(yearValue = vatYear, quarterValue = vatQuarter) {
     );
 
     const todayPayments = payments.filter((payment) =>
-      isActiveItem(payment) && payment.payment_date === today
+      isActivePayment(payment) && payment.payment_date === today
     );
 
     const todayExpenses = expenses.filter((expense) =>
@@ -2101,7 +2121,6 @@ async function saveCustomer() {
     }
 
     const { net, vat, withholding, total, receivable } = calculateCustomerInvoiceValues(newCustomerInvoice);
-    const isPaidOnIssue = newCustomerInvoice.is_paid_on_issue === 'yes';
 
     const payload = {
       customer_id: newCustomerInvoice.customer_id,
@@ -2114,9 +2133,9 @@ async function saveCustomer() {
       withholding_amount: withholding,
       total_amount: total,
       receivable_amount: receivable,
-      is_paid_on_issue: isPaidOnIssue,
-      payment_date: isPaidOnIssue ? (newCustomerInvoice.payment_date || newCustomerInvoice.invoice_date) : null,
-      payment_method: isPaidOnIssue ? newCustomerInvoice.payment_method : null,
+      is_paid_on_issue: false,
+      payment_date: null,
+      payment_method: null,
       notes: newCustomerInvoice.notes
     };
 
@@ -2140,44 +2159,16 @@ async function saveCustomer() {
       savedInvoiceId = data.id;
     }
 
-    const existingAutoPayment = payments.find(
-      (payment) =>
-        payment.customer_invoice_id === savedInvoiceId &&
-        String(payment.notes || '').includes('Αυτόματη πληρωμή από τιμολόγιο εσόδου')
-    );
-
-    if (isPaidOnIssue) {
-      const paymentPayload = {
-        project_id: newCustomerInvoice.project_id || null,
-        customer_invoice_id: savedInvoiceId,
-        amount: receivable,
-        payment_date: newCustomerInvoice.payment_date || newCustomerInvoice.invoice_date,
-        method: newCustomerInvoice.payment_method,
-        payment_type: 'income',
-        notes: `Αυτόματη πληρωμή από τιμολόγιο εσόδου${newCustomerInvoice.invoice_number ? ` ${newCustomerInvoice.invoice_number}` : ''}`
-      };
-
-      if (existingAutoPayment) {
-        const { error: paymentError } = await supabase
-          .from('payments')
-          .update(paymentPayload)
-          .eq('id', existingAutoPayment.id);
-
-        if (paymentError) return alert(paymentError.message);
-      } else {
-        const { error: paymentError } = await supabase
-          .from('payments')
-          .insert([paymentPayload]);
-
-        if (paymentError) return alert(paymentError.message);
-      }
-    } else if (existingAutoPayment) {
-      const { error: paymentError } = await supabase
+    // v1.0 Stable: το τιμολόγιο δεν δημιουργεί πληρωμή.
+    // Αν υπάρχουν παλιές αυτόματες πληρωμές από την προηγούμενη λογική, τις απενεργοποιούμε.
+    if (savedInvoiceId) {
+      const { error: oldAutoPaymentError } = await supabase
         .from('payments')
         .update({ is_deleted: true })
-        .eq('id', existingAutoPayment.id);
+        .eq('customer_invoice_id', savedInvoiceId)
+        .ilike('notes', '%Αυτόματη πληρωμή από τιμολόγιο εσόδου%');
 
-      if (paymentError) return alert(paymentError.message);
+      if (oldAutoPaymentError) return alert(oldAutoPaymentError.message);
     }
 
     setNewCustomerInvoice(INITIAL_CUSTOMER_INVOICE);
@@ -2525,9 +2516,9 @@ async function saveCustomer() {
       invoice_number: invoice.invoice_number || '',
       description: invoice.description || '',
       net_amount: String(invoice.net_amount || ''),
-      is_paid_on_issue: invoice.is_paid_on_issue ? 'yes' : 'no',
-      payment_date: invoice.payment_date || invoice.invoice_date || '',
-      payment_method: invoice.payment_method || 'Τράπεζα',
+      is_paid_on_issue: 'no',
+      payment_date: '',
+      payment_method: 'Τράπεζα',
       notes: invoice.notes || ''
     });
     setEditingCustomerInvoiceId(invoice.id);
@@ -3008,7 +2999,7 @@ async function saveCustomer() {
               ) : (
                 getProjectCustomerInvoices(selectedProject.id).map((invoice) => (
                   <div key={invoice.id} className="line">
-                    <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.receivable_amount}€ εισπρακτέο</b></p>
+                    <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.receivable_amount}€ σύνολο τιμολογίου</b></p>
                     <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
                     <p>Καθαρή: {invoice.net_amount || 0}€ | ΦΠΑ: {invoice.vat_amount || 0}€ | Παρακράτηση: {invoice.withholding_amount || 0}€</p>
                     <p>Πληρωμένα: {getCustomerInvoicePaid(invoice.id)}€</p>
@@ -3246,7 +3237,7 @@ async function saveCustomer() {
                     <th>Καθαρή</th>
                     <th>ΦΠΑ</th>
                     <th>Παρακράτηση</th>
-                    <th>Εισπρακτέο</th>
+                    <th>Σύνολο τιμολογίου</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -3264,7 +3255,7 @@ async function saveCustomer() {
                     </tr>
                   ))}
                   <tr className="report-total-row">
-                    <td colSpan="6">Σύνολο εισπρακτέων</td>
+                    <td colSpan="6">Σύνολο τιμολογίων</td>
                     <td colSpan="2">{formatCurrency(projectCustomerInvoicesList.reduce((sum, invoice) => sum + Number(invoice.receivable_amount || 0), 0))}</td>
                   </tr>
                 </tbody>
@@ -3829,7 +3820,7 @@ async function saveCustomer() {
                           <th>Καθαρή αξία</th>
                           <th>ΦΠΑ</th>
                           <th>Σύνολο</th>
-                          <th>Εισπρακτέο</th>
+                          <th>Σύνολο τιμολογίου</th>
                           <th>Status</th>
                         </tr>
                       </thead>
@@ -4175,39 +4166,10 @@ async function saveCustomer() {
           <p>ΦΠΑ 24%: <b>{calculateCustomerInvoiceValues(newCustomerInvoice).vat}€</b></p>
           <p>Παρακράτηση 3%: <b>{calculateCustomerInvoiceValues(newCustomerInvoice).withholding}€</b></p>
           <p>Σύνολο τιμολογίου: <b>{calculateCustomerInvoiceValues(newCustomerInvoice).total}€</b></p>
-          <p>Καθαρό εισπρακτέο: <b>{calculateCustomerInvoiceValues(newCustomerInvoice).receivable}€</b></p>
+          <p>Πληρωτέο / σύνολο τιμολογίου: <b>{calculateCustomerInvoiceValues(newCustomerInvoice).receivable}€</b></p>
         </div>
 
-        <select
-          value={newCustomerInvoice.is_paid_on_issue}
-          onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, is_paid_on_issue: e.target.value })}
-        >
-          <option value="no">Δεν πληρώθηκε με την έκδοση</option>
-          <option value="yes">Πληρώθηκε με την έκδοση</option>
-        </select>
-
-        {newCustomerInvoice.is_paid_on_issue === 'yes' && (
-          <>
-            <input
-              type="date"
-              value={newCustomerInvoice.payment_date}
-              onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, payment_date: e.target.value })}
-            />
-
-            <select
-              value={newCustomerInvoice.payment_method}
-              onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, payment_method: e.target.value })}
-            >
-              <option value="Μετρητά">Μετρητά</option>
-              <option value="Τράπεζα">Τράπεζα</option>
-              <option value="IRIS">IRIS</option>
-              <option value="POS">POS</option>
-              <option value="Επιταγή">Επιταγή</option>
-            </select>
-
-            <small>Θα δημιουργηθεί αυτόματα είσπραξη με το καθαρό εισπρακτέο ποσό.</small>
-          </>
-        )}
+        <small>Το τιμολόγιο δεν δημιουργεί αυτόματη είσπραξη. Οι πληρωμές καταχωρούνται μόνο από τη Νέα Πληρωμή / Είσπραξη.</small>
 
         <textarea placeholder="Σημειώσεις" value={newCustomerInvoice.notes} onChange={(e) => setNewCustomerInvoice({ ...newCustomerInvoice, notes: e.target.value })} />
 
@@ -4230,7 +4192,7 @@ async function saveCustomer() {
         ) : (
           getVisibleCustomerInvoices().map((invoice) => (
             <div key={invoice.id} className={getCustomerInvoiceStatus(invoice) === 'Εξοφλημένο' ? 'line' : 'line alert'}>
-              <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.receivable_amount}€ εισπρακτέο</b></p>
+              <p><b>{invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.receivable_amount}€ σύνολο τιμολογίου</b></p>
               <p>Πελάτης: {getCustomerName(invoice.customer_id)} — ΑΦΜ: {getCustomerAfm(invoice.customer_id)}</p>
               <p>Έργο: {invoice.project_id ? getProjectTitle(invoice.project_id) : 'Χωρίς έργο / Γενικό έσοδο'}</p>
               <p>Ημερομηνία: {invoice.invoice_date || '-'}</p>
@@ -4238,9 +4200,6 @@ async function saveCustomer() {
               <p>Σύνολο: {invoice.total_amount || 0}€</p>
               <p>Πληρωμένα: {getCustomerInvoicePaid(invoice.id)}€</p>
               <p>Status: <b>{getCustomerInvoiceStatus(invoice)}</b></p>
-              {invoice.is_paid_on_issue && (
-                <p>Πληρώθηκε με την έκδοση: {invoice.payment_date || '-'} — {invoice.payment_method || '-'}</p>
-              )}
               <small>{invoice.description || invoice.notes}</small>
               <button onClick={() => editCustomerInvoice(invoice)}>✏️ Επεξεργασία</button>
               <button onClick={() => deleteItem('customer_invoices', invoice.id)}>🗑 Διαγραφή τιμολογίου</button>
@@ -4323,13 +4282,17 @@ async function saveCustomer() {
           value={newPayment.customer_invoice_id || ''}
           onChange={(e) => setNewPayment({ ...newPayment, customer_invoice_id: e.target.value })}
         >
-          <option value="">Σύνδεση με τιμολόγιο εσόδου (προαιρετικό)</option>
-          {getCustomerInvoices(newPayment.customer_id).map((invoice) => (
+          <option value="">Χωρίς τιμολόγιο / Προκαταβολή</option>
+          {getAvailableCustomerInvoicesForPayment(newPayment.customer_id, newPayment.project_id, newPayment.customer_invoice_id).map((invoice) => (
             <option key={invoice.id} value={invoice.id}>
-              {invoice.invoice_number || 'Χωρίς αριθμό'} — {invoice.receivable_amount}€ — {invoice.invoice_date || '-'}
+              {invoice.invoice_number || 'Χωρίς αριθμό'} — Υπόλοιπο {formatCurrency(getCustomerInvoiceBalance(invoice))} — {invoice.invoice_date || '-'}
             </option>
           ))}
         </select>
+
+        {newPayment.customer_id && (
+          <small>Άφησέ το «Χωρίς τιμολόγιο / Προκαταβολή» όταν η είσπραξη έγινε πριν κοπεί το τιμολόγιο. Όταν κοπεί το τιμολόγιο, μπορείς να επεξεργαστείς την πληρωμή και να τη συνδέσεις.</small>
+        )}
 
         <input placeholder="Ποσό πληρωμής" value={newPayment.amount} onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })} />
 
@@ -4472,10 +4435,10 @@ async function saveCustomer() {
                 )}
 
                 <h4>Πληρωμές</h4>
-                {row.payments.filter(isActiveItem).length === 0 ? (
+                {row.payments.filter(isActivePayment).length === 0 ? (
                   <p>Δεν υπάρχουν πληρωμές.</p>
                 ) : (
-                  row.payments.filter(isActiveItem).map((payment) => (
+                  row.payments.filter(isActivePayment).map((payment) => (
                     <p key={payment.id}>• {payment.payment_date || '-'} — {payment.amount}€ — {payment.method} {payment.notes ? `(${payment.notes})` : ''}</p>
                   ))
                 )}
@@ -4804,10 +4767,10 @@ async function saveCustomer() {
 
         {showPayments && (
           <>
-            {payments.filter(isActiveItem).length === 0 ? (
+            {payments.filter(isActivePayment).length === 0 ? (
               <p>Δεν υπάρχουν πληρωμές ακόμα.</p>
             ) : (
-              payments.filter(isActiveItem).map((payment) => (
+              payments.filter(isActivePayment).map((payment) => (
                 <div key={payment.id} className="line">
                   <p><b>{payment.amount}€</b> — {payment.method}</p>
                   <p>Έργο: {getProjectTitle(payment.project_id)}</p>
