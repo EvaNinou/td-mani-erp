@@ -1239,6 +1239,192 @@ hr {
   line-height: 1.45;
 }
 
+
+
+/* ==============================
+   TD MANI ERP — iPad Header Fix
+   Keeps header compact on iPad/tablet without changing mobile layout.
+   ============================== */
+@media (min-width: 700px) and (max-width: 1100px) {
+  .app {
+    padding: 12px !important;
+  }
+
+  .top {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    min-height: auto !important;
+    margin-bottom: 12px !important;
+    padding: 12px 14px !important;
+    border-radius: 20px !important;
+  }
+
+  .top .brand {
+    flex: 0 0 255px !important;
+    min-width: 0 !important;
+    gap: 10px !important;
+    padding-right: 0 !important;
+  }
+
+  .top .logo {
+    width: 96px !important;
+    height: 46px !important;
+    flex: 0 0 96px !important;
+    padding: 5px 7px !important;
+    border-radius: 14px !important;
+  }
+
+  .top h1 {
+    font-size: 20px !important;
+    line-height: 1.05 !important;
+    margin-bottom: 2px !important;
+    letter-spacing: 0.10em !important;
+    white-space: nowrap !important;
+  }
+
+  .top .brand p {
+    margin: 0 !important;
+    font-size: 14px !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+  }
+
+  .top .global-search {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+    flex: 1 1 320px !important;
+    width: auto !important;
+    max-width: 470px !important;
+    min-width: 250px !important;
+    height: auto !important;
+    z-index: 40 !important;
+  }
+
+  .top .global-search input {
+    width: 100% !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    margin: 0 !important;
+    padding-left: 44px !important;
+    padding-right: 52px !important;
+    color: var(--text) !important;
+    caret-color: var(--text) !important;
+    font-size: 14px !important;
+    border-radius: 999px !important;
+  }
+
+  .top .global-search-icon {
+    left: 15px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 18px !important;
+    opacity: 0.9 !important;
+  }
+
+  .top .global-search-shortcut {
+    display: inline-flex !important;
+    right: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 11px !important;
+  }
+
+  .top > div:last-child {
+    flex: 0 0 145px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    margin-left: 0 !important;
+  }
+
+  .top > div:last-child p {
+    margin: 0 !important;
+    font-size: 14px !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+  }
+
+  .top > div:last-child small {
+    font-size: 12px !important;
+    line-height: 1.1 !important;
+  }
+
+  .top > div:last-child br {
+    display: none !important;
+  }
+
+  .top > div:last-child button {
+    min-height: 38px !important;
+    width: auto !important;
+    margin: 4px 0 0 !important;
+    padding: 8px 13px !important;
+    border-radius: 13px !important;
+    font-size: 13px !important;
+    white-space: nowrap !important;
+  }
+
+  .erp-nav {
+    top: 86px !important;
+    margin-bottom: 14px !important;
+    padding: 9px !important;
+    gap: 8px !important;
+    border-radius: 18px !important;
+  }
+
+  .erp-nav button {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    padding: 10px 10px !important;
+    font-size: 14px !important;
+    white-space: nowrap !important;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 820px) {
+  .top {
+    gap: 9px !important;
+    padding: 11px 12px !important;
+  }
+
+  .top .brand {
+    flex-basis: 225px !important;
+  }
+
+  .top .logo {
+    width: 82px !important;
+    height: 42px !important;
+    flex-basis: 82px !important;
+  }
+
+  .top h1 {
+    font-size: 18px !important;
+  }
+
+  .top .brand p {
+    font-size: 12px !important;
+  }
+
+  .top .global-search {
+    min-width: 210px !important;
+    flex-basis: 260px !important;
+  }
+
+  .top > div:last-child {
+    flex-basis: 125px !important;
+  }
+
+  .top > div:last-child button {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+}
+
 @media print {
   body {
     background: white !important;
