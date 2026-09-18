@@ -38,6 +38,78 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   const updateLine = (index, key, value) => setLines(lines.map((line, i) => i === index ? { ...line, [key]: value } : line));
   const removeLine = (index) => setLines(lines.filter((_, i) => i !== index));
 
+  function exportQuotePdf() {
+    const quote = document.querySelector('.td-quote-pdf');
+    if (!quote) return;
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1200');
+    if (!printWindow) {
+      alert('Επίτρεψε τα αναδυόμενα παράθυρα για να γίνει η εξαγωγή PDF.');
+      return;
+    }
+
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((node) => node.outerHTML)
+      .join('\n');
+
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8" />
+<title>${quoteNumber}</title>
+${styles}
+<style>
+  @page { size: A4 portrait; margin: 8mm; }
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .td-quote-pdf {
+    display: block !important;
+    box-sizing: border-box !important;
+    width: 194mm !important;
+    max-width: 194mm !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+  }
+  .td-quote-pdf-header,
+  .td-quote-parties,
+  .td-quote-description,
+  .td-quote-summary,
+  .td-quote-notes,
+  .td-quote-footer,
+  .td-quote-table tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  .no-print, .quote-preview-actions { display: none !important; }
+</style>
+</head>
+<body>${quote.outerHTML}</body>
+</html>`);
+    printWindow.document.close();
+
+    const doPrint = () => {
+      printWindow.focus();
+      printWindow.print();
+      printWindow.onafterprint = () => printWindow.close();
+    };
+
+    if (printWindow.document.readyState === 'complete') {
+      setTimeout(doPrint, 350);
+    } else {
+      printWindow.onload = () => setTimeout(doPrint, 350);
+    }
+  }
+
   async function saveQuote() {
     if (!projectId || !title.trim() || !lines.some((line) => line.description.trim())) {
       alert('Διάλεξε έργο και συμπλήρωσε τουλάχιστον μία εργασία.');
@@ -134,7 +206,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
 
       {preview && (
         <section className="card page-section quotes-section quote-preview-shell">
-          <div className="no-print quote-preview-actions"><button onClick={() => window.print()}>📄 Εξαγωγή PDF</button><button onClick={() => setPreview(false)}>Κλείσιμο</button></div>
+          <div className="no-print quote-preview-actions"><button onClick={exportQuotePdf}>📄 Εξαγωγή PDF</button><button onClick={() => setPreview(false)}>Κλείσιμο</button></div>
           <article className="print-area td-quote-pdf">
             <header className="td-quote-pdf-header">
               <div className="td-quote-logo"><img src="/tdmani-logo-gold.png" alt="TD MANI" /></div>
@@ -159,4 +231,3 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
     </>
   );
 }
-
