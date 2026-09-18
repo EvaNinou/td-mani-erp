@@ -45,6 +45,29 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
     return customers.find((x) => String(x.id) === String(p?.customer_id));
   };
 
+  function parseSavedQuote(quote) {
+    const raw = quote?.description || '';
+    const blocks = raw.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+    const itemPattern = /^(.*?)\s*\|\s*([\d.,]+)\s*x\s*(.*)$/;
+    const itemBlockIndex = blocks.findIndex((b) => b.split('\n').some((line) => itemPattern.test(line.trim())));
+    const itemBlock = itemBlockIndex >= 0 ? blocks[itemBlockIndex] : '';
+    const savedLines = itemBlock.split('\n').map((line) => {
+      const m = line.trim().match(itemPattern);
+      if (!m) return null;
+      const unitText = m[3].replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
+      return { description: m[1].trim(), quantity: m[2].replace(',', '.'), unitPrice: Number(unitText || 0) };
+    }).filter(Boolean);
+
+    const validBlock = blocks.find((b) => b.startsWith('Ισχύει έως:'));
+    const savedValidUntil = validBlock ? validBlock.replace('Ισχύει έως:', '').trim() : '';
+    const generalDescription = itemBlockIndex > 0 ? blocks.slice(0, itemBlockIndex).join('\n\n') : '';
+    const noteBlocks = blocks.filter((b, i) => i !== itemBlockIndex && !b.startsWith('Ισχύει έως:') && !(i < itemBlockIndex));
+    const savedNotes = noteBlocks.join('\n');
+    const savedDate = quote?.created_at ? new Date(quote.created_at).toLocaleDateString('el-GR') : '-';
+
+    return { savedLines, savedValidUntil, generalDescription, savedNotes, savedDate };
+  }
+
   async function deleteSavedQuote(id) {
     if (!confirm('Να διαγραφεί η προσφορά;')) return;
     const { error } = await supabase.from('quotes').delete().eq('id', id);
@@ -274,45 +297,87 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
       {savedQuotePreview && (() => {
         const savedProject = getProject(savedQuotePreview.project_id);
         const savedCustomer = getCustomerForProject(savedQuotePreview.project_id);
+        const parsed = parseSavedQuote(savedQuotePreview);
         return (
           <section className="card page-section quotes-section quote-preview-shell">
             <div className="no-print quote-preview-actions">
-              <button onClick={() => exportQuotePdf("#saved-quote-pdf")}>📄 Εκτύπωση / PDF</button>
+              <button onClick={() => exportQuotePdf("#saved-quote-pdf")}>📄 Εξαγωγή PDF</button>
               <button onClick={() => setSavedQuotePreview(null)}>Κλείσιμο</button>
             </div>
             <article id="saved-quote-pdf" className="print-area td-quote-pdf">
               <header className="td-quote-pdf-header">
                 <div className="td-quote-logo"><img src="/tdmani-logo-gold.png" alt="TD MANI" /></div>
                 <div className="td-quote-contact">
-                  <b>TD MANI E.E.</b><span>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</span>
-                  <small>📍 Πλάκες, Μήλος 84800</small><small>☎ 6944705508</small><small>✉ Manitaulant@yahoo.com</small>
+                  <b>TD MANI E.E.</b>
+                  <span>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</span>
+                  <small>📍 Πλάκες, Μήλος 84800</small>
+                  <small>☎ 6944705508</small>
+                  <small>✉ Manitaulant@yahoo.com</small>
                 </div>
                 <div>
                   <div className="td-quote-hand">Χτίζουμε<br />το μέλλον σας!</div>
                   <div className="td-quote-meta">
                     <h2>ΠΡΟΣΦΟΡΑ</h2>
                     <p><b>Αρ. Προσφοράς:</b> {savedQuotePreview.quote_number || '-'}</p>
+                    <p><b>Ημερομηνία:</b> {parsed.savedDate}</p>
+                    <p><b>Ισχύει έως:</b> {parsed.savedValidUntil ? greekDate(parsed.savedValidUntil) : '-'}</p>
                   </div>
                 </div>
               </header>
               <div className="td-quote-gold-rule" />
               <div className="td-quote-parties">
-                <div><small>ΠΡΟΣ</small><h3>{savedCustomer?.name || 'Πελάτης'}</h3><p>ΑΦΜ: {savedCustomer?.afm || '-'}</p><p>Τηλέφωνο: {savedCustomer?.phone || '-'}</p></div>
-                <div><small>ΕΡΓΟ</small><h3>{savedProject?.title || '-'}</h3><p>{savedProject?.address || savedProject?.area || '-'}</p></div>
+                <div>
+                  <small>ΠΡΟΣ</small>
+                  <h3>{savedCustomer?.name || 'Πελάτης'}</h3>
+                  <p>ΑΦΜ: {savedCustomer?.afm || '-'}</p>
+                  <p>Τηλέφωνο: {savedCustomer?.phone || '-'}</p>
+                </div>
+                <div>
+                  <small>ΕΡΓΟ</small>
+                  <h3>{savedProject?.title || '-'}</h3>
+                  <p>{savedProject?.address || savedProject?.area || '-'}</p>
+                </div>
               </div>
+
               <div className="td-quote-description">
-                <h3>{savedQuotePreview.work_type || 'Προσφορά'}</h3>
-                <p style={{ whiteSpace: 'pre-line' }}>{savedQuotePreview.description || '-'}</p>
+                <h3>{savedQuotePreview.work_type || 'ΠΕΡΙΓΡΑΦΗ'}</h3>
+                {parsed.generalDescription && <p>{parsed.generalDescription}</p>}
               </div>
+
+              {parsed.savedLines.length > 0 && (
+                <table className="td-quote-table">
+                  <thead><tr><th>#</th><th>Περιγραφή</th><th>Ποσότητα</th><th>Τιμή Μονάδας</th><th>Σύνολο</th></tr></thead>
+                  <tbody>
+                    {parsed.savedLines.map((line, index) => (
+                      <tr key={index}>
+                        <td>{index + 1}</td>
+                        <td>{line.description}</td>
+                        <td>{line.quantity}</td>
+                        <td>{euro(line.unitPrice)}</td>
+                        <td>{euro(Number(line.quantity || 0) * Number(line.unitPrice || 0))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
               <div className="td-quote-summary">
                 <div></div>
                 <div>
-                  <p><span>Καθαρή αξία</span><b>{euro(savedQuotePreview.subtotal)}</b></p>
-                  {Number(savedQuotePreview.vat || 0) !== 0 && <p><span>ΦΠΑ</span><b>{euro(savedQuotePreview.vat)}</b></p>}
-                  {Number(savedQuotePreview.withholding || 0) !== 0 && <p><span>Παρακράτηση</span><b>-{euro(savedQuotePreview.withholding)}</b></p>}
+                  <p><span>Σύνολο</span><b>{euro(savedQuotePreview.subtotal)}</b></p>
+                  {Number(savedQuotePreview.vat || 0) !== 0 && <p><span>ΦΠΑ 24%</span><b>{euro(savedQuotePreview.vat)}</b></p>}
+                  {Number(savedQuotePreview.withholding || 0) !== 0 && <p><span>Παρακράτηση 3%</span><b>-{euro(savedQuotePreview.withholding)}</b></p>}
                   <p className="final"><span>Τελικό Ποσό</span><b>{euro(savedQuotePreview.payable)}</b></p>
                 </div>
               </div>
+
+              {parsed.savedNotes && (
+                <div className="td-quote-notes">
+                  <h3>Σημειώσεις</h3>
+                  {parsed.savedNotes.split('\n').filter(Boolean).map((x, i) => <p key={i}>• {x.replace(/^•\s*/, '')}</p>)}
+                </div>
+              )}
+
               <footer className="td-quote-footer">
                 <div><p>Με εκτίμηση,</p><b>TD MANI E.E.</b><span>Οικοδομικές Εργασίες</span></div>
                 <div className="td-quote-footer-slogan">Ποιότητα<br />Εμπιστοσύνη<br />Αποτέλεσμα</div>
