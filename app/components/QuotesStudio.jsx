@@ -25,6 +25,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   const [notes, setNotes] = useState('Η προσφορά ισχύει για 30 ημέρες.\nΠεριλαμβάνονται υλικά και εργασία.\nΟποιαδήποτε επιπλέον εργασία θα κοστολογείται ξεχωριστά.');
   const [preview, setPreview] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savedQuotePreview, setSavedQuotePreview] = useState(null);
 
   const customer = customers.find((x) => String(x.id) === String(customerId));
   const project = projects.find((x) => String(x.id) === String(projectId));
@@ -37,6 +38,19 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
 
   const updateLine = (index, key, value) => setLines(lines.map((line, i) => i === index ? { ...line, [key]: value } : line));
   const removeLine = (index) => setLines(lines.filter((_, i) => i !== index));
+
+  const getProject = (id) => projects.find((x) => String(x.id) === String(id));
+  const getCustomerForProject = (projectIdValue) => {
+    const p = getProject(projectIdValue);
+    return customers.find((x) => String(x.id) === String(p?.customer_id));
+  };
+
+  async function deleteSavedQuote(id) {
+    if (!confirm('Να διαγραφεί η προσφορά;')) return;
+    const { error } = await supabase.from('quotes').delete().eq('id', id);
+    if (error) return alert(error.message);
+    await onSaved?.();
+  }
 
   function exportQuotePdf() {
     const quote = document.querySelector('.td-quote-pdf');
@@ -206,6 +220,107 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
           <button onClick={saveQuote} disabled={saving}>{saving ? 'Αποθήκευση...' : '💾 Αποθήκευση Προσφοράς'}</button>
         </div>
       </section>
+
+      <section className="card page-section quotes-section no-print" style={{ marginTop: '18px' }}>
+        <div className="quote-studio-head">
+          <div>
+            <h2>📚 Αποθηκευμένες Προσφορές</h2>
+            <p>Όλες οι προσφορές που έχεις αποθηκεύσει.</p>
+          </div>
+          <span className="quote-number-chip">{quotes.filter((x) => !x.is_deleted).length}</span>
+        </div>
+
+        {quotes.filter((x) => !x.is_deleted).length === 0 ? (
+          <p style={{ opacity: .7 }}>Δεν υπάρχουν ακόμη αποθηκευμένες προσφορές.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="td-quote-table" style={{ width: '100%', minWidth: '760px' }}>
+              <thead>
+                <tr>
+                  <th>Αρ. Προσφοράς</th>
+                  <th>Πελάτης</th>
+                  <th>Έργο</th>
+                  <th>Περιγραφή</th>
+                  <th>Ποσό</th>
+                  <th>Ενέργειες</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quotes.filter((x) => !x.is_deleted).map((quote) => {
+                  const savedProject = getProject(quote.project_id);
+                  const savedCustomer = getCustomerForProject(quote.project_id);
+                  return (
+                    <tr key={quote.id}>
+                      <td><b>{quote.quote_number || '-'}</b></td>
+                      <td>{savedCustomer?.name || '-'}</td>
+                      <td>{savedProject?.title || '-'}</td>
+                      <td>{quote.work_type || '-'}</td>
+                      <td><b>{euro(quote.payable)}</b></td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <button onClick={() => setSavedQuotePreview(quote)}>👁 Προβολή</button>
+                          <button className="quote-remove" onClick={() => deleteSavedQuote(quote.id)}>🗑 Διαγραφή</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {savedQuotePreview && (() => {
+        const savedProject = getProject(savedQuotePreview.project_id);
+        const savedCustomer = getCustomerForProject(savedQuotePreview.project_id);
+        return (
+          <section className="card page-section quotes-section quote-preview-shell">
+            <div className="no-print quote-preview-actions">
+              <button onClick={() => window.print()}>📄 Εκτύπωση / PDF</button>
+              <button onClick={() => setSavedQuotePreview(null)}>Κλείσιμο</button>
+            </div>
+            <article className="print-area td-quote-pdf">
+              <header className="td-quote-pdf-header">
+                <div className="td-quote-logo"><img src="/tdmani-logo-gold.png" alt="TD MANI" /></div>
+                <div className="td-quote-contact">
+                  <b>TD MANI E.E.</b><span>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</span>
+                  <small>📍 Πλάκες, Μήλος 84800</small><small>☎ 6944705508</small><small>✉ Manitaulant@yahoo.com</small>
+                </div>
+                <div>
+                  <div className="td-quote-hand">Χτίζουμε<br />το μέλλον σας!</div>
+                  <div className="td-quote-meta">
+                    <h2>ΠΡΟΣΦΟΡΑ</h2>
+                    <p><b>Αρ. Προσφοράς:</b> {savedQuotePreview.quote_number || '-'}</p>
+                  </div>
+                </div>
+              </header>
+              <div className="td-quote-gold-rule" />
+              <div className="td-quote-parties">
+                <div><small>ΠΡΟΣ</small><h3>{savedCustomer?.name || 'Πελάτης'}</h3><p>ΑΦΜ: {savedCustomer?.afm || '-'}</p><p>Τηλέφωνο: {savedCustomer?.phone || '-'}</p></div>
+                <div><small>ΕΡΓΟ</small><h3>{savedProject?.title || '-'}</h3><p>{savedProject?.address || savedProject?.area || '-'}</p></div>
+              </div>
+              <div className="td-quote-description">
+                <h3>{savedQuotePreview.work_type || 'Προσφορά'}</h3>
+                <p style={{ whiteSpace: 'pre-line' }}>{savedQuotePreview.description || '-'}</p>
+              </div>
+              <div className="td-quote-summary">
+                <div></div>
+                <div>
+                  <p><span>Καθαρή αξία</span><b>{euro(savedQuotePreview.subtotal)}</b></p>
+                  {Number(savedQuotePreview.vat || 0) !== 0 && <p><span>ΦΠΑ</span><b>{euro(savedQuotePreview.vat)}</b></p>}
+                  {Number(savedQuotePreview.withholding || 0) !== 0 && <p><span>Παρακράτηση</span><b>-{euro(savedQuotePreview.withholding)}</b></p>}
+                  <p className="final"><span>Τελικό Ποσό</span><b>{euro(savedQuotePreview.payable)}</b></p>
+                </div>
+              </div>
+              <footer className="td-quote-footer">
+                <div><p>Με εκτίμηση,</p><b>TD MANI E.E.</b><span>Οικοδομικές Εργασίες</span></div>
+                <div className="td-quote-footer-slogan">Ποιότητα<br />Εμπιστοσύνη<br />Αποτέλεσμα</div>
+              </footer>
+            </article>
+          </section>
+        );
+      })()}
 
       {preview && (
         <section className="card page-section quotes-section quote-preview-shell">
