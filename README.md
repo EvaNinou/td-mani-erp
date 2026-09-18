@@ -1,19 +1,13 @@
-# T D MANI ERP — Production Starter
+# TD MANI ERP
 
-Αυτό είναι το αρχικό production πακέτο για να περάσει το prototype σε πραγματική εφαρμογή.
+Organized Next.js + Supabase project.
 
-## Περιλαμβάνει
-- Next.js / React δομή
-- Supabase σύνδεση
-- Database schema
-- Login users: Mani Taulant & Εύα Νίνου
-- Βασικά tables για πελάτες, έργα, προσφορές, συνεργεία, πληρωμές, αποθήκη
+## Environment variables
+Copy `.env.example` to `.env.local` and add the Supabase URL and anon key.
 
-## Επόμενα βήματα
-1. Δημιουργείς Supabase project
-2. Τρέχεις το `supabase_schema.sql`
-3. Δημιουργείς Vercel project
-4. Βάζεις τα keys στο `.env.local`
-5. Κάνεις deploy
+## Commands
+- `npm install`
+- `npm run dev`
+- `npm run build`
 
-Δεν βάζουμε πραγματικούς κωδικούς μέσα στον κώδικα.
+The existing ERP behavior is preserved. The large embedded style block was moved from `app/page.jsx` to `app/styles/erpStyles.js`, and existing reusable components/utilities/services are grouped by responsibility.
