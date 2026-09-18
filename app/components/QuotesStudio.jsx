@@ -280,7 +280,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
               <button onClick={() => exportQuotePdf("#saved-quote-pdf")}>📄 Εκτύπωση / PDF</button>
               <button onClick={() => setSavedQuotePreview(null)}>Κλείσιμο</button>
             </div>
-            <article id="current-quote-pdf" className="print-area td-quote-pdf">
+            <article id="saved-quote-pdf" className="print-area td-quote-pdf">
               <header className="td-quote-pdf-header">
                 <div className="td-quote-logo"><img src="/tdmani-logo-gold.png" alt="TD MANI" /></div>
                 <div className="td-quote-contact">
@@ -325,7 +325,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
       {preview && (
         <section className="card page-section quotes-section quote-preview-shell">
           <div className="no-print quote-preview-actions"><button onClick={() => exportQuotePdf("#current-quote-pdf")}>📄 Εξαγωγή PDF</button><button onClick={() => setPreview(false)}>Κλείσιμο</button></div>
-          <article id="saved-quote-pdf" className="print-area td-quote-pdf">
+          <article id="current-quote-pdf" className="print-area td-quote-pdf">
             <header className="td-quote-pdf-header">
               <div className="td-quote-logo"><img src="/tdmani-logo-gold.png" alt="TD MANI" /></div>
               <div className="td-quote-contact">
