@@ -196,8 +196,19 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
           .saved-quotes-table td:last-child button { min-height: 46px; width: 100%; font-weight: 700; }
           .quote-preview-actions { position: sticky; top: 8px; z-index: 30; display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; }
           .quote-preview-actions button { min-height: 46px; font-weight: 700; }
-          .quote-preview-shell { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-          .quote-preview-shell .td-quote-pdf { transform-origin: top left; }
+          .quote-preview-shell {
+            overflow: hidden !important;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+          }
+          .quote-preview-shell .td-quote-pdf {
+            width: 210mm !important;
+            min-width: 210mm !important;
+            min-height: 297mm !important;
+            zoom: 0.43;
+            margin: 0 auto !important;
+          }
+          .quote-preview-actions { margin-bottom: 10px; }
         }
       `}</style>
       <section className="card page-section quotes-section quote-studio no-print">
