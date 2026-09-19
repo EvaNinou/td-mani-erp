@@ -177,6 +177,29 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
 
   return (
     <>
+      <style>{`
+        @media (max-width: 720px) {
+          .saved-quotes-wrap { overflow: visible !important; }
+          .saved-quotes-table { min-width: 0 !important; display: block; }
+          .saved-quotes-table thead { display: none; }
+          .saved-quotes-table tbody { display: grid; gap: 12px; }
+          .saved-quotes-table tr {
+            display: block;
+            border: 1px solid rgba(201,155,53,.35);
+            border-radius: 14px;
+            padding: 14px;
+            background: #fff;
+          }
+          .saved-quotes-table td { display: block; border: 0 !important; padding: 3px 0 !important; text-align: left !important; }
+          .saved-quotes-table td:last-child { margin-top: 10px; }
+          .saved-quotes-table td:last-child > div { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; }
+          .saved-quotes-table td:last-child button { min-height: 46px; width: 100%; font-weight: 700; }
+          .quote-preview-actions { position: sticky; top: 8px; z-index: 30; display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; }
+          .quote-preview-actions button { min-height: 46px; font-weight: 700; }
+          .quote-preview-shell { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .quote-preview-shell .td-quote-pdf { transform-origin: top left; }
+        }
+      `}</style>
       <section className="card page-section quotes-section quote-studio no-print">
         <div className="quote-studio-head">
           <div><h2>📄 Νέα Προσφορά</h2><p>Δημιούργησε επαγγελματική προσφορά TD MANI και εξήγαγέ την σε PDF.</p></div>
@@ -256,8 +279,8 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
         {quotes.filter((x) => !x.is_deleted).length === 0 ? (
           <p style={{ opacity: .7 }}>Δεν υπάρχουν ακόμη αποθηκευμένες προσφορές.</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="td-quote-table" style={{ width: '100%', minWidth: '760px' }}>
+          <div className="saved-quotes-wrap" style={{ overflowX: 'auto' }}>
+            <table className="td-quote-table saved-quotes-table" style={{ width: '100%', minWidth: '760px' }}>
               <thead>
                 <tr>
                   <th>Αρ. Προσφοράς</th>
@@ -281,7 +304,10 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                       <td><b>{euro(quote.payable)}</b></td>
                       <td>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                          <button onClick={() => setSavedQuotePreview(quote)}>👁 Προβολή</button>
+                          <button onClick={() => {
+                              setSavedQuotePreview(quote);
+                              setTimeout(() => document.querySelector("#saved-quote-pdf")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+                            }}>👁 Προβολή</button>
                           <button className="quote-remove" onClick={() => deleteSavedQuote(quote.id)}>🗑 Διαγραφή</button>
                         </div>
                       </td>
