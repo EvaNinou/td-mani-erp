@@ -136,9 +136,37 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   .no-print, .quote-preview-actions { display:none !important; }
   .td-quote-pdf-header, .td-quote-parties, .td-quote-description, .td-quote-summary, .td-quote-notes, .td-quote-footer, tr { break-inside:avoid; page-break-inside:avoid; }
   @media print {
-    html, body { width:210mm; height:297mm; overflow:hidden !important; }
-    .td-quote-pdf { width:210mm !important; height:296mm !important; min-height:296mm !important; max-height:296mm !important; overflow:hidden !important; break-after:avoid-page !important; page-break-after:avoid !important; }
-    .td-quote-footer { min-height:38mm !important; height:38mm !important; flex-basis:38mm !important; break-inside:avoid !important; page-break-inside:avoid !important; }
+    @page { size: A4 portrait; margin: 0 !important; }
+    html, body {
+      width: 210mm !important;
+      height: 280mm !important;
+      max-height: 280mm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+    }
+    .td-quote-pdf {
+      width: 210mm !important;
+      height: 278mm !important;
+      min-height: 278mm !important;
+      max-height: 278mm !important;
+      padding: 7mm 10mm 0 !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+      break-after: avoid-page !important;
+      page-break-after: avoid !important;
+    }
+    .td-quote-footer {
+      min-height: 30mm !important;
+      height: 30mm !important;
+      max-height: 30mm !important;
+      flex: 0 0 30mm !important;
+      padding: 5mm 8mm 4mm !important;
+      overflow: hidden !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+    .td-quote-footer:after { height: 38mm !important; }
   }
 </style>
 </head>
