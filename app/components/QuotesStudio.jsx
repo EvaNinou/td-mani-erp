@@ -96,7 +96,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #fff; }
   body { font-family: Arial, Helvetica, sans-serif; color: #171717; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .td-quote-pdf { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 10mm 10mm 0; background: #fff; display: flex; flex-direction: column; }
+  .td-quote-pdf { width: 210mm; height: 296mm; min-height: 296mm; max-height: 296mm; margin: 0 auto; padding: 8mm 10mm 0; background: #fff; display: flex; flex-direction: column; overflow: hidden; }
   .td-quote-pdf-header { display: grid; grid-template-columns: 31mm 1fr 55mm; gap: 7mm; align-items: start; }
   .td-quote-logo img { width: 29mm; height: 20mm; object-fit: contain; display: block; }
   .td-quote-contact b { display:block; font-size: 17pt; letter-spacing: .6px; margin: 1mm 0; }
@@ -125,7 +125,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   .td-quote-notes { margin-top:5mm; }
   .td-quote-notes h3 { font-size:8pt; margin:0 0 1mm; }
   .td-quote-notes p { font-size:6.9pt; margin:.6mm 0; }
-  .td-quote-footer { margin-top:auto; position:relative; min-height:48mm; background:#171717; color:#fff; padding:8mm 8mm 6mm; overflow:hidden; display:flex; align-items:flex-start; justify-content:space-between; border-top:.8mm solid #c89b35; }
+  .td-quote-footer { margin-top:auto; position:relative; min-height:38mm; height:38mm; flex:0 0 38mm; background:#171717; color:#fff; padding:6mm 8mm 5mm; overflow:hidden; display:flex; align-items:flex-start; justify-content:space-between; border-top:.8mm solid #c89b35; }
   .td-quote-footer:before { content:""; position:absolute; inset:0 42% 0 0; background:linear-gradient(135deg,#6d6d6d,#c9c9c9); opacity:.38; clip-path:polygon(0 0,100% 0,72% 100%,0 100%); }
   .td-quote-footer:after { content:""; position:absolute; top:0; right:33%; width:1mm; height:65mm; background:#c89b35; transform:rotate(36deg); transform-origin:top; }
   .td-quote-footer > * { position:relative; z-index:2; }
@@ -135,6 +135,11 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   .td-quote-footer-slogan { align-self:center; color:#d7ad4d; font-size:9pt; text-align:right; max-width:55mm; }
   .no-print, .quote-preview-actions { display:none !important; }
   .td-quote-pdf-header, .td-quote-parties, .td-quote-description, .td-quote-summary, .td-quote-notes, .td-quote-footer, tr { break-inside:avoid; page-break-inside:avoid; }
+  @media print {
+    html, body { width:210mm; height:297mm; overflow:hidden !important; }
+    .td-quote-pdf { width:210mm !important; height:296mm !important; min-height:296mm !important; max-height:296mm !important; overflow:hidden !important; break-after:avoid-page !important; page-break-after:avoid !important; }
+    .td-quote-footer { min-height:38mm !important; height:38mm !important; flex-basis:38mm !important; break-inside:avoid !important; page-break-inside:avoid !important; }
+  }
 </style>
 </head>
 <body>${quote.outerHTML}</body>
@@ -188,7 +193,9 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
             border: 1px solid rgba(201,155,53,.35);
             border-radius: 14px;
             padding: 14px;
-            background: #fff;
+            background: #1d1d20;
+            color: #f5f1e8;
+            border-color: rgba(201,155,53,.65);
           }
           .saved-quotes-table td { display: block; border: 0 !important; padding: 3px 0 !important; text-align: left !important; }
           .saved-quotes-table td:last-child { margin-top: 10px; }
@@ -205,7 +212,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
             width: 210mm !important;
             min-width: 210mm !important;
             min-height: 297mm !important;
-            zoom: 0.43;
+            zoom: 0.39;
             margin: 0 auto !important;
           }
           .quote-preview-actions { margin-bottom: 10px; }
