@@ -383,8 +383,8 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                   <b>TD MANI E.E.</b>
                   <span>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</span>
                   <small>📍 Πλάκες, Μήλος 84800</small>
-                  <small>☎ 6944705508</small>
-                  <small>✉ Manitaulant@yahoo.com</small>
+                  <small>☎ 6978141512</small>
+                  <small>✉ taulant.m@yahoo.com</small>
                 </div>
                 <div>
                   <div className="td-quote-hand">Χτίζουμε<br />το μέλλον σας!</div>
@@ -469,8 +469,8 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                 <b>TD MANI E.E.</b>
                 <span>ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</span>
                 <small>📍 Πλάκες, Μήλος 84800</small>
-                <small>☎ 6944705508</small>
-                <small>✉ Manitaulant@yahoo.com</small>
+                <small>☎ 6978141512</small>
+                <small>✉ taulant.m@yahoo.com</small>
               </div>
               <div>
                 <div className="td-quote-hand">Χτίζουμε<br />το μέλλον σας!</div>
