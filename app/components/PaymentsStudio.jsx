@@ -164,6 +164,54 @@ export default function PaymentsStudio({
     await onRefresh?.();
   }
 
+  function printPayrollReport() {
+    const period = periodLabel(payrollMonth);
+    const rows = monthRows.map(x => {
+      const emp = employees.find(e => String(e.id) === String(x.employee_id));
+      const bank = num(x.bank_amount);
+      const cash = num(x.cash_amount);
+      const paidBank = x.bank_paid ? bank : 0;
+      const paidCash = x.cash_paid ? cash : 0;
+      const bankBalance = x.bank_paid ? 0 : bank;
+      const cashBalance = x.cash_paid ? 0 : cash;
+      return { ...x, iban: emp?.iban || '-', bank, cash, paidBank, paidCash, bankBalance, cashBalance };
+    });
+    const totalBank = rows.reduce((a,x)=>a+x.bank,0);
+    const totalCash = rows.reduce((a,x)=>a+x.cash,0);
+    const paidBank = rows.reduce((a,x)=>a+x.paidBank,0);
+    const paidCash = rows.reduce((a,x)=>a+x.paidCash,0);
+    const openBank = rows.reduce((a,x)=>a+x.bankBalance,0);
+    const openCash = rows.reduce((a,x)=>a+x.cashBalance,0);
+
+    const esc = (v='') => String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Μισθοδοτική Κατάσταση ${esc(period)}</title>
+      <style>
+        @page{size:A4 landscape;margin:12mm}
+        *{box-sizing:border-box} body{font-family:Arial,sans-serif;color:#171717;margin:0}
+        .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #b88a32;padding-bottom:10px;margin-bottom:14px}
+        h1{margin:0;font-size:25px}.brand{font-weight:800;letter-spacing:1px}.period{font-size:14px}
+        .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 16px}
+        .card{border:1px solid #d7c39c;border-radius:8px;padding:10px;background:#faf7f0}.card b{display:block;font-size:17px;margin-top:4px}
+        table{width:100%;border-collapse:collapse;font-size:10px}th{background:#27231d;color:#fff;padding:8px 6px;text-align:left}
+        td{border-bottom:1px solid #ddd;padding:7px 6px;vertical-align:top}.yes{font-weight:700}.open{font-weight:700;color:#8a2d22}
+        .notes{max-width:170px;white-space:normal}.foot{margin-top:14px;font-size:9px;color:#666;text-align:right}
+      </style></head><body>
+      <div class="head"><div><div class="brand">TD MANI</div><h1>ΜΙΣΘΟΔΟΤΙΚΗ ΚΑΤΑΣΤΑΣΗ</h1></div><div class="period"><b>Περίοδος:</b> ${esc(period)}</div></div>
+      <div class="summary">
+        <div class="card">Σύνολο μισθοδοσίας<b>${euro(totalBank+totalCash)}</b></div>
+        <div class="card">Πληρωμένο<b>${euro(paidBank+paidCash)}</b></div>
+        <div class="card">Υπόλοιπο<b>${euro(openBank+openCash)}</b></div>
+      </div>
+      <table><thead><tr><th>Εργαζόμενος</th><th>IBAN</th><th>Τράπεζα</th><th>Πληρ. Τράπεζα</th><th>Υπόλ. Τράπεζα</th><th>Μετρητά</th><th>Πληρ. Μετρητά</th><th>Υπόλ. Μετρητά</th><th>Σημειώσεις</th></tr></thead><tbody>
+      ${rows.map(x=>`<tr><td><b>${esc(x.employee_name)}</b></td><td>${esc(x.iban)}</td><td>${euro(x.bank)}</td><td class="${x.bank_paid?'yes':'open'}">${x.bank_paid?'ΝΑΙ - '+euro(x.paidBank):'ΟΧΙ'}</td><td>${euro(x.bankBalance)}</td><td>${euro(x.cash)}</td><td class="${x.cash_paid?'yes':'open'}">${x.cash_paid?'ΝΑΙ - '+euro(x.paidCash):'ΟΧΙ'}</td><td>${euro(x.cashBalance)}</td><td class="notes">${esc(x.notes||'-')}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="foot">TD MANI ERP - Εκτύπωση ${new Date().toLocaleDateString('el-GR')}</div>
+      <script>window.onload=()=>{setTimeout(()=>window.print(),200)}<\/script></body></html>`;
+    const w = window.open('', '_blank', 'width=1200,height=850');
+    if (!w) return alert('Επίτρεψε τα αναδυόμενα παράθυρα για να ανοίξει η αναφορά.');
+    w.document.open(); w.document.write(html); w.document.close();
+  }
+
   async function savePublic() {
     if (!publicForm.authority || !publicForm.obligation_type || !publicForm.amount || !publicForm.due_date) return alert('Συμπλήρωσε φορέα, υποχρέωση, ποσό και λήξη.');
     setSaving(true);
@@ -250,14 +298,14 @@ export default function PaymentsStudio({
             <strong>📅 Μήνας μισθοδοσίας</strong>
             <input type="month" value={payrollMonth} onChange={e=>setPayrollMonth(e.target.value)}/>
           </div>
-          <button className="pay-primary" disabled={saving} onClick={createMonthPayroll}>＋ Δημιουργία μισθοδοσίας μήνα</button>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button className="pay-primary" disabled={saving} onClick={createMonthPayroll}>＋ Δημιουργία μισθοδοσίας μήνα</button><button className="pay-small-btn" onClick={printPayrollReport}>🖨️ PDF Μισθοδοτικής Κατάστασης</button></div>
         </div>
 
-        <div className="pay-table-wrap"><table className="pay-table"><thead><tr><th>Εργαζόμενος</th><th>IBAN</th><th>Τράπεζα</th><th>Μετρητά</th><th>Σύνολο</th><th>Πληρωμένο</th><th>Υπόλοιπο</th><th>Κατάσταση</th><th>Ενέργειες</th></tr></thead><tbody>
+        <div className="pay-table-wrap"><table className="pay-table"><thead><tr><th>Εργαζόμενος</th><th>IBAN</th><th>Τράπεζα</th><th>Μετρητά</th><th>Σύνολο</th><th>Πληρωμένο</th><th>Υπόλοιπο</th><th>Κατάσταση</th><th>Σημειώσεις</th><th>Ενέργειες</th></tr></thead><tbody>
           {monthRows.map(x=>{const total=payrollTotal(x),paid=payrollPaid(x),emp=employees.find(e=>String(e.id)===String(x.employee_id));return editingPayroll?.id===x.id ?
-            <tr key={x.id} className="edit-row"><td>{x.employee_name}</td><td className="iban">{emp?.iban||'-'}</td><td><input className="edit-input" type="number" value={editingPayroll.bank_amount} onChange={e=>setEditingPayroll({...editingPayroll,bank_amount:e.target.value})}/></td><td><input className="edit-input" type="number" value={editingPayroll.cash_amount} onChange={e=>setEditingPayroll({...editingPayroll,cash_amount:e.target.value})}/></td><td>{euro(num(editingPayroll.bank_amount)+num(editingPayroll.cash_amount))}</td><td colSpan="3"><input className="edit-input" placeholder="Σημειώσεις" value={editingPayroll.notes||''} onChange={e=>setEditingPayroll({...editingPayroll,notes:e.target.value})}/></td><td><button className="pay-small-btn done" onClick={savePayrollEdit}>✓</button> <button className="pay-small-btn" onClick={()=>setEditingPayroll(null)}>✕</button></td></tr>
-            : <tr key={x.id}><td>{x.employee_name}</td><td className="iban">{emp?.iban||'-'}</td><td>{euro(x.bank_amount)}</td><td>{euro(x.cash_amount)}</td><td>{euro(total)}</td><td>{euro(paid)}</td><td>{euro(Math.max(total-paid,0))}</td><td><Status total={total} paid={paid} dueDate={x.due_date}/></td><td><button title="Πληρωμή τράπεζας" className={`pay-small-btn ${x.bank_paid?'done':''}`} onClick={()=>togglePayroll(x,'bank_paid')}>🏦 {x.bank_paid?'✓':'○'}</button> <button title="Πληρωμή μετρητών" className={`pay-small-btn ${x.cash_paid?'done':''}`} onClick={()=>togglePayroll(x,'cash_paid')}>💶 {x.cash_paid?'✓':'○'}</button> <button title="Επεξεργασία" className="pay-small-btn" onClick={()=>setEditingPayroll({...x})}>✏️</button> <button title="Διαγραφή" className="pay-small-btn" onClick={()=>deletePayroll(x)}>🗑️</button></td></tr>})}
-          {!monthRows.length && <tr><td colSpan="9">Δεν υπάρχει μισθοδοσία για {periodLabel(payrollMonth)}. Πάτησε «Δημιουργία μισθοδοσίας μήνα».</td></tr>}
+            <tr key={x.id} className="edit-row"><td>{x.employee_name}</td><td className="iban">{emp?.iban||'-'}</td><td><input className="edit-input" type="number" value={editingPayroll.bank_amount} onChange={e=>setEditingPayroll({...editingPayroll,bank_amount:e.target.value})}/></td><td><input className="edit-input" type="number" value={editingPayroll.cash_amount} onChange={e=>setEditingPayroll({...editingPayroll,cash_amount:e.target.value})}/></td><td>{euro(num(editingPayroll.bank_amount)+num(editingPayroll.cash_amount))}</td><td colSpan="3"></td><td><input className="edit-input" placeholder="Σημειώσεις" value={editingPayroll.notes||''} onChange={e=>setEditingPayroll({...editingPayroll,notes:e.target.value})}/></td><td><button className="pay-small-btn done" onClick={savePayrollEdit}>✓</button> <button className="pay-small-btn" onClick={()=>setEditingPayroll(null)}>✕</button></td></tr>
+            : <tr key={x.id}><td>{x.employee_name}</td><td className="iban">{emp?.iban||'-'}</td><td>{euro(x.bank_amount)}</td><td>{euro(x.cash_amount)}</td><td>{euro(total)}</td><td>{euro(paid)}</td><td>{euro(Math.max(total-paid,0))}</td><td><Status total={total} paid={paid} dueDate={x.due_date}/></td><td style={{maxWidth:180,whiteSpace:'normal'}}>{x.notes||'-'}</td><td><button title="Πληρωμή τράπεζας" className={`pay-small-btn ${x.bank_paid?'done':''}`} onClick={()=>togglePayroll(x,'bank_paid')}>🏦 {x.bank_paid?'✓':'○'}</button> <button title="Πληρωμή μετρητών" className={`pay-small-btn ${x.cash_paid?'done':''}`} onClick={()=>togglePayroll(x,'cash_paid')}>💶 {x.cash_paid?'✓':'○'}</button> <button title="Επεξεργασία" className="pay-small-btn" onClick={()=>setEditingPayroll({...x})}>✏️</button> <button title="Διαγραφή" className="pay-small-btn" onClick={()=>deletePayroll(x)}>🗑️</button></td></tr>})}
+          {!monthRows.length && <tr><td colSpan="10">Δεν υπάρχει μισθοδοσία για {periodLabel(payrollMonth)}. Πάτησε «Δημιουργία μισθοδοσίας μήνα».</td></tr>}
         </tbody></table></div>
       </div>}
 
