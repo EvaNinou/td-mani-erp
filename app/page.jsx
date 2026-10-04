@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard/Dashboard';
 import Customers from './components/customers/Customers';
 import QuotesStudio from './components/QuotesStudio';
 import PaymentsStudio from './components/PaymentsStudio';
+import MyDataStudio from './components/MyDataStudio';
 import { normalizeText, formatCurrency, formatDate, formatGreekLongDate, formatGreekTime, formatLocalDate, getGreeting, getFirstName } from './utils/formatters';
 import { calculateQuoteValues, calculateCustomerInvoiceValues, calculateSupplierInvoiceValues, getQuarterDates, isDateInRange } from './utils/calculations';
 import {
