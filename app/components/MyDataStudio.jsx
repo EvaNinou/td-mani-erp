@@ -86,6 +86,12 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [] 
   const [supplierMappings, setSupplierMappings] = useState([]);
   const [mappingLoading, setMappingLoading] = useState(false);
   const [mappingError, setMappingError] = useState('');
+  const [localInventory, setLocalInventory] = useState(inventory);
+  const [savingLine, setSavingLine] = useState('');
+
+  useEffect(() => {
+    setLocalInventory(inventory);
+  }, [inventory]);
 
   async function loadSupplierMappings(supplierVat, parsedMaterials) {
     if (!supabase || !supplierVat || !Array.isArray(parsedMaterials)) return;
@@ -139,14 +145,157 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [] 
     }
   }
 
-  function setMaterialInventoryItem(lineNumber, inventoryItemId) {
-    setSupplierMappings((current) =>
-      current.map((item) =>
-        item.lineNumber === lineNumber
-          ? { ...item, inventoryItemId }
-          : item
-      )
+  async function saveMaterialMapping(line, inventoryItemId) {
+    if (!supabase || !inventoryItemId) return;
+
+    const row = supplierMappings.find(
+      (item) => item.lineNumber === line.lineNumber
     );
+
+    if (!row?.supplierId) {
+      setMappingError('Δεν βρέθηκε ο προμηθευτής για να αποθηκευτεί η αντιστοίχιση.');
+      return;
+    }
+
+    try {
+      setSavingLine(line.lineNumber);
+      setMappingError('');
+
+      let savedMapping;
+
+      if (row.mappingId) {
+        const { data, error: updateError } = await supabase
+          .from('inventory_supplier_mappings')
+          .update({
+            inventory_item_id: inventoryItemId,
+            supplier_item_code: line.itemCode || null,
+            supplier_item_description: line.itemDescr || null,
+            updated_at: new Date().toISOString(),
+            is_deleted: false,
+          })
+          .eq('id', row.mappingId)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        savedMapping = data;
+      } else {
+        const { data, error: insertError } = await supabase
+          .from('inventory_supplier_mappings')
+          .insert({
+            inventory_item_id: inventoryItemId,
+            supplier_id: row.supplierId,
+            supplier_item_code: line.itemCode || null,
+            supplier_item_description: line.itemDescr || null,
+            is_deleted: false,
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        savedMapping = data;
+      }
+
+      setSupplierMappings((current) =>
+        current.map((item) =>
+          item.lineNumber === line.lineNumber
+            ? {
+                ...item,
+                mappingId: savedMapping?.id || item.mappingId,
+                inventoryItemId,
+              }
+            : item
+        )
+      );
+    } catch (err) {
+      console.error('save material mapping:', err);
+      setMappingError('Δεν αποθηκεύτηκε η αντιστοίχιση του υλικού.');
+    } finally {
+      setSavingLine('');
+    }
+  }
+
+  async function createInventoryMaterial(line) {
+    if (!supabase) return;
+
+    const row = supplierMappings.find(
+      (item) => item.lineNumber === line.lineNumber
+    );
+
+    if (!row?.supplierId) {
+      setMappingError('Δεν βρέθηκε ο προμηθευτής για να δημιουργηθεί το υλικό.');
+      return;
+    }
+
+    const itemName = window.prompt(
+      'Όνομα υλικού στην Αποθήκη:',
+      line.itemDescr || ''
+    );
+
+    if (!itemName?.trim()) return;
+
+    const unit = window.prompt(
+      'Μονάδα μέτρησης (π.χ. τεμ., κουτί, m, m²):',
+      'τεμ.'
+    );
+
+    if (unit === null) return;
+
+    try {
+      setSavingLine(line.lineNumber);
+      setMappingError('');
+
+      const { data: createdItem, error: itemError } = await supabase
+        .from('inventory')
+        .insert({
+          item_name: itemName.trim(),
+          category: '',
+          unit: unit.trim() || 'τεμ.',
+          min_quantity: 0,
+          purchase_price: Number(line.unitPrice || 0),
+          notes: `Δημιουργήθηκε από myDATA. Κωδικός προμηθευτή: ${line.itemCode || '-'}`,
+        })
+        .select()
+        .single();
+
+      if (itemError) throw itemError;
+
+      const { data: createdMapping, error: mappingInsertError } = await supabase
+        .from('inventory_supplier_mappings')
+        .insert({
+          inventory_item_id: createdItem.id,
+          supplier_id: row.supplierId,
+          supplier_item_code: line.itemCode || null,
+          supplier_item_description: line.itemDescr || null,
+          is_deleted: false,
+        })
+        .select()
+        .single();
+
+      if (mappingInsertError) {
+        await supabase.from('inventory').delete().eq('id', createdItem.id);
+        throw mappingInsertError;
+      }
+
+      setLocalInventory((current) => [...current, createdItem]);
+
+      setSupplierMappings((current) =>
+        current.map((item) =>
+          item.lineNumber === line.lineNumber
+            ? {
+                ...item,
+                mappingId: createdMapping.id,
+                inventoryItemId: createdItem.id,
+              }
+            : item
+        )
+      );
+    } catch (err) {
+      console.error('create inventory material:', err);
+      setMappingError('Δεν δημιουργήθηκε το νέο υλικό στην Αποθήκη.');
+    } finally {
+      setSavingLine('');
+    }
   }
 
   async function loadExpenses() {
@@ -611,29 +760,47 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [] 
                             <td>{money(line.unitPrice)}</td>
                             <td>{money(line.netValue)}</td>
                             <td>{money(line.vatAmount)}</td>
-                            <td style={{ minWidth: 260 }}>
+                            <td style={{ minWidth: 300 }}>
                               {mappingLoading ? (
                                 <small>Έλεγχος...</small>
                               ) : (
-                                <select
-                                  value={
-                                    supplierMappings.find(
-                                      (item) => item.lineNumber === line.lineNumber
-                                    )?.inventoryItemId || ''
-                                  }
-                                  onChange={(e) =>
-                                    setMaterialInventoryItem(line.lineNumber, e.target.value)
-                                  }
-                                >
-                                  <option value="">➕ Νέο υλικό / Χωρίς αντιστοίχιση</option>
-                                  {inventory
-                                    .filter((item) => item?.is_deleted !== true)
-                                    .map((item) => (
-                                      <option key={item.id} value={item.id}>
-                                        {item.item_name}
-                                      </option>
-                                    ))}
-                                </select>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                  <select
+                                    value={
+                                      supplierMappings.find(
+                                        (item) => item.lineNumber === line.lineNumber
+                                      )?.inventoryItemId || ''
+                                    }
+                                    disabled={savingLine === line.lineNumber}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      if (value) saveMaterialMapping(line, value);
+                                    }}
+                                    style={{ flex: 1 }}
+                                  >
+                                    <option value="">Χωρίς αντιστοίχιση</option>
+                                    {localInventory
+                                      .filter((item) => item?.is_deleted !== true)
+                                      .map((item) => (
+                                        <option key={item.id} value={item.id}>
+                                          {item.item_name}
+                                        </option>
+                                      ))}
+                                  </select>
+
+                                  {!supplierMappings.find(
+                                    (item) => item.lineNumber === line.lineNumber
+                                  )?.inventoryItemId && (
+                                    <button
+                                      type="button"
+                                      disabled={savingLine === line.lineNumber}
+                                      onClick={() => createInventoryMaterial(line)}
+                                      style={{ whiteSpace: 'nowrap' }}
+                                    >
+                                      {savingLine === line.lineNumber ? '...' : '➕ Νέο'}
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </td>
                           </tr>
