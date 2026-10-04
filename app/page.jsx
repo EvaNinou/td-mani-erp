@@ -2837,6 +2837,12 @@ async function saveCustomer() {
           supabase={supabase}
           suppliers={suppliers}
           inventory={inventory}
+          onInventoryChanged={async () => {
+            await Promise.all([
+              loadInventory(),
+              loadInventoryMovements()
+            ]);
+          }}
         />
       )}
 
