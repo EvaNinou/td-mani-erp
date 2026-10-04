@@ -67,7 +67,7 @@ function firstNode(parent, tagName) {
   return normal[0] || null;
 }
 
-export default function MyDataStudio({ supabase, suppliers = [], inventory = [] }) {
+export default function MyDataStudio({ supabase, suppliers = [], inventory = [], onInventoryChanged }) {
   const [dateFrom, setDateFrom] = useState(firstDayOfMonthInput());
   const [dateTo, setDateTo] = useState(todayInput());
   const [documents, setDocuments] = useState([]);
@@ -412,6 +412,10 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [] 
             : item;
         })
       );
+
+      if (typeof onInventoryChanged === 'function') {
+        await onInventoryChanged();
+      }
 
       setPurchaseMessage(
         `✅ Καταχωρήθηκαν ${newLines.length} γραμμές αγοράς στην Αποθήκη.` +
