@@ -88,6 +88,8 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [] 
   const [mappingError, setMappingError] = useState('');
   const [localInventory, setLocalInventory] = useState(inventory);
   const [savingLine, setSavingLine] = useState('');
+  const [purchaseSaving, setPurchaseSaving] = useState(false);
+  const [purchaseMessage, setPurchaseMessage] = useState('');
 
   useEffect(() => {
     setLocalInventory(inventory);
@@ -298,6 +300,135 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [] 
     }
   }
 
+  async function registerPurchaseInInventory() {
+    if (!supabase || !selectedDocument || materials.length === 0) return;
+
+    const mappedLines = materials
+      .map((line) => {
+        const mapping = supplierMappings.find(
+          (item) => item.lineNumber === line.lineNumber
+        );
+
+        return {
+          ...line,
+          inventoryItemId: mapping?.inventoryItemId || '',
+          supplierId: mapping?.supplierId || null,
+        };
+      })
+      .filter((line) => line.inventoryItemId && Number(line.quantity || 0) > 0);
+
+    if (mappedLines.length === 0) {
+      setPurchaseMessage('⚠️ Δεν υπάρχει ακόμη κανένα αντιστοιχισμένο υλικό.');
+      return;
+    }
+
+    const unmappedCount = materials.filter((line) => {
+      const mapping = supplierMappings.find(
+        (item) => item.lineNumber === line.lineNumber
+      );
+      return !mapping?.inventoryItemId;
+    }).length;
+
+    if (unmappedCount > 0) {
+      const proceed = window.confirm(
+        `Υπάρχουν ${unmappedCount} γραμμές χωρίς αντιστοίχιση. ` +
+        `Θα καταχωρηθούν μόνο οι ${mappedLines.length} αντιστοιχισμένες γραμμές. Συνέχεια;`
+      );
+      if (!proceed) return;
+    }
+
+    try {
+      setPurchaseSaving(true);
+      setPurchaseMessage('');
+
+      const mark = String(selectedDocument.mark || '');
+      if (!mark) {
+        throw new Error('Δεν βρέθηκε MARK παραστατικού.');
+      }
+
+      const lineNumbers = mappedLines
+        .map((line) => Number(line.lineNumber))
+        .filter((value) => Number.isInteger(value));
+
+      const { data: existingRows, error: existingError } = await supabase
+        .from('inventory_movements')
+        .select('mydata_line_number')
+        .eq('mydata_mark', mark)
+        .in('mydata_line_number', lineNumbers);
+
+      if (existingError) throw existingError;
+
+      const alreadySaved = new Set(
+        (existingRows || []).map((row) => Number(row.mydata_line_number))
+      );
+
+      const newLines = mappedLines.filter(
+        (line) => !alreadySaved.has(Number(line.lineNumber))
+      );
+
+      if (newLines.length === 0) {
+        setPurchaseMessage('✅ Οι συγκεκριμένες γραμμές έχουν ήδη καταχωρηθεί στην Αποθήκη.');
+        return;
+      }
+
+      const movements = newLines.map((line) => ({
+        item_id: line.inventoryItemId,
+        movement_date: selectedDocument.issueDate,
+        movement_type: 'PURCHASE',
+        quantity: Number(line.quantity || 0),
+        unit_price: Number(Number(line.unitPrice || 0).toFixed(4)),
+        supplier_id: line.supplierId,
+        notes: `Αγορά από myDATA • MARK ${mark} • γραμμή ${line.lineNumber}`,
+        mydata_mark: mark,
+        mydata_line_number: Number(line.lineNumber),
+      }));
+
+      const { error: insertError } = await supabase
+        .from('inventory_movements')
+        .insert(movements);
+
+      if (insertError) throw insertError;
+
+      // Keep the material master purchase price tidy and current.
+      for (const line of newLines) {
+        await supabase
+          .from('inventory')
+          .update({
+            purchase_price: Number(Number(line.unitPrice || 0).toFixed(2)),
+          })
+          .eq('id', line.inventoryItemId);
+      }
+
+      setLocalInventory((current) =>
+        current.map((item) => {
+          const line = newLines.find(
+            (entry) => entry.inventoryItemId === item.id
+          );
+          return line
+            ? {
+                ...item,
+                purchase_price: Number(Number(line.unitPrice || 0).toFixed(2)),
+              }
+            : item;
+        })
+      );
+
+      setPurchaseMessage(
+        `✅ Καταχωρήθηκαν ${newLines.length} γραμμές αγοράς στην Αποθήκη.` +
+        (alreadySaved.size > 0
+          ? ` ${alreadySaved.size} υπήρχαν ήδη και δεν ξαναπεράστηκαν.`
+          : '')
+      );
+    } catch (err) {
+      console.error('register myDATA purchase:', err);
+      setPurchaseMessage(
+        `❌ Δεν ολοκληρώθηκε η καταχώρηση αγοράς${err?.message ? `: ${err.message}` : '.'}`
+      );
+    } finally {
+      setPurchaseSaving(false);
+    }
+  }
+
   async function loadExpenses() {
     try {
       setLoading(true);
@@ -382,6 +513,7 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [] 
       setMaterials([]);
       setSupplierMappings([]);
       setMappingError('');
+      setPurchaseMessage('');
       setSelectedDocument(null);
 
       const response = await fetch(
@@ -813,6 +945,24 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [] 
                     * Η τιμή μονάδας υπολογίζεται από Καθαρή Αξία ÷ Ποσότητα.
                     Η μονάδα μέτρησης εμφανίζεται όπως ακριβώς επιστρέφεται από το αναλυτικό παραστατικό.
                   </small>
+
+                  <div style={{ marginTop: 16 }}>
+                    <button
+                      type="button"
+                      onClick={registerPurchaseInInventory}
+                      disabled={purchaseSaving}
+                    >
+                      {purchaseSaving
+                        ? 'Καταχώρηση...'
+                        : '📦 Καταχώρηση αγοράς στην Αποθήκη'}
+                    </button>
+
+                    {purchaseMessage && (
+                      <p style={{ marginTop: 10 }}>
+                        <b>{purchaseMessage}</b>
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
