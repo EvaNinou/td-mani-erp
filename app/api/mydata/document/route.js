@@ -18,21 +18,29 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url);
-
     const mark = searchParams.get('mark');
 
-    if (!mark) {
+    if (!mark || !/^\d+$/.test(mark)) {
       return NextResponse.json(
         {
           ok: false,
-          error: 'Δεν δόθηκε MARK παραστατικού.',
+          error: 'Δεν δόθηκε έγκυρο MARK παραστατικού.',
         },
         { status: 400 }
       );
     }
 
+    // Η RequestDocs επιστρέφει MARK μεγαλύτερα από το "mark"
+    // και έως το "maxMark".
+    // Άρα για να πάρουμε ΜΟΝΟ το συγκεκριμένο:
+    // mark = ζητούμενο MARK - 1
+    // maxMark = ζητούμενο MARK
+    const requestedMark = BigInt(mark);
+    const startMark = requestedMark - 1n;
+
     const params = new URLSearchParams({
-      mark,
+      mark: startMark.toString(),
+      maxMark: requestedMark.toString(),
     });
 
     const myDataUrl =
