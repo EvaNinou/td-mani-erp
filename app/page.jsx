@@ -6,6 +6,7 @@ import './styles.css';
 import Dashboard from './components/Dashboard/Dashboard';
 import Customers from './components/customers/Customers';
 import QuotesStudio from './components/QuotesStudio';
+import PaymentsStudio from './components/PaymentsStudio';
 import { normalizeText, formatCurrency, formatDate, formatGreekLongDate, formatGreekTime, formatLocalDate, getGreeting, getFirstName } from './utils/formatters';
 import { calculateQuoteValues, calculateCustomerInvoiceValues, calculateSupplierInvoiceValues, getQuarterDates, isDateInRange } from './utils/calculations';
 import {
@@ -65,6 +66,8 @@ export default function Home() {
   const [suppliers, setSuppliers] = useState([]);
   const [supplierInvoices, setSupplierInvoices] = useState([]);
   const [supplierPayments, setSupplierPayments] = useState([]);
+  const [payrollObligations, setPayrollObligations] = useState([]);
+  const [publicObligations, setPublicObligations] = useState([]);
 
   const [selectedProject, setSelectedProject] = useState(null);
   const [activeProjectTab, setActiveProjectTab] = useState('overview');
@@ -183,7 +186,9 @@ const [vatQuarter, setVatQuarter] = useState('1');
       loadDocuments(),
       loadSuppliers(),
       loadSupplierInvoices(),
-      loadSupplierPayments()
+      loadSupplierPayments(),
+      loadPayrollObligations(),
+      loadPublicObligations()
     ]);
   }
 
@@ -263,6 +268,24 @@ const [vatQuarter, setVatQuarter] = useState('1');
   async function loadSupplierPayments() {
     const { data } = await supabase.from('supplier_payments').select('*').order('payment_date', { ascending: false });
     setSupplierPayments(data || []);
+  }
+
+  async function loadPayrollObligations() {
+    const { data, error } = await supabase.from('payroll_obligations').select('*').order('due_date', { ascending: true });
+    if (error) {
+      setPayrollObligations([]);
+      return;
+    }
+    setPayrollObligations(data || []);
+  }
+
+  async function loadPublicObligations() {
+    const { data, error } = await supabase.from('public_obligations').select('*').order('due_date', { ascending: true });
+    if (error) {
+      setPublicObligations([]);
+      return;
+    }
+    setPublicObligations(data || []);
   }
 
   function getCustomerName(customerId) {
@@ -2794,6 +2817,7 @@ async function saveCustomer() {
         <button className={activePage === 'dashboard' ? 'active' : ''} onClick={() => setActivePage('dashboard')}>🏠 Πίνακας Ελέγχου</button>
         <button className={activePage === 'customers' ? 'active' : ''} onClick={() => setActivePage('customers')}>👥 Πελάτες & Έργα</button>
         <button className={activePage === 'quotes' ? 'active' : ''} onClick={() => setActivePage('quotes')}>📄 Προσφορές</button>
+        <button className={activePage === 'payments-center' ? 'active' : ''} onClick={() => setActivePage('payments-center')}>💳 Πληρωμές</button>
         <button
           className={['income-expenses', 'finance', 'customer-invoices', 'suppliers', 'inventory'].includes(activePage) ? 'active' : ''}
           onClick={() => setActivePage('income-expenses')}
@@ -2805,6 +2829,24 @@ async function saveCustomer() {
 
       {activePage === 'quotes' && (
         <QuotesStudio customers={customers} projects={projects} quotes={quotes} supabase={supabase} onSaved={loadQuotes} />
+      )}
+
+      {activePage === 'payments-center' && (
+        <PaymentsStudio
+          suppliers={suppliers}
+          supplierInvoices={supplierInvoices}
+          supplierPayments={supplierPayments}
+          payrollObligations={payrollObligations}
+          publicObligations={publicObligations}
+          supabase={supabase}
+          onRefresh={async () => {
+            await Promise.all([
+              loadSupplierPayments(),
+              loadPayrollObligations(),
+              loadPublicObligations()
+            ]);
+          }}
+        />
       )}
 
       {(editingCustomerId || editingProjectId || editingPaymentId || editingCustomerInvoiceId || editingExpenseId || editingInventoryId || editingQuoteId || editingTaskId || editingDocumentId || editingSupplierId || editingSupplierInvoiceId || editingSupplierPaymentId) && (
