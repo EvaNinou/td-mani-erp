@@ -2833,7 +2833,11 @@ async function saveCustomer() {
       )}
 
       {activePage === 'mydata' && (
-        <MyDataStudio />
+        <MyDataStudio
+          supabase={supabase}
+          suppliers={suppliers}
+          inventory={inventory}
+        />
       )}
 
       {activePage === 'payments-center' && (
