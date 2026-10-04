@@ -67,7 +67,7 @@ function firstNode(parent, tagName) {
   return normal[0] || null;
 }
 
-export default function MyDataStudio() {
+export default function MyDataStudio({ supabase, suppliers = [], inventory = [] }) {
   const [dateFrom, setDateFrom] = useState(firstDayOfMonthInput());
   const [dateTo, setDateTo] = useState(todayInput());
   const [documents, setDocuments] = useState([]);
@@ -83,6 +83,71 @@ export default function MyDataStudio() {
   const [materialsError, setMaterialsError] = useState('');
   const [materialsRaw, setMaterialsRaw] = useState('');
   const [materials, setMaterials] = useState([]);
+  const [supplierMappings, setSupplierMappings] = useState([]);
+  const [mappingLoading, setMappingLoading] = useState(false);
+  const [mappingError, setMappingError] = useState('');
+
+  async function loadSupplierMappings(supplierVat, parsedMaterials) {
+    if (!supabase || !supplierVat || !Array.isArray(parsedMaterials)) return;
+
+    try {
+      setMappingLoading(true);
+      setMappingError('');
+
+      const supplier = suppliers.find(
+        (item) => String(item.afm || '').trim() === String(supplierVat).trim()
+      );
+
+      if (!supplier) {
+        setSupplierMappings([]);
+        setMappingError(`Ο προμηθευτής με ΑΦΜ ${supplierVat} δεν βρέθηκε στους Προμηθευτές.`);
+        return;
+      }
+
+      const { data, error: mappingsError } = await supabase
+        .from('inventory_supplier_mappings')
+        .select('*')
+        .eq('supplier_id', supplier.id)
+        .eq('is_deleted', false);
+
+      if (mappingsError) throw mappingsError;
+
+      const mappings = data || [];
+
+      setSupplierMappings(
+        parsedMaterials.map((line) => {
+          const mapping = mappings.find(
+            (item) =>
+              String(item.supplier_item_code || '').trim() ===
+              String(line.itemCode || '').trim()
+          );
+
+          return {
+            lineNumber: line.lineNumber,
+            supplierId: supplier.id,
+            mappingId: mapping?.id || null,
+            inventoryItemId: mapping?.inventory_item_id || '',
+          };
+        })
+      );
+    } catch (err) {
+      console.error('supplier mappings:', err);
+      setSupplierMappings([]);
+      setMappingError('Δεν ήταν δυνατή η ανάγνωση των αντιστοιχίσεων αποθήκης.');
+    } finally {
+      setMappingLoading(false);
+    }
+  }
+
+  function setMaterialInventoryItem(lineNumber, inventoryItemId) {
+    setSupplierMappings((current) =>
+      current.map((item) =>
+        item.lineNumber === lineNumber
+          ? { ...item, inventoryItemId }
+          : item
+      )
+    );
+  }
 
   async function loadExpenses() {
     try {
@@ -166,6 +231,8 @@ export default function MyDataStudio() {
       setMaterialsError('');
       setMaterialsRaw('');
       setMaterials([]);
+      setSupplierMappings([]);
+      setMappingError('');
       setSelectedDocument(null);
 
       const response = await fetch(
@@ -289,6 +356,13 @@ export default function MyDataStudio() {
 
       setMaterialsRaw(body);
       setMaterials(parsedMaterials);
+
+      const providerInvoice = firstNode(xml, 'invoice');
+      const providerIssuer = firstNode(providerInvoice, 'issuer');
+      const providerSupplierVat =
+        getText(providerIssuer, 'vatNumber') || selectedDocument.issuerVat;
+
+      await loadSupplierMappings(providerSupplierVat, parsedMaterials);
 
       if (parsedMaterials.length === 0) {
         setMaterialsError('Το αναλυτικό παραστατικό δεν περιέχει γραμμές υλικών.');
@@ -500,6 +574,12 @@ export default function MyDataStudio() {
                     Βρέθηκαν <b>{materials.length}</b> γραμμές υλικών.
                   </p>
 
+                  {mappingError && (
+                    <div className="line alert" style={{ marginBottom: 10 }}>
+                      <p><b>⚠️ {mappingError}</b></p>
+                    </div>
+                  )}
+
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                       <thead>
@@ -512,6 +592,7 @@ export default function MyDataStudio() {
                           <th>Τιμή μονάδας*</th>
                           <th>Καθαρή αξία</th>
                           <th>ΦΠΑ</th>
+                          <th>Αντιστοίχιση Αποθήκης</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -530,6 +611,31 @@ export default function MyDataStudio() {
                             <td>{money(line.unitPrice)}</td>
                             <td>{money(line.netValue)}</td>
                             <td>{money(line.vatAmount)}</td>
+                            <td style={{ minWidth: 260 }}>
+                              {mappingLoading ? (
+                                <small>Έλεγχος...</small>
+                              ) : (
+                                <select
+                                  value={
+                                    supplierMappings.find(
+                                      (item) => item.lineNumber === line.lineNumber
+                                    )?.inventoryItemId || ''
+                                  }
+                                  onChange={(e) =>
+                                    setMaterialInventoryItem(line.lineNumber, e.target.value)
+                                  }
+                                >
+                                  <option value="">➕ Νέο υλικό / Χωρίς αντιστοίχιση</option>
+                                  {inventory
+                                    .filter((item) => item?.is_deleted !== true)
+                                    .map((item) => (
+                                      <option key={item.id} value={item.id}>
+                                        {item.item_name}
+                                      </option>
+                                    ))}
+                                </select>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
