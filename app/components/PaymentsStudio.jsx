@@ -29,7 +29,7 @@ export default function PaymentsStudio({
   const [tab, setTab] = useState('payroll');
   const [saving, setSaving] = useState(false);
   const [supplierForm, setSupplierForm] = useState({ supplier_id: '', supplier_invoice_id: '', payment_date: today(), amount: '', method: 'Τράπεζα', notes: '' });
-  const [payrollForm, setPayrollForm] = useState({ employee_name: '', period: '', due_date: today(), amount: '', paid_amount: '0', notes: '' });
+  const [payrollForm, setPayrollForm] = useState({ employee_name: '', period: '', due_date: today(), bank_amount: '', cash_amount: '', bank_paid: false, cash_paid: false, notes: '' });
   const [publicForm, setPublicForm] = useState({ authority: 'e-ΕΦΚΑ', obligation_type: '', period: '', due_date: today(), amount: '', paid_amount: '0', notes: '' });
 
   const supplierPaid = (invoiceId) => supplierPayments
@@ -42,7 +42,9 @@ export default function PaymentsStudio({
     .map((invoice) => ({ ...invoice, balance: Math.max(num(invoice.total_amount) - invoice.paid, 0) }))
     .filter((invoice) => invoice.balance > 0.009), [supplierInvoices, supplierPayments]);
 
-  const payrollOpen = payrollObligations.filter((x) => !x.is_deleted).reduce((s, x) => s + Math.max(num(x.amount) - num(x.paid_amount), 0), 0);
+  const payrollTotal = (x) => num(x.bank_amount) + num(x.cash_amount);
+  const payrollPaid = (x) => (x.bank_paid ? num(x.bank_amount) : 0) + (x.cash_paid ? num(x.cash_amount) : 0);
+  const payrollOpen = payrollObligations.filter((x) => !x.is_deleted).reduce((s, x) => s + Math.max(payrollTotal(x) - payrollPaid(x), 0), 0);
   const supplierOpen = openSupplierInvoices.reduce((s, x) => s + x.balance, 0);
   const publicOpen = publicObligations.filter((x) => !x.is_deleted).reduce((s, x) => s + Math.max(num(x.amount) - num(x.paid_amount), 0), 0);
   const grandTotal = payrollOpen + supplierOpen + publicOpen;
@@ -67,14 +69,14 @@ export default function PaymentsStudio({
   }
 
   async function savePayroll() {
-    if (!payrollForm.employee_name || !payrollForm.amount || !payrollForm.due_date) return alert('Συμπλήρωσε εργαζόμενο/περιγραφή, ποσό και λήξη.');
+    if (!payrollForm.employee_name || (!payrollForm.bank_amount && !payrollForm.cash_amount) || !payrollForm.due_date) return alert('Συμπλήρωσε εργαζόμενο και ποσό τράπεζας ή/και μετρητών.');
     setSaving(true);
     const { error } = await supabase.from('payroll_obligations').insert([{
-      ...payrollForm, amount: num(payrollForm.amount), paid_amount: num(payrollForm.paid_amount)
+      ...payrollForm, bank_amount: num(payrollForm.bank_amount), cash_amount: num(payrollForm.cash_amount)
     }]);
     setSaving(false);
     if (error) return alert(error.message);
-    setPayrollForm({ employee_name: '', period: '', due_date: today(), amount: '', paid_amount: '0', notes: '' });
+    setPayrollForm({ employee_name: '', period: '', due_date: today(), bank_amount: '', cash_amount: '', bank_paid: false, cash_paid: false, notes: '' });
     await onRefresh?.();
   }
 
@@ -99,23 +101,24 @@ export default function PaymentsStudio({
   return (
     <section className="payments-studio">
       <style>{`
-        .payments-studio{max-width:1280px;margin:0 auto;padding:18px 16px 40px;color:#202124}
+        .payments-studio{max-width:1280px;margin:0 auto;padding:18px 16px 40px;color:#eee6da}
         .pay-head{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:18px}
-        .pay-head h1{margin:0;font-size:28px}.pay-head p{margin:5px 0 0;color:#6b7280}
-        .pay-total{background:#151515;color:#fff;border-radius:16px;padding:14px 20px;min-width:210px}
-        .pay-total small{display:block;color:#d5b36a}.pay-total b{font-size:25px}
+        .pay-head h1{margin:0;font-size:28px;color:#f6efe5}.pay-head p{margin:5px 0 0;color:#9f9991}
+        .pay-total{background:linear-gradient(145deg,#242426,#151516);color:#fff;border:1px solid #39352f;border-radius:16px;padding:14px 20px;min-width:210px;box-shadow:0 10px 25px #0004}
+        .pay-total small{display:block;color:#d7b46c}.pay-total b{font-size:25px}
         .pay-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
-        .pay-card{background:#fff;border:1px solid #e8e1d4;border-radius:16px;padding:16px;box-shadow:0 5px 18px #0000000b}
-        .pay-card span{color:#6b7280;font-size:13px}.pay-card b{display:block;font-size:22px;margin-top:5px}
-        .pay-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.pay-tabs button{border:1px solid #d9d2c5;background:#fff;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer}
-        .pay-tabs button.active{background:#151515;color:#d8b66b;border-color:#151515}
-        .pay-panel{background:#fff;border:1px solid #e8e1d4;border-radius:18px;padding:18px;box-shadow:0 5px 18px #0000000b}
-        .pay-panel h2{margin-top:0}.pay-form{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
-        .pay-form input,.pay-form select,.pay-form textarea{width:100%;box-sizing:border-box;border:1px solid #ddd4c5;border-radius:10px;padding:11px;background:#fff}
-        .pay-form textarea{grid-column:span 2;min-height:44px}.pay-primary{border:0;border-radius:10px;background:#b9954e;color:#fff;font-weight:800;padding:11px 16px;cursor:pointer}
-        .pay-table-wrap{overflow:auto}.pay-table{width:100%;border-collapse:collapse;min-width:760px}.pay-table th{background:#f3ead9;text-align:left;font-size:12px;padding:10px;border-bottom:1px solid #ddcfb6}.pay-table td{padding:11px 10px;border-bottom:1px solid #eee;font-size:14px}
-        .pay-status{display:inline-block;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}.pay-status.paid{background:#e5f5ea;color:#18733a}.pay-status.partial{background:#fff2cc;color:#8a6500}.pay-status.unpaid{background:#f3f4f6;color:#4b5563}.pay-status.overdue{background:#fde7e7;color:#b42318}
-        .pay-small-btn{border:1px solid #cdb783;background:#fff;border-radius:8px;padding:6px 9px;cursor:pointer}
+        .pay-card{background:linear-gradient(145deg,#222224,#181819);border:1px solid #34312c;border-radius:16px;padding:16px;box-shadow:0 8px 22px #0004}
+        .pay-card span{color:#bcb4a8;font-size:13px}.pay-card b{display:block;color:#fff;font-size:22px;margin-top:5px}
+        .pay-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.pay-tabs button{border:1px solid #514b42;background:#1b1b1d;color:#eee6da;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer}
+        .pay-tabs button.active{background:linear-gradient(135deg,#d2a650,#9d7228);color:#111;border-color:#d2a650}
+        .pay-panel{background:linear-gradient(145deg,#1d1d1f,#151516);border:1px solid #322f2a;border-radius:18px;padding:18px;box-shadow:0 10px 28px #0005}
+        .pay-panel h2{margin-top:0;color:#f2eadf}.pay-form{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+        .pay-form input,.pay-form select,.pay-form textarea{width:100%;box-sizing:border-box;border:1px solid #48423a;border-radius:10px;padding:11px;background:#222224;color:#eee6da;outline:none}
+        .pay-form input:focus,.pay-form select:focus,.pay-form textarea:focus{border-color:#cda24e}.pay-form textarea{grid-column:span 2;min-height:44px}.pay-form ::placeholder{color:#817b73}
+        .pay-primary{border:0;border-radius:10px;background:linear-gradient(135deg,#d2a650,#956a23);color:#111;font-weight:900;padding:11px 16px;cursor:pointer}
+        .pay-table-wrap{overflow:auto;border:1px solid #302d29;border-radius:12px}.pay-table{width:100%;border-collapse:collapse;min-width:800px}.pay-table th{background:#29251f;color:#e0c48b;text-align:left;font-size:12px;padding:10px;border-bottom:1px solid #3a352e}.pay-table td{padding:11px 10px;border-bottom:1px solid #2d2a27;color:#e9e1d6;font-size:14px}
+        .pay-status{display:inline-block;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}.pay-status.paid{background:#173a2a;color:#8fe0b1}.pay-status.partial{background:#49360e;color:#ffd66f}.pay-status.unpaid{background:#3b2924;color:#ffad9f}.pay-status.overdue{background:#54201e;color:#ffaaa4}
+        .pay-small-btn{border:1px solid #514b42;background:#222224;color:#eee6da;border-radius:8px;padding:6px 9px;cursor:pointer}.pay-small-btn.done{background:#20382c;color:#8fe0b1;border-color:#315744}
         @media(max-width:800px){.pay-head{display:block}.pay-total{margin-top:12px}.pay-cards,.pay-form{grid-template-columns:1fr}.pay-form textarea{grid-column:auto}.payments-studio{padding:12px 10px}.pay-head h1{font-size:24px}}
       `}</style>
 
@@ -139,17 +142,17 @@ export default function PaymentsStudio({
       {tab === 'payroll' && <div className="pay-panel">
         <h2>Μισθοδοσία</h2>
         <div className="pay-form">
-          <input placeholder="Εργαζόμενος / περιγραφή" value={payrollForm.employee_name} onChange={e=>setPayrollForm({...payrollForm,employee_name:e.target.value})}/>
+          <input placeholder="Εργαζόμενος" value={payrollForm.employee_name} onChange={e=>setPayrollForm({...payrollForm,employee_name:e.target.value})}/>
           <input placeholder="Περίοδος π.χ. 10/2026" value={payrollForm.period} onChange={e=>setPayrollForm({...payrollForm,period:e.target.value})}/>
           <input type="date" value={payrollForm.due_date} onChange={e=>setPayrollForm({...payrollForm,due_date:e.target.value})}/>
-          <input type="number" step="0.01" placeholder="Ποσό" value={payrollForm.amount} onChange={e=>setPayrollForm({...payrollForm,amount:e.target.value})}/>
-          <input type="number" step="0.01" placeholder="Ήδη πληρωμένο" value={payrollForm.paid_amount} onChange={e=>setPayrollForm({...payrollForm,paid_amount:e.target.value})}/>
-          <button className="pay-primary" disabled={saving} onClick={savePayroll}>Αποθήκευση</button>
+          <input type="number" step="0.01" placeholder="Τράπεζα (€)" value={payrollForm.bank_amount} onChange={e=>setPayrollForm({...payrollForm,bank_amount:e.target.value})}/>
+          <input type="number" step="0.01" placeholder="Μετρητά (€)" value={payrollForm.cash_amount} onChange={e=>setPayrollForm({...payrollForm,cash_amount:e.target.value})}/>
+          <button className="pay-primary" disabled={saving} onClick={savePayroll}>Καταχώρηση</button>
           <textarea placeholder="Σημειώσεις" value={payrollForm.notes} onChange={e=>setPayrollForm({...payrollForm,notes:e.target.value})}/>
         </div>
-        <div className="pay-table-wrap"><table className="pay-table"><thead><tr><th>Εργαζόμενος</th><th>Περίοδος</th><th>Λήξη</th><th>Ποσό</th><th>Πληρωμένο</th><th>Υπόλοιπο</th><th>Κατάσταση</th><th></th></tr></thead><tbody>
-          {payrollObligations.filter(x=>!x.is_deleted).map(x=><tr key={x.id}><td>{x.employee_name}</td><td>{x.period||'-'}</td><td>{greekDate(x.due_date)}</td><td>{euro(x.amount)}</td><td>{euro(x.paid_amount)}</td><td>{euro(Math.max(num(x.amount)-num(x.paid_amount),0))}</td><td><Status total={x.amount} paid={x.paid_amount} dueDate={x.due_date}/></td><td>{num(x.paid_amount)<num(x.amount)&&<button className="pay-small-btn" onClick={()=>markPaid('payroll_obligations',x)}>✓ Εξόφληση</button>}</td></tr>)}
-          {!payrollObligations.filter(x=>!x.is_deleted).length && <tr><td colSpan="8">Δεν υπάρχουν εγγραφές.</td></tr>}
+        <div className="pay-table-wrap"><table className="pay-table"><thead><tr><th>Εργαζόμενος</th><th>Περίοδος</th><th>Τράπεζα</th><th>Μετρητά</th><th>Σύνολο</th><th>Πληρωμένο</th><th>Υπόλοιπο</th><th>Κατάσταση</th><th>Ενέργειες</th></tr></thead><tbody>
+          {payrollObligations.filter(x=>!x.is_deleted).map(x=>{const total=payrollTotal(x);const paid=payrollPaid(x);return <tr key={x.id}><td>{x.employee_name}</td><td>{x.period||'-'}</td><td>{euro(x.bank_amount)}</td><td>{euro(x.cash_amount)}</td><td>{euro(total)}</td><td>{euro(paid)}</td><td>{euro(Math.max(total-paid,0))}</td><td><Status total={total} paid={paid} dueDate={x.due_date}/></td><td><button className={`pay-small-btn ${x.bank_paid?'done':''}`} onClick={async()=>{await supabase.from('payroll_obligations').update({bank_paid:!x.bank_paid}).eq('id',x.id);await onRefresh?.()}}>🏦 {x.bank_paid?'✓':'○'}</button> <button className={`pay-small-btn ${x.cash_paid?'done':''}`} onClick={async()=>{await supabase.from('payroll_obligations').update({cash_paid:!x.cash_paid}).eq('id',x.id);await onRefresh?.()}}>💶 {x.cash_paid?'✓':'○'}</button></td></tr>})}
+          {!payrollObligations.filter(x=>!x.is_deleted).length && <tr><td colSpan="9">Δεν υπάρχουν εγγραφές.</td></tr>}
         </tbody></table></div>
       </div>}
 
@@ -190,4 +193,3 @@ export default function PaymentsStudio({
     </section>
   );
 }
-
