@@ -24,17 +24,47 @@ function firstDayOfMonthInput() {
 }
 
 function money(value) {
-  const number = Number(value || 0);
   return new Intl.NumberFormat('el-GR', {
     style: 'currency',
     currency: 'EUR',
-  }).format(number);
+  }).format(Number(value || 0));
+}
+
+function parseXmlBody(body) {
+  const parser = new DOMParser();
+  let xml = parser.parseFromString(body, 'application/xml');
+
+  if (xml.querySelector('parsererror')) {
+    throw new Error('Η απάντηση της ΑΑΔΕ δεν μπόρεσε να διαβαστεί.');
+  }
+
+  if (xml.documentElement?.localName === 'string') {
+    const innerXml = xml.documentElement.textContent?.trim();
+    if (innerXml) {
+      xml = parser.parseFromString(innerXml, 'application/xml');
+      if (xml.querySelector('parsererror')) {
+        throw new Error('Το αναλυτικό XML της ΑΑΔΕ δεν μπόρεσε να διαβαστεί.');
+      }
+    }
+  }
+
+  return xml;
 }
 
 function getText(parent, tagName) {
   if (!parent) return '';
-  const element = parent.getElementsByTagName(tagName)[0];
-  return element?.textContent?.trim() || '';
+  const byNs = parent.getElementsByTagNameNS('*', tagName);
+  if (byNs?.length) return byNs[0]?.textContent?.trim() || '';
+  const normal = parent.getElementsByTagName(tagName);
+  return normal[0]?.textContent?.trim() || '';
+}
+
+function firstNode(parent, tagName) {
+  if (!parent) return null;
+  const byNs = parent.getElementsByTagNameNS('*', tagName);
+  if (byNs?.length) return byNs[0];
+  const normal = parent.getElementsByTagName(tagName);
+  return normal[0] || null;
 }
 
 export default function MyDataStudio() {
@@ -46,10 +76,15 @@ export default function MyDataStudio() {
   const [lastUpdate, setLastUpdate] = useState(null);
   const [search, setSearch] = useState('');
 
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
+
   async function loadExpenses() {
     try {
       setLoading(true);
       setError('');
+      setSelectedDocument(null);
 
       const from = toApiDate(dateFrom);
       const to = toApiDate(dateTo);
@@ -70,21 +105,7 @@ export default function MyDataStudio() {
         throw new Error(message);
       }
 
-      const parser = new DOMParser();
-      let xml = parser.parseFromString(body, 'application/xml');
-
-      if (xml.querySelector('parsererror')) {
-        throw new Error('Η απάντηση της ΑΑΔΕ δεν μπόρεσε να διαβαστεί.');
-      }
-
-      // Η ΑΑΔΕ μπορεί να επιστρέψει το πραγματικό XML μέσα σε <string>.
-      if (xml.documentElement?.localName === 'string') {
-        const innerXml = xml.documentElement.textContent?.trim();
-        if (innerXml) {
-          xml = parser.parseFromString(innerXml, 'application/xml');
-        }
-      }
-
+      const xml = parseXmlBody(body);
       const bookInfos = Array.from(xml.getElementsByTagNameNS('*', 'bookInfo'));
 
       const parsedDocuments = bookInfos.map((bookInfo, index) => {
@@ -93,12 +114,6 @@ export default function MyDataStudio() {
         const invType = getText(bookInfo, 'invType');
         const netValue = Number(getText(bookInfo, 'netValue') || 0);
         const vatAmount = Number(getText(bookInfo, 'vatAmount') || 0);
-        const withheldAmount = Number(getText(bookInfo, 'withheldAmount') || 0);
-        const otherTaxesAmount = Number(getText(bookInfo, 'otherTaxesAmount') || 0);
-        const stampDutyAmount = Number(getText(bookInfo, 'stampDutyAmount') || 0);
-        const feesAmount = Number(getText(bookInfo, 'feesAmount') || 0);
-        const deductionsAmount = Number(getText(bookInfo, 'deductionsAmount') || 0);
-        const thirdPartyAmount = Number(getText(bookInfo, 'thirdPartyAmount') || 0);
         const grossValue = Number(getText(bookInfo, 'grossValue') || 0);
         const count = getText(bookInfo, 'count');
         const minMark = getText(bookInfo, 'minMark');
@@ -111,12 +126,6 @@ export default function MyDataStudio() {
           invType,
           netValue,
           vatAmount,
-          withheldAmount,
-          otherTaxesAmount,
-          stampDutyAmount,
-          feesAmount,
-          deductionsAmount,
-          thirdPartyAmount,
           grossValue,
           count,
           minMark,
@@ -136,6 +145,85 @@ export default function MyDataStudio() {
       setError(err?.message || 'Παρουσιάστηκε άγνωστο σφάλμα.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadDocumentDetails(doc) {
+    const mark = doc.minMark || doc.maxMark;
+
+    if (!mark) {
+      setDetailsError('Δεν υπάρχει MARK για αυτό το παραστατικό.');
+      return;
+    }
+
+    try {
+      setDetailsLoading(true);
+      setDetailsError('');
+      setSelectedDocument(null);
+
+      const response = await fetch(
+        `/api/mydata/document?mark=${encodeURIComponent(mark)}`,
+        { method: 'GET', cache: 'no-store' }
+      );
+
+      const body = await response.text();
+
+      if (!response.ok) {
+        let message = 'Αποτυχία λήψης αναλυτικών στοιχείων.';
+        try {
+          const json = JSON.parse(body);
+          if (json?.error) message = json.error;
+        } catch {}
+        throw new Error(message);
+      }
+
+      const xml = parseXmlBody(body);
+      const invoice = firstNode(xml, 'invoice');
+
+      if (!invoice) {
+        throw new Error('Δεν βρέθηκε αναλυτικό παραστατικό για αυτό το MARK.');
+      }
+
+      const issuer = firstNode(invoice, 'issuer');
+      const counterpart = firstNode(invoice, 'counterpart');
+      const header = firstNode(invoice, 'invoiceHeader');
+      const summary = firstNode(invoice, 'invoiceSummary');
+
+      const details = Array.from(
+        invoice.getElementsByTagNameNS('*', 'invoiceDetails')
+      ).map((line, index) => ({
+        lineNumber: getText(line, 'lineNumber') || String(index + 1),
+        netValue: Number(getText(line, 'netValue') || 0),
+        vatCategory: getText(line, 'vatCategory'),
+        vatAmount: Number(getText(line, 'vatAmount') || 0),
+        incomeClassification: getText(line, 'incomeClassification'),
+        expensesClassification: getText(line, 'expensesClassification'),
+      }));
+
+      setSelectedDocument({
+        requestedMark: mark,
+        mark: getText(invoice, 'mark') || mark,
+        uid: getText(invoice, 'uid'),
+        issuerVat: getText(issuer, 'vatNumber'),
+        issuerCountry: getText(issuer, 'country'),
+        issuerBranch: getText(issuer, 'branch'),
+        counterpartVat: getText(counterpart, 'vatNumber'),
+        issueDate: getText(header, 'issueDate'),
+        invoiceType: getText(header, 'invoiceType'),
+        series: getText(header, 'series'),
+        aa: getText(header, 'aa'),
+        currency: getText(header, 'currency'),
+        netValue: Number(getText(summary, 'totalNetValue') || 0),
+        vatAmount: Number(getText(summary, 'totalVatAmount') || 0),
+        grossValue: Number(getText(summary, 'totalGrossValue') || 0),
+        downloadingInvoiceUrl: getText(invoice, 'downloadingInvoiceUrl'),
+        details,
+      });
+    } catch (err) {
+      console.error('myDATA document:', err);
+      setDetailsError(err?.message || 'Παρουσιάστηκε άγνωστο σφάλμα.');
+    } finally {
+      setDetailsLoading(false);
     }
   }
 
@@ -170,18 +258,16 @@ export default function MyDataStudio() {
 
   return (
     <section className="card mydata-section">
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
           <h2>🔄 myDATA — Έξοδα</h2>
           <p>Παραστατικά εξόδων που λαμβάνονται απευθείας από την ΑΑΔΕ.</p>
         </div>
-        <div>
-          <small>
-            {lastUpdate
-              ? `Τελευταία ενημέρωση: ${lastUpdate.toLocaleString('el-GR')}`
-              : 'Δεν έχει γίνει ενημέρωση ακόμη'}
-          </small>
-        </div>
+        <small>
+          {lastUpdate
+            ? `Τελευταία ενημέρωση: ${lastUpdate.toLocaleString('el-GR')}`
+            : 'Δεν έχει γίνει ενημέρωση ακόμη'}
+        </small>
       </div>
 
       <div className="grid">
@@ -189,12 +275,10 @@ export default function MyDataStudio() {
           Από
           <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
         </label>
-
         <label>
           Έως
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
         </label>
-
         <div>
           <button onClick={loadExpenses} disabled={loading}>
             {loading ? 'Γίνεται σύνδεση...' : '🔄 Λήψη από myDATA'}
@@ -202,11 +286,7 @@ export default function MyDataStudio() {
         </div>
       </div>
 
-      {error && (
-        <div className="line alert">
-          <p><b>⚠️ {error}</b></p>
-        </div>
-      )}
+      {error && <div className="line alert"><p><b>⚠️ {error}</b></p></div>}
 
       {!error && (
         <>
@@ -228,8 +308,8 @@ export default function MyDataStudio() {
           ) : visibleDocuments.length === 0 ? (
             <p>Δεν βρέθηκαν παραστατικά για αυτή την περίοδο.</p>
           ) : (
-            <div style={{ overflowX: 'auto', marginTop: '16px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
+            <div style={{ overflowX: 'auto', marginTop: 16 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1050 }}>
                 <thead>
                   <tr>
                     <th>Ημερομηνία</th>
@@ -240,6 +320,7 @@ export default function MyDataStudio() {
                     <th>ΦΠΑ</th>
                     <th>Σύνολο</th>
                     <th>MARK</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -253,6 +334,11 @@ export default function MyDataStudio() {
                       <td>{money(doc.vatAmount)}</td>
                       <td><b>{money(doc.grossValue)}</b></td>
                       <td><small>{doc.minMark || doc.maxMark || '-'}</small></td>
+                      <td>
+                        <button onClick={() => loadDocumentDetails(doc)} disabled={detailsLoading}>
+                          🔍 Προβολή
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -260,6 +346,80 @@ export default function MyDataStudio() {
             </div>
           )}
         </>
+      )}
+
+      {detailsError && (
+        <div className="line alert" style={{ marginTop: 16 }}>
+          <p><b>⚠️ {detailsError}</b></p>
+        </div>
+      )}
+
+      {detailsLoading && <p style={{ marginTop: 16 }}>Γίνεται λήψη του παραστατικού...</p>}
+
+      {selectedDocument && (
+        <div className="line" style={{ marginTop: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <h3>📄 Αναλυτικά στοιχεία παραστατικού</h3>
+              <p><b>{selectedDocument.series || '-'} {selectedDocument.aa || ''}</b></p>
+            </div>
+            <button onClick={() => setSelectedDocument(null)}>✕ Κλείσιμο</button>
+          </div>
+
+          <div className="grid">
+            <div className="line"><small>ΑΦΜ Εκδότη</small><p><b>{selectedDocument.issuerVat || '-'}</b></p></div>
+            <div className="line"><small>Ημερομηνία</small><p><b>{selectedDocument.issueDate || '-'}</b></p></div>
+            <div className="line"><small>Τύπος</small><p><b>{selectedDocument.invoiceType || '-'}</b></p></div>
+            <div className="line"><small>MARK</small><p><b>{selectedDocument.mark || '-'}</b></p></div>
+          </div>
+
+          <div className="grid">
+            <div className="line"><small>Καθαρή αξία</small><p><b>{money(selectedDocument.netValue)}</b></p></div>
+            <div className="line"><small>ΦΠΑ</small><p><b>{money(selectedDocument.vatAmount)}</b></p></div>
+            <div className="line"><small>Σύνολο</small><p><b>{money(selectedDocument.grossValue)}</b></p></div>
+          </div>
+
+          {selectedDocument.details.length > 0 && (
+            <>
+              <h3>Γραμμές myDATA</h3>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 650 }}>
+                  <thead>
+                    <tr>
+                      <th>Γραμμή</th>
+                      <th>Καθαρή αξία</th>
+                      <th>Κατηγορία ΦΠΑ</th>
+                      <th>ΦΠΑ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedDocument.details.map((line) => (
+                      <tr key={line.lineNumber}>
+                        <td>{line.lineNumber}</td>
+                        <td>{money(line.netValue)}</td>
+                        <td>{line.vatCategory || '-'}</td>
+                        <td>{money(line.vatAmount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {selectedDocument.downloadingInvoiceUrl && (
+            <div style={{ marginTop: 16 }}>
+              <a
+                href={selectedDocument.downloadingInvoiceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: 'inline-block' }}
+              >
+                📄 Άνοιγμα αρχικού παραστατικού
+              </a>
+            </div>
+          )}
+        </div>
       )}
     </section>
   );
