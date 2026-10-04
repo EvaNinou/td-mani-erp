@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const euro = (value) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(Number(value || 0));
@@ -28,9 +28,28 @@ export default function PaymentsStudio({
 }) {
   const [tab, setTab] = useState('payroll');
   const [saving, setSaving] = useState(false);
+  const [employees, setEmployees] = useState([]);
+  const [payrollMonth, setPayrollMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [employeeForm, setEmployeeForm] = useState({ id: null, full_name: '', iban: '', bank_amount: '', cash_amount: '', notes: '', is_active: true });
+  const [editingPayroll, setEditingPayroll] = useState(null);
   const [supplierForm, setSupplierForm] = useState({ supplier_id: '', supplier_invoice_id: '', payment_date: today(), amount: '', method: 'Τράπεζα', notes: '' });
   const [payrollForm, setPayrollForm] = useState({ employee_name: '', period: '', due_date: today(), bank_amount: '', cash_amount: '', bank_paid: false, cash_paid: false, notes: '' });
   const [publicForm, setPublicForm] = useState({ authority: 'e-ΕΦΚΑ', obligation_type: '', period: '', due_date: today(), amount: '', paid_amount: '0', notes: '' });
+
+  useEffect(() => { loadEmployees(); }, []);
+
+  async function loadEmployees() {
+    const { data, error } = await supabase.from('employees').select('*').order('full_name');
+    if (!error) setEmployees(data || []);
+  }
+
+  const periodLabel = (ym) => {
+    if (!ym) return '';
+    const [y,m] = ym.split('-');
+    return `${m}/${y}`;
+  };
+
+  const monthRows = payrollObligations.filter((x) => !x.is_deleted && x.period === periodLabel(payrollMonth));
 
   const supplierPaid = (invoiceId) => supplierPayments
     .filter((p) => !p.is_deleted && String(p.supplier_invoice_id || '') === String(invoiceId))
@@ -44,7 +63,7 @@ export default function PaymentsStudio({
 
   const payrollTotal = (x) => num(x.bank_amount) + num(x.cash_amount);
   const payrollPaid = (x) => (x.bank_paid ? num(x.bank_amount) : 0) + (x.cash_paid ? num(x.cash_amount) : 0);
-  const payrollOpen = payrollObligations.filter((x) => !x.is_deleted).reduce((s, x) => s + Math.max(payrollTotal(x) - payrollPaid(x), 0), 0);
+  const payrollOpen = monthRows.reduce((s, x) => s + Math.max(payrollTotal(x) - payrollPaid(x), 0), 0);
   const supplierOpen = openSupplierInvoices.reduce((s, x) => s + x.balance, 0);
   const publicOpen = publicObligations.filter((x) => !x.is_deleted).reduce((s, x) => s + Math.max(num(x.amount) - num(x.paid_amount), 0), 0);
   const grandTotal = payrollOpen + supplierOpen + publicOpen;
@@ -68,15 +87,80 @@ export default function PaymentsStudio({
     await onRefresh?.();
   }
 
-  async function savePayroll() {
-    if (!payrollForm.employee_name || (!payrollForm.bank_amount && !payrollForm.cash_amount) || !payrollForm.due_date) return alert('Συμπλήρωσε εργαζόμενο και ποσό τράπεζας ή/και μετρητών.');
+  async function saveEmployee() {
+    if (!employeeForm.full_name.trim()) return alert('Συμπλήρωσε ονοματεπώνυμο εργαζομένου.');
     setSaving(true);
-    const { error } = await supabase.from('payroll_obligations').insert([{
-      ...payrollForm, bank_amount: num(payrollForm.bank_amount), cash_amount: num(payrollForm.cash_amount)
-    }]);
+    const payload = {
+      full_name: employeeForm.full_name.trim(),
+      iban: employeeForm.iban.trim().replace(/\s+/g, '').toUpperCase(),
+      bank_amount: num(employeeForm.bank_amount),
+      cash_amount: num(employeeForm.cash_amount),
+      notes: employeeForm.notes,
+      is_active: employeeForm.is_active
+    };
+    const result = employeeForm.id
+      ? await supabase.from('employees').update(payload).eq('id', employeeForm.id)
+      : await supabase.from('employees').insert([payload]);
+    setSaving(false);
+    if (result.error) return alert(result.error.message);
+    setEmployeeForm({ id: null, full_name: '', iban: '', bank_amount: '', cash_amount: '', notes: '', is_active: true });
+    await loadEmployees();
+  }
+
+  function editEmployee(emp) {
+    setEmployeeForm({
+      id: emp.id, full_name: emp.full_name || '', iban: emp.iban || '',
+      bank_amount: String(emp.bank_amount ?? ''), cash_amount: String(emp.cash_amount ?? ''),
+      notes: emp.notes || '', is_active: emp.is_active !== false
+    });
+  }
+
+  async function createMonthPayroll() {
+    const period = periodLabel(payrollMonth);
+    const active = employees.filter(e => e.is_active !== false);
+    if (!active.length) return alert('Δεν υπάρχουν ενεργοί εργαζόμενοι.');
+    const existingIds = new Set(payrollObligations.filter(x => !x.is_deleted && x.period === period).map(x => String(x.employee_id || '')));
+    const rows = active.filter(e => !existingIds.has(String(e.id))).map(e => ({
+      employee_id: e.id,
+      employee_name: e.full_name,
+      period,
+      due_date: `${payrollMonth}-28`,
+      bank_amount: num(e.bank_amount),
+      cash_amount: num(e.cash_amount),
+      bank_paid: false,
+      cash_paid: false,
+      notes: e.notes || ''
+    }));
+    if (!rows.length) return alert('Η μισθοδοσία αυτού του μήνα έχει ήδη δημιουργηθεί.');
+    setSaving(true);
+    const { error } = await supabase.from('payroll_obligations').insert(rows);
     setSaving(false);
     if (error) return alert(error.message);
-    setPayrollForm({ employee_name: '', period: '', due_date: today(), bank_amount: '', cash_amount: '', bank_paid: false, cash_paid: false, notes: '' });
+    await onRefresh?.();
+  }
+
+  async function togglePayroll(row, field) {
+    const { error } = await supabase.from('payroll_obligations').update({ [field]: !row[field] }).eq('id', row.id);
+    if (error) return alert(error.message);
+    await onRefresh?.();
+  }
+
+  async function savePayrollEdit() {
+    if (!editingPayroll) return;
+    const { error } = await supabase.from('payroll_obligations').update({
+      bank_amount: num(editingPayroll.bank_amount),
+      cash_amount: num(editingPayroll.cash_amount),
+      notes: editingPayroll.notes || ''
+    }).eq('id', editingPayroll.id);
+    if (error) return alert(error.message);
+    setEditingPayroll(null);
+    await onRefresh?.();
+  }
+
+  async function deletePayroll(row) {
+    if (!confirm(`Να διαγραφεί η εγγραφή μισθοδοσίας του ${row.employee_name};`)) return;
+    const { error } = await supabase.from('payroll_obligations').update({ is_deleted: true }).eq('id', row.id);
+    if (error) return alert(error.message);
     await onRefresh?.();
   }
 
@@ -119,7 +203,11 @@ export default function PaymentsStudio({
         .pay-table-wrap{overflow:auto;border:1px solid #302d29;border-radius:12px}.pay-table{width:100%;border-collapse:collapse;min-width:800px}.pay-table th{background:#29251f;color:#e0c48b;text-align:left;font-size:12px;padding:10px;border-bottom:1px solid #3a352e}.pay-table td{padding:11px 10px;border-bottom:1px solid #2d2a27;color:#e9e1d6;font-size:14px}
         .pay-status{display:inline-block;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}.pay-status.paid{background:#173a2a;color:#8fe0b1}.pay-status.partial{background:#49360e;color:#ffd66f}.pay-status.unpaid{background:#3b2924;color:#ffad9f}.pay-status.overdue{background:#54201e;color:#ffaaa4}
         .pay-small-btn{border:1px solid #514b42;background:#222224;color:#eee6da;border-radius:8px;padding:6px 9px;cursor:pointer}.pay-small-btn.done{background:#20382c;color:#8fe0b1;border-color:#315744}
-        @media(max-width:800px){.pay-head{display:block}.pay-total{margin-top:12px}.pay-cards,.pay-form{grid-template-columns:1fr}.pay-form textarea{grid-column:auto}.payments-studio{padding:12px 10px}.pay-head h1{font-size:24px}}
+        .payroll-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}.payroll-toolbar-left{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.payroll-toolbar input{width:auto;min-width:165px}
+        .employee-box{border:1px solid #39342d;background:#171719;border-radius:14px;padding:14px;margin-bottom:18px}.employee-box h3{margin:0 0 12px;color:#e4c783}.employee-grid{display:grid;grid-template-columns:1.4fr 1.7fr 1fr 1fr auto;gap:9px}.employee-list{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.employee-chip{background:#242426;border:1px solid #454038;color:#eee5d8;border-radius:10px;padding:8px 10px;cursor:pointer}.iban{font-family:monospace;font-size:12px;color:#c8bfae;white-space:nowrap}
+        .edit-row{background:#211f1b}.edit-input{min-width:100px!important;padding:7px!important}
+
+        @media(max-width:800px){.employee-grid{grid-template-columns:1fr}.payroll-toolbar{align-items:stretch}.payroll-toolbar-left{display:grid;grid-template-columns:1fr}.payroll-toolbar input{width:100%}.pay-head{display:block}.pay-total{margin-top:12px}.pay-cards,.pay-form{grid-template-columns:1fr}.pay-form textarea{grid-column:auto}.payments-studio{padding:12px 10px}.pay-head h1{font-size:24px}}
       `}</style>
 
       <div className="pay-head">
@@ -141,18 +229,35 @@ export default function PaymentsStudio({
 
       {tab === 'payroll' && <div className="pay-panel">
         <h2>Μισθοδοσία</h2>
-        <div className="pay-form">
-          <input placeholder="Εργαζόμενος" value={payrollForm.employee_name} onChange={e=>setPayrollForm({...payrollForm,employee_name:e.target.value})}/>
-          <input placeholder="Περίοδος π.χ. 10/2026" value={payrollForm.period} onChange={e=>setPayrollForm({...payrollForm,period:e.target.value})}/>
-          <input type="date" value={payrollForm.due_date} onChange={e=>setPayrollForm({...payrollForm,due_date:e.target.value})}/>
-          <input type="number" step="0.01" placeholder="Τράπεζα (€)" value={payrollForm.bank_amount} onChange={e=>setPayrollForm({...payrollForm,bank_amount:e.target.value})}/>
-          <input type="number" step="0.01" placeholder="Μετρητά (€)" value={payrollForm.cash_amount} onChange={e=>setPayrollForm({...payrollForm,cash_amount:e.target.value})}/>
-          <button className="pay-primary" disabled={saving} onClick={savePayroll}>Καταχώρηση</button>
-          <textarea placeholder="Σημειώσεις" value={payrollForm.notes} onChange={e=>setPayrollForm({...payrollForm,notes:e.target.value})}/>
+
+        <div className="employee-box">
+          <h3>👷 Καρτέλες εργαζομένων</h3>
+          <div className="employee-grid">
+            <input placeholder="Ονοματεπώνυμο" value={employeeForm.full_name} onChange={e=>setEmployeeForm({...employeeForm,full_name:e.target.value})}/>
+            <input placeholder="IBAN" value={employeeForm.iban} onChange={e=>setEmployeeForm({...employeeForm,iban:e.target.value})}/>
+            <input type="number" step="0.01" placeholder="Τράπεζα (€)" value={employeeForm.bank_amount} onChange={e=>setEmployeeForm({...employeeForm,bank_amount:e.target.value})}/>
+            <input type="number" step="0.01" placeholder="Μετρητά (€)" value={employeeForm.cash_amount} onChange={e=>setEmployeeForm({...employeeForm,cash_amount:e.target.value})}/>
+            <button className="pay-primary" disabled={saving} onClick={saveEmployee}>{employeeForm.id?'Αποθήκευση':'Νέος εργαζόμενος'}</button>
+          </div>
+          <div className="employee-list">
+            {employees.map(emp=><button key={emp.id} className="employee-chip" onClick={()=>editEmployee(emp)}>✏️ {emp.full_name} {emp.iban && <span className="iban"> · {emp.iban}</span>}</button>)}
+            {!employees.length && <span style={{color:'#8f8981'}}>Δεν υπάρχουν ακόμη εργαζόμενοι.</span>}
+          </div>
         </div>
-        <div className="pay-table-wrap"><table className="pay-table"><thead><tr><th>Εργαζόμενος</th><th>Περίοδος</th><th>Τράπεζα</th><th>Μετρητά</th><th>Σύνολο</th><th>Πληρωμένο</th><th>Υπόλοιπο</th><th>Κατάσταση</th><th>Ενέργειες</th></tr></thead><tbody>
-          {payrollObligations.filter(x=>!x.is_deleted).map(x=>{const total=payrollTotal(x);const paid=payrollPaid(x);return <tr key={x.id}><td>{x.employee_name}</td><td>{x.period||'-'}</td><td>{euro(x.bank_amount)}</td><td>{euro(x.cash_amount)}</td><td>{euro(total)}</td><td>{euro(paid)}</td><td>{euro(Math.max(total-paid,0))}</td><td><Status total={total} paid={paid} dueDate={x.due_date}/></td><td><button className={`pay-small-btn ${x.bank_paid?'done':''}`} onClick={async()=>{await supabase.from('payroll_obligations').update({bank_paid:!x.bank_paid}).eq('id',x.id);await onRefresh?.()}}>🏦 {x.bank_paid?'✓':'○'}</button> <button className={`pay-small-btn ${x.cash_paid?'done':''}`} onClick={async()=>{await supabase.from('payroll_obligations').update({cash_paid:!x.cash_paid}).eq('id',x.id);await onRefresh?.()}}>💶 {x.cash_paid?'✓':'○'}</button></td></tr>})}
-          {!payrollObligations.filter(x=>!x.is_deleted).length && <tr><td colSpan="9">Δεν υπάρχουν εγγραφές.</td></tr>}
+
+        <div className="payroll-toolbar">
+          <div className="payroll-toolbar-left">
+            <strong>📅 Μήνας μισθοδοσίας</strong>
+            <input type="month" value={payrollMonth} onChange={e=>setPayrollMonth(e.target.value)}/>
+          </div>
+          <button className="pay-primary" disabled={saving} onClick={createMonthPayroll}>＋ Δημιουργία μισθοδοσίας μήνα</button>
+        </div>
+
+        <div className="pay-table-wrap"><table className="pay-table"><thead><tr><th>Εργαζόμενος</th><th>IBAN</th><th>Τράπεζα</th><th>Μετρητά</th><th>Σύνολο</th><th>Πληρωμένο</th><th>Υπόλοιπο</th><th>Κατάσταση</th><th>Ενέργειες</th></tr></thead><tbody>
+          {monthRows.map(x=>{const total=payrollTotal(x),paid=payrollPaid(x),emp=employees.find(e=>String(e.id)===String(x.employee_id));return editingPayroll?.id===x.id ?
+            <tr key={x.id} className="edit-row"><td>{x.employee_name}</td><td className="iban">{emp?.iban||'-'}</td><td><input className="edit-input" type="number" value={editingPayroll.bank_amount} onChange={e=>setEditingPayroll({...editingPayroll,bank_amount:e.target.value})}/></td><td><input className="edit-input" type="number" value={editingPayroll.cash_amount} onChange={e=>setEditingPayroll({...editingPayroll,cash_amount:e.target.value})}/></td><td>{euro(num(editingPayroll.bank_amount)+num(editingPayroll.cash_amount))}</td><td colSpan="3"><input className="edit-input" placeholder="Σημειώσεις" value={editingPayroll.notes||''} onChange={e=>setEditingPayroll({...editingPayroll,notes:e.target.value})}/></td><td><button className="pay-small-btn done" onClick={savePayrollEdit}>✓</button> <button className="pay-small-btn" onClick={()=>setEditingPayroll(null)}>✕</button></td></tr>
+            : <tr key={x.id}><td>{x.employee_name}</td><td className="iban">{emp?.iban||'-'}</td><td>{euro(x.bank_amount)}</td><td>{euro(x.cash_amount)}</td><td>{euro(total)}</td><td>{euro(paid)}</td><td>{euro(Math.max(total-paid,0))}</td><td><Status total={total} paid={paid} dueDate={x.due_date}/></td><td><button title="Πληρωμή τράπεζας" className={`pay-small-btn ${x.bank_paid?'done':''}`} onClick={()=>togglePayroll(x,'bank_paid')}>🏦 {x.bank_paid?'✓':'○'}</button> <button title="Πληρωμή μετρητών" className={`pay-small-btn ${x.cash_paid?'done':''}`} onClick={()=>togglePayroll(x,'cash_paid')}>💶 {x.cash_paid?'✓':'○'}</button> <button title="Επεξεργασία" className="pay-small-btn" onClick={()=>setEditingPayroll({...x})}>✏️</button> <button title="Διαγραφή" className="pay-small-btn" onClick={()=>deletePayroll(x)}>🗑️</button></td></tr>})}
+          {!monthRows.length && <tr><td colSpan="9">Δεν υπάρχει μισθοδοσία για {periodLabel(payrollMonth)}. Πάτησε «Δημιουργία μισθοδοσίας μήνα».</td></tr>}
         </tbody></table></div>
       </div>}
 
