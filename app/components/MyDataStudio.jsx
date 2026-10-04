@@ -79,6 +79,9 @@ export default function MyDataStudio() {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState('');
+  const [materialsLoading, setMaterialsLoading] = useState(false);
+  const [materialsError, setMaterialsError] = useState('');
+  const [materialsRaw, setMaterialsRaw] = useState('');
 
   async function loadExpenses() {
     try {
@@ -159,6 +162,8 @@ export default function MyDataStudio() {
     try {
       setDetailsLoading(true);
       setDetailsError('');
+      setMaterialsError('');
+      setMaterialsRaw('');
       setSelectedDocument(null);
 
       const response = await fetch(
@@ -224,6 +229,45 @@ export default function MyDataStudio() {
       setDetailsError(err?.message || 'Παρουσιάστηκε άγνωστο σφάλμα.');
     } finally {
       setDetailsLoading(false);
+    }
+  }
+
+  async function loadInvoiceMaterials() {
+    if (!selectedDocument?.downloadingInvoiceUrl) {
+      setMaterialsError('Δεν υπάρχει σύνδεσμος αναλυτικού παραστατικού.');
+      return;
+    }
+
+    try {
+      setMaterialsLoading(true);
+      setMaterialsError('');
+      setMaterialsRaw('');
+
+      const response = await fetch('/api/mydata/invoice-lines', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          downloadingInvoiceUrl: selectedDocument.downloadingInvoiceUrl,
+        }),
+      });
+
+      const body = await response.text();
+
+      if (!response.ok) {
+        let message = 'Δεν ήταν δυνατή η ανάγνωση των υλικών.';
+        try {
+          const json = JSON.parse(body);
+          if (json?.error) message = json.error;
+        } catch {}
+        throw new Error(message);
+      }
+
+      setMaterialsRaw(body);
+    } catch (err) {
+      console.error('invoice materials:', err);
+      setMaterialsError(err?.message || 'Αποτυχία ανάγνωσης υλικών.');
+    } finally {
+      setMaterialsLoading(false);
     }
   }
 
@@ -405,6 +449,38 @@ export default function MyDataStudio() {
                 </table>
               </div>
             </>
+          )}
+
+          {selectedDocument.downloadingInvoiceUrl && (
+            <div style={{ marginTop: 18 }}>
+              <button onClick={loadInvoiceMaterials} disabled={materialsLoading}>
+                {materialsLoading ? '📦 Ανάγνωση υλικών...' : '📦 Ανάγνωση Υλικών'}
+              </button>
+
+              {materialsError && (
+                <div className="line alert" style={{ marginTop: 12 }}>
+                  <p><b>⚠️ {materialsError}</b></p>
+                </div>
+              )}
+
+              {materialsRaw && (
+                <div className="line" style={{ marginTop: 12 }}>
+                  <h3>📦 Απάντηση αναλυτικού παραστατικού</h3>
+                  <p style={{ marginBottom: 8 }}>
+                    Η σύνδεση πέτυχε. Στο επόμενο βήμα θα μετατρέψουμε αυτά τα δεδομένα σε κανονικό πίνακα υλικών.
+                  </p>
+                  <pre style={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    maxHeight: 420,
+                    overflow: 'auto',
+                    fontSize: 12,
+                  }}>
+                    {materialsRaw}
+                  </pre>
+                </div>
+              )}
+            </div>
           )}
 
           {selectedDocument.downloadingInvoiceUrl && (
