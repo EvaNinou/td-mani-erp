@@ -35,8 +35,12 @@ export default function PaymentsStudio({
   const [supplierForm, setSupplierForm] = useState({ supplier_id: '', supplier_invoice_id: '', payment_date: today(), amount: '', method: 'Τράπεζα', notes: '' });
   const [payrollForm, setPayrollForm] = useState({ employee_name: '', period: '', due_date: today(), bank_amount: '', cash_amount: '', bank_paid: false, cash_paid: false, notes: '' });
   const [publicForm, setPublicForm] = useState({ authority: 'e-ΕΦΚΑ', obligation_type: '', period: '', due_date: today(), amount: '', paid_amount: '0', notes: '' });
+  const [publicTemplates, setPublicTemplates] = useState([]);
+  const [publicMonth, setPublicMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [templateForm, setTemplateForm] = useState({ id:null, authority:'e-ΕΦΚΑ', obligation_type:'', monthly_amount:'', debt_id:'', total_balance:'', due_day:'28', notes:'', is_active:true });
+  const [editingPublic, setEditingPublic] = useState(null);
 
-  useEffect(() => { loadEmployees(); }, []);
+  useEffect(() => { loadEmployees(); loadPublicTemplates(); }, []);
 
   async function loadEmployees() {
     const { data, error } = await supabase.from('employees').select('*').order('full_name');
@@ -200,6 +204,35 @@ export default function PaymentsStudio({
     const w=window.open('','_blank','width=1300,height=900'); if(!w)return alert('Επίτρεψε τα αναδυόμενα παράθυρα για να ανοίξει η αναφορά.'); w.document.open();w.document.write(html);w.document.close();
   }
 
+
+  async function loadPublicTemplates() {
+    const { data, error } = await supabase.from('public_obligation_templates').select('*').order('obligation_type');
+    if (!error) setPublicTemplates(data || []);
+  }
+
+  const publicMonthRows = publicObligations.filter(x => !x.is_deleted && x.period === periodLabel(publicMonth));
+
+  async function savePublicTemplate() {
+    if (!templateForm.obligation_type.trim() || !templateForm.monthly_amount) return alert('Συμπλήρωσε υποχρέωση και μηνιαίο ποσό.');
+    const payload={ authority:templateForm.authority, obligation_type:templateForm.obligation_type.trim(), monthly_amount:num(templateForm.monthly_amount), debt_id:templateForm.debt_id||'', total_balance:templateForm.total_balance===''?null:num(templateForm.total_balance), due_day:Math.min(31,Math.max(1,Number(templateForm.due_day||28))), notes:templateForm.notes||'', is_active:templateForm.is_active!==false };
+    setSaving(true);
+    const r=templateForm.id ? await supabase.from('public_obligation_templates').update(payload).eq('id',templateForm.id) : await supabase.from('public_obligation_templates').insert([payload]);
+    setSaving(false); if(r.error)return alert(r.error.message);
+    setTemplateForm({ id:null, authority:'e-ΕΦΚΑ', obligation_type:'', monthly_amount:'', debt_id:'', total_balance:'', due_day:'28', notes:'', is_active:true }); await loadPublicTemplates();
+  }
+  function editPublicTemplate(x){setTemplateForm({id:x.id,authority:x.authority||'e-ΕΦΚΑ',obligation_type:x.obligation_type||'',monthly_amount:String(x.monthly_amount??''),debt_id:x.debt_id||'',total_balance:x.total_balance==null?'':String(x.total_balance),due_day:String(x.due_day||28),notes:x.notes||'',is_active:x.is_active!==false});}
+  async function deletePublicTemplate(x){if(!confirm(`Να διαγραφεί η πάγια υποχρέωση «${x.obligation_type}»; Οι παλιοί μήνες θα παραμείνουν.`))return; const {error}=await supabase.from('public_obligation_templates').update({is_active:false}).eq('id',x.id); if(error)return alert(error.message); await loadPublicTemplates();}
+  async function createPublicMonth(){
+    const active=publicTemplates.filter(x=>x.is_active!==false); if(!active.length)return alert('Δεν υπάρχουν ενεργές πάγιες υποχρεώσεις.');
+    const period=periodLabel(publicMonth); const existing=new Set(publicObligations.filter(x=>!x.is_deleted&&x.period===period).map(x=>String(x.template_id||'')));
+    const [y,m]=publicMonth.split('-').map(Number);
+    const rows=active.filter(x=>!existing.has(String(x.id))).map(x=>{const day=Math.min(Number(x.due_day||28),new Date(y,m,0).getDate()); return {template_id:x.id,authority:x.authority,obligation_type:x.obligation_type,period,due_date:`${publicMonth}-${String(day).padStart(2,'0')}`,amount:num(x.monthly_amount),paid_amount:0,notes:x.debt_id||x.notes||'',debt_id:x.debt_id||'',opening_balance:x.total_balance==null?null:num(x.total_balance)};});
+    if(!rows.length)return alert('Οι πάγιες υποχρεώσεις αυτού του μήνα έχουν ήδη δημιουργηθεί.'); setSaving(true); const {error}=await supabase.from('public_obligations').insert(rows); setSaving(false); if(error)return alert(error.message); await onRefresh?.();
+  }
+  async function savePublicEdit(){if(!editingPublic)return; const {error}=await supabase.from('public_obligations').update({authority:editingPublic.authority,obligation_type:editingPublic.obligation_type,due_date:editingPublic.due_date,amount:num(editingPublic.amount),paid_amount:num(editingPublic.paid_amount),debt_id:editingPublic.debt_id||'',notes:editingPublic.notes||''}).eq('id',editingPublic.id); if(error)return alert(error.message); setEditingPublic(null); await onRefresh?.();}
+  async function deletePublic(x){if(!confirm(`Να διαγραφεί η υποχρέωση «${x.obligation_type}» από τον μήνα ${x.period||''};`))return; const {error}=await supabase.from('public_obligations').update({is_deleted:true}).eq('id',x.id); if(error)return alert(error.message); await onRefresh?.();}
+  async function markPublicPaid(x){const payment=num(x.amount); const {error}=await supabase.from('public_obligations').update({paid_amount:payment,paid_date:today()}).eq('id',x.id); if(error)return alert(error.message); if(x.template_id && x.opening_balance!=null){const next=Math.max(num(x.opening_balance)-payment,0); await supabase.from('public_obligation_templates').update({total_balance:next}).eq('id',x.template_id); await loadPublicTemplates();} await onRefresh?.();}
+
   async function savePublic() {
     if (!publicForm.authority || !publicForm.obligation_type || !publicForm.amount || !publicForm.due_date) return alert('Συμπλήρωσε φορέα, υποχρέωση, ποσό και λήξη.');
     setSaving(true);
@@ -316,20 +349,25 @@ export default function PaymentsStudio({
 
       {tab === 'public' && <div className="pay-panel">
         <h2>Δημόσιο</h2>
-        <div className="pay-form">
-          <select value={publicForm.authority} onChange={e=>setPublicForm({...publicForm,authority:e.target.value})}><option>e-ΕΦΚΑ</option><option>ΑΑΔΕ</option><option>ΤΕΚΑ</option><option>Δήμος</option><option>Άλλο</option></select>
-          <input placeholder="Υποχρέωση π.χ. ΦΠΑ / ΦΜΥ / ΕΦΚΑ" value={publicForm.obligation_type} onChange={e=>setPublicForm({...publicForm,obligation_type:e.target.value})}/>
-          <input placeholder="Περίοδος" value={publicForm.period} onChange={e=>setPublicForm({...publicForm,period:e.target.value})}/>
-          <input type="date" value={publicForm.due_date} onChange={e=>setPublicForm({...publicForm,due_date:e.target.value})}/>
-          <input type="number" step="0.01" placeholder="Ποσό" value={publicForm.amount} onChange={e=>setPublicForm({...publicForm,amount:e.target.value})}/>
-          <input type="number" step="0.01" placeholder="Ήδη πληρωμένο" value={publicForm.paid_amount} onChange={e=>setPublicForm({...publicForm,paid_amount:e.target.value})}/>
-          <button className="pay-primary" disabled={saving} onClick={savePublic}>Αποθήκευση</button>
-          <textarea placeholder="Σημειώσεις / Ταυτότητα οφειλής" value={publicForm.notes} onChange={e=>setPublicForm({...publicForm,notes:e.target.value})}/>
+        <div className="employee-box"><h3>🏛️ Πάγιες υποχρεώσεις</h3>
+          <div className="pay-form">
+            <select value={templateForm.authority} onChange={e=>setTemplateForm({...templateForm,authority:e.target.value})}><option>e-ΕΦΚΑ</option><option>ΑΑΔΕ</option><option>ΤΕΚΑ</option><option>Δήμος</option><option>Άλλο</option></select>
+            <input placeholder="Υποχρέωση π.χ. ΕΦΚΑ MANI" value={templateForm.obligation_type} onChange={e=>setTemplateForm({...templateForm,obligation_type:e.target.value})}/>
+            <input type="number" step="0.01" placeholder="Μηνιαίο ποσό" value={templateForm.monthly_amount} onChange={e=>setTemplateForm({...templateForm,monthly_amount:e.target.value})}/>
+            <input placeholder="Ταυτότητα οφειλής / RF" value={templateForm.debt_id} onChange={e=>setTemplateForm({...templateForm,debt_id:e.target.value})}/>
+            <input type="number" step="0.01" placeholder="Συνολικό υπόλοιπο ρύθμισης (αν υπάρχει)" value={templateForm.total_balance} onChange={e=>setTemplateForm({...templateForm,total_balance:e.target.value})}/>
+            <input type="number" min="1" max="31" placeholder="Ημέρα λήξης" value={templateForm.due_day} onChange={e=>setTemplateForm({...templateForm,due_day:e.target.value})}/>
+            <textarea placeholder="Σημειώσεις" value={templateForm.notes} onChange={e=>setTemplateForm({...templateForm,notes:e.target.value})}/>
+            <button className="pay-primary" disabled={saving} onClick={savePublicTemplate}>{templateForm.id?'Αποθήκευση αλλαγών':'＋ Νέα πάγια υποχρέωση'}</button>
+          </div>
+          <div className="employee-list">{publicTemplates.filter(x=>x.is_active!==false).map(x=><button key={x.id} className="employee-chip" onClick={()=>editPublicTemplate(x)}>✏️ {x.obligation_type} · {euro(x.monthly_amount)} {x.total_balance!=null?` · Υπόλ. ${euro(x.total_balance)}`:''}</button>)}</div>
         </div>
-        <div className="pay-table-wrap"><table className="pay-table"><thead><tr><th>Φορέας</th><th>Υποχρέωση</th><th>Περίοδος</th><th>Λήξη</th><th>Ποσό</th><th>Υπόλοιπο</th><th>Κατάσταση</th><th></th></tr></thead><tbody>
-          {publicObligations.filter(x=>!x.is_deleted).map(x=><tr key={x.id}><td>{x.authority}</td><td>{x.obligation_type}</td><td>{x.period||'-'}</td><td>{greekDate(x.due_date)}</td><td>{euro(x.amount)}</td><td>{euro(Math.max(num(x.amount)-num(x.paid_amount),0))}</td><td><Status total={x.amount} paid={x.paid_amount} dueDate={x.due_date}/></td><td>{num(x.paid_amount)<num(x.amount)&&<button className="pay-small-btn" onClick={()=>markPaid('public_obligations',x)}>✓ Εξόφληση</button>}</td></tr>)}
-          {!publicObligations.filter(x=>!x.is_deleted).length && <tr><td colSpan="8">Δεν υπάρχουν εγγραφές.</td></tr>}
+        <div className="payroll-toolbar"><div className="payroll-toolbar-left"><strong>📅 Μήνας υποχρεώσεων</strong><input type="month" value={publicMonth} onChange={e=>setPublicMonth(e.target.value)}/></div><button className="pay-primary" disabled={saving} onClick={createPublicMonth}>＋ Δημιουργία υποχρεώσεων μήνα</button></div>
+        <div className="pay-table-wrap"><table className="pay-table"><thead><tr><th>Φορέας</th><th>Υποχρέωση</th><th>Ταυτότητα</th><th>Λήξη</th><th>Δόση</th><th>Πληρωμένο</th><th>Υπόλοιπο μήνα</th><th>Υπόλοιπο ρύθμισης</th><th>Κατάσταση</th><th>Ενέργειες</th></tr></thead><tbody>
+          {publicMonthRows.map(x=>editingPublic?.id===x.id ? <tr key={x.id} className="edit-row"><td><input className="edit-input" value={editingPublic.authority||''} onChange={e=>setEditingPublic({...editingPublic,authority:e.target.value})}/></td><td><input className="edit-input" value={editingPublic.obligation_type||''} onChange={e=>setEditingPublic({...editingPublic,obligation_type:e.target.value})}/></td><td><input className="edit-input" value={editingPublic.debt_id||''} onChange={e=>setEditingPublic({...editingPublic,debt_id:e.target.value})}/></td><td><input className="edit-input" type="date" value={editingPublic.due_date||''} onChange={e=>setEditingPublic({...editingPublic,due_date:e.target.value})}/></td><td><input className="edit-input" type="number" value={editingPublic.amount} onChange={e=>setEditingPublic({...editingPublic,amount:e.target.value})}/></td><td><input className="edit-input" type="number" value={editingPublic.paid_amount} onChange={e=>setEditingPublic({...editingPublic,paid_amount:e.target.value})}/></td><td>-</td><td>-</td><td>-</td><td><button className="pay-small-btn done" onClick={savePublicEdit}>✓</button> <button className="pay-small-btn" onClick={()=>setEditingPublic(null)}>✕</button></td></tr> : <tr key={x.id}><td>{x.authority}</td><td>{x.obligation_type}</td><td className="iban">{x.debt_id||x.notes||'-'}</td><td>{greekDate(x.due_date)}</td><td>{euro(x.amount)}</td><td>{euro(x.paid_amount)}</td><td>{euro(Math.max(num(x.amount)-num(x.paid_amount),0))}</td><td>{x.opening_balance!=null?euro(Math.max(num(x.opening_balance)-num(x.paid_amount),0)):'-'}</td><td><Status total={x.amount} paid={x.paid_amount} dueDate={x.due_date}/></td><td>{num(x.paid_amount)<num(x.amount)&&<button className="pay-small-btn done" onClick={()=>markPublicPaid(x)}>✓ Πληρωμή</button>} <button className="pay-small-btn" onClick={()=>setEditingPublic({...x})}>✏️</button> <button className="pay-small-btn" onClick={()=>deletePublic(x)}>🗑️</button></td></tr>)}
+          {!publicMonthRows.length&&<tr><td colSpan="10">Δεν υπάρχουν υποχρεώσεις για {periodLabel(publicMonth)}. Πάτησε «Δημιουργία υποχρεώσεων μήνα».</td></tr>}
         </tbody></table></div>
+        <div style={{marginTop:16}}><details><summary style={{cursor:'pointer',color:'#d7b46c',fontWeight:800}}>＋ Έκτακτη υποχρέωση</summary><div className="pay-form" style={{marginTop:12}}><select value={publicForm.authority} onChange={e=>setPublicForm({...publicForm,authority:e.target.value})}><option>e-ΕΦΚΑ</option><option>ΑΑΔΕ</option><option>ΤΕΚΑ</option><option>Δήμος</option><option>Άλλο</option></select><input placeholder="Υποχρέωση π.χ. ΦΠΑ / ΦΜΥ" value={publicForm.obligation_type} onChange={e=>setPublicForm({...publicForm,obligation_type:e.target.value})}/><input placeholder="Περίοδος" value={publicForm.period} onChange={e=>setPublicForm({...publicForm,period:e.target.value})}/><input type="date" value={publicForm.due_date} onChange={e=>setPublicForm({...publicForm,due_date:e.target.value})}/><input type="number" step="0.01" placeholder="Ποσό" value={publicForm.amount} onChange={e=>setPublicForm({...publicForm,amount:e.target.value})}/><textarea placeholder="Σημειώσεις / Ταυτότητα οφειλής" value={publicForm.notes} onChange={e=>setPublicForm({...publicForm,notes:e.target.value})}/><button className="pay-primary" onClick={savePublic}>Αποθήκευση έκτακτης</button></div></details></div>
       </div>}
     </section>
   );
