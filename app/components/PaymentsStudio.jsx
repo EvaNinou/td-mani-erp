@@ -166,50 +166,38 @@ export default function PaymentsStudio({
 
   function printPayrollReport() {
     const period = periodLabel(payrollMonth);
-    const rows = monthRows.map(x => {
+    const rows = monthRows.map((x, i) => {
       const emp = employees.find(e => String(e.id) === String(x.employee_id));
-      const bank = num(x.bank_amount);
-      const cash = num(x.cash_amount);
-      const paidBank = x.bank_paid ? bank : 0;
-      const paidCash = x.cash_paid ? cash : 0;
-      const bankBalance = x.bank_paid ? 0 : bank;
-      const cashBalance = x.cash_paid ? 0 : cash;
-      return { ...x, iban: emp?.iban || '-', bank, cash, paidBank, paidCash, bankBalance, cashBalance };
+      const bank = num(x.bank_amount), cash = num(x.cash_amount);
+      const paidBank = x.bank_paid ? bank : 0, paidCash = x.cash_paid ? cash : 0;
+      return { ...x, no:i+1, iban:emp?.iban||'-', bank, cash, paidBank, paidCash,
+        bankBalance:x.bank_paid?0:bank, cashBalance:x.cash_paid?0:cash };
     });
-    const totalBank = rows.reduce((a,x)=>a+x.bank,0);
-    const totalCash = rows.reduce((a,x)=>a+x.cash,0);
-    const paidBank = rows.reduce((a,x)=>a+x.paidBank,0);
-    const paidCash = rows.reduce((a,x)=>a+x.paidCash,0);
-    const openBank = rows.reduce((a,x)=>a+x.bankBalance,0);
-    const openCash = rows.reduce((a,x)=>a+x.cashBalance,0);
-
-    const esc = (v='') => String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Μισθοδοτική Κατάσταση ${esc(period)}</title>
-      <style>
-        @page{size:A4 landscape;margin:12mm}
-        *{box-sizing:border-box} body{font-family:Arial,sans-serif;color:#171717;margin:0}
-        .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #b88a32;padding-bottom:10px;margin-bottom:14px}
-        h1{margin:0;font-size:25px}.brand{font-weight:800;letter-spacing:1px}.period{font-size:14px}
-        .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 16px}
-        .card{border:1px solid #d7c39c;border-radius:8px;padding:10px;background:#faf7f0}.card b{display:block;font-size:17px;margin-top:4px}
-        table{width:100%;border-collapse:collapse;font-size:10px}th{background:#27231d;color:#fff;padding:8px 6px;text-align:left}
-        td{border-bottom:1px solid #ddd;padding:7px 6px;vertical-align:top}.yes{font-weight:700}.open{font-weight:700;color:#8a2d22}
-        .notes{max-width:170px;white-space:normal}.foot{margin-top:14px;font-size:9px;color:#666;text-align:right}
-      </style></head><body>
-      <div class="head"><div><div class="brand">TD MANI</div><h1>ΜΙΣΘΟΔΟΤΙΚΗ ΚΑΤΑΣΤΑΣΗ</h1></div><div class="period"><b>Περίοδος:</b> ${esc(period)}</div></div>
-      <div class="summary">
-        <div class="card">Σύνολο μισθοδοσίας<b>${euro(totalBank+totalCash)}</b></div>
-        <div class="card">Πληρωμένο<b>${euro(paidBank+paidCash)}</b></div>
-        <div class="card">Υπόλοιπο<b>${euro(openBank+openCash)}</b></div>
-      </div>
-      <table><thead><tr><th>Εργαζόμενος</th><th>IBAN</th><th>Τράπεζα</th><th>Πληρ. Τράπεζα</th><th>Υπόλ. Τράπεζα</th><th>Μετρητά</th><th>Πληρ. Μετρητά</th><th>Υπόλ. Μετρητά</th><th>Σημειώσεις</th></tr></thead><tbody>
-      ${rows.map(x=>`<tr><td><b>${esc(x.employee_name)}</b></td><td>${esc(x.iban)}</td><td>${euro(x.bank)}</td><td class="${x.bank_paid?'yes':'open'}">${x.bank_paid?'ΝΑΙ - '+euro(x.paidBank):'ΟΧΙ'}</td><td>${euro(x.bankBalance)}</td><td>${euro(x.cash)}</td><td class="${x.cash_paid?'yes':'open'}">${x.cash_paid?'ΝΑΙ - '+euro(x.paidCash):'ΟΧΙ'}</td><td>${euro(x.cashBalance)}</td><td class="notes">${esc(x.notes||'-')}</td></tr>`).join('')}
-      </tbody></table>
-      <div class="foot">TD MANI ERP - Εκτύπωση ${new Date().toLocaleDateString('el-GR')}</div>
-      <script>window.onload=()=>{setTimeout(()=>window.print(),200)}<\/script></body></html>`;
-    const w = window.open('', '_blank', 'width=1200,height=850');
-    if (!w) return alert('Επίτρεψε τα αναδυόμενα παράθυρα για να ανοίξει η αναφορά.');
-    w.document.open(); w.document.write(html); w.document.close();
+    const totalBank=rows.reduce((a,x)=>a+x.bank,0), totalCash=rows.reduce((a,x)=>a+x.cash,0);
+    const paidBank=rows.reduce((a,x)=>a+x.paidBank,0), paidCash=rows.reduce((a,x)=>a+x.paidCash,0);
+    const openBank=rows.reduce((a,x)=>a+x.bankBalance,0), openCash=rows.reduce((a,x)=>a+x.cashBalance,0);
+    const total=totalBank+totalCash, paid=paidBank+paidCash, open=openBank+openCash;
+    const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const printDate=new Date().toLocaleDateString('el-GR');
+    const html=`<!doctype html><html><head><meta charset="utf-8"><title>TD MANI - Μισθοδοτική Κατάσταση ${esc(period)}</title><style>
+      @page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#24211d;margin:0;background:#fff;font-size:10px}
+      .header{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2px solid #d7bd8a}.brand{display:flex;align-items:center;gap:12px}.logo{width:64px;height:64px;object-fit:contain;background:#171717;border-radius:8px;padding:5px}.brandname{font-size:21px;font-weight:900;letter-spacing:1px}.subtitle{font-size:10px;color:#8a8175;margin-top:2px}.company{text-align:right;line-height:1.55;color:#5f584f;font-size:9px}
+      h1{text-align:center;font-size:23px;margin:14px 0 8px;letter-spacing:.5px}.meta{display:flex;justify-content:space-between;color:#625b52;margin-bottom:10px}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}.card{background:#f3ead9;border:1px solid #dfc99f;border-radius:9px;padding:9px 12px}.card span{display:block;color:#756a5c;font-size:9px}.card b{font-size:17px;display:block;margin-top:3px;color:#1e1b17}
+      table{width:100%;border-collapse:collapse;border:1px solid #d8d0c4}th{background:#efe3cc;color:#302a23;border:1px solid #d8c7a7;padding:6px 4px;font-size:8.5px}td{border:1px solid #e2ddd4;padding:6px 4px;vertical-align:middle}tbody tr:nth-child(even){background:#fbf8f3}.center{text-align:center}.money{text-align:right;white-space:nowrap}.iban{font-family:monospace;font-size:8px;white-space:nowrap}.ok{color:#1e7a4d;font-weight:900;font-size:13px}.no{color:#a33a31;font-weight:900;font-size:13px}.notes{max-width:130px;white-space:normal}.totals td{background:#f3ead9;font-weight:900;border-top:2px solid #caa55d}
+      .bottom{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;margin-top:12px}.box{border:1px solid #dfc99f;border-radius:9px;overflow:hidden}.boxtitle{background:#f3ead9;padding:7px 10px;font-weight:900}.boxbody{padding:8px 10px}.sumrow{display:flex;justify-content:space-between;border-bottom:1px solid #eee6d8;padding:4px 0}.sumrow:last-child{border:0}.sumrow.strong{font-weight:900;background:#faf5eb;margin:2px -5px;padding:5px}.observations{min-height:86px;white-space:pre-wrap;color:#5e574e}.footer{margin-top:10px;padding-top:7px;border-top:1px solid #e2d7c4;display:flex;justify-content:space-between;color:#8b8277;font-size:8px}
+      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.noprint{display:none}}
+    </style></head><body>
+      <div class="header"><div class="brand"><img class="logo" src="/tdmani-logo-gold.png" onerror="this.style.display='none'"><div><div class="brandname">TD MANI</div><div class="subtitle">ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</div></div></div><div class="company"><b>TD MANI E.E.</b><br>Πλάκες, Μήλος 84800<br>ΑΦΜ: 801853358<br>Τηλ.: 697 814 1512<br>taulant.m@yahoo.com</div></div>
+      <h1>ΜΙΣΘΟΔΟΤΙΚΗ ΚΑΤΑΣΤΑΣΗ</h1><div class="meta"><div><b>Περίοδος:</b> ${esc(period)}</div><div><b>Ημερομηνία εκτύπωσης:</b> ${printDate}</div></div>
+      <div class="summary"><div class="card"><span>Σύνολο μισθοδοσίας</span><b>${euro(total)}</b></div><div class="card"><span>Πληρωμένο</span><b>${euro(paid)}</b></div><div class="card"><span>Υπόλοιπο</span><b>${euro(open)}</b></div></div>
+      <table><thead><tr><th>#</th><th>Εργαζόμενος</th><th>IBAN</th><th colspan="3">Τράπεζα</th><th colspan="3">Μετρητά</th><th>Σύνολο</th><th>Σημειώσεις</th></tr><tr><th></th><th></th><th></th><th>Ποσό</th><th>Πληρωμή</th><th>Υπόλ.</th><th>Ποσό</th><th>Πληρωμή</th><th>Υπόλ.</th><th></th><th></th></tr></thead><tbody>
+      ${rows.map(x=>`<tr><td class="center">${x.no}</td><td><b>${esc(x.employee_name)}</b></td><td class="iban">${esc(x.iban)}</td><td class="money">${euro(x.bank)}</td><td class="center ${x.bank_paid?'ok':'no'}">${x.bank_paid?'✓':'✕'}</td><td class="money">${euro(x.bankBalance)}</td><td class="money">${euro(x.cash)}</td><td class="center ${x.cash_paid?'ok':'no'}">${x.cash_paid?'✓':'✕'}</td><td class="money">${euro(x.cashBalance)}</td><td class="money"><b>${euro(x.bank+x.cash)}</b></td><td class="notes">${esc(x.notes||'-')}</td></tr>`).join('')}
+      <tr class="totals"><td colspan="3">ΣΥΝΟΛΑ</td><td class="money">${euro(totalBank)}</td><td></td><td class="money">${euro(openBank)}</td><td class="money">${euro(totalCash)}</td><td></td><td class="money">${euro(openCash)}</td><td class="money">${euro(total)}</td><td></td></tr></tbody></table>
+      <div class="bottom"><div class="box"><div class="boxtitle">ΣΥΝΟΨΗ ΠΛΗΡΩΜΩΝ</div><div class="boxbody"><div class="sumrow"><span>Σύνολο μισθοδοσίας</span><b>${euro(total)}</b></div><div class="sumrow"><span>Πληρωμένο μέσω Τράπεζας</span><b>${euro(paidBank)}</b></div><div class="sumrow"><span>Πληρωμένο με Μετρητά</span><b>${euro(paidCash)}</b></div><div class="sumrow strong"><span>Συνολικά πληρωμένο</span><b>${euro(paid)}</b></div><div class="sumrow"><span>Υπόλοιπο</span><b>${euro(open)}</b></div></div></div>
+      <div class="box"><div class="boxtitle">ΠΑΡΑΤΗΡΗΣΕΙΣ</div><div class="boxbody observations">${esc(rows.filter(x=>x.notes).map(x=>`${x.employee_name}: ${x.notes}`).join('\n')||'-')}</div></div></div>
+      <div class="footer"><span>TD MANI E.E. · Οικοδομικές Εργασίες</span><span>Μισθοδοτική Κατάσταση ${esc(period)}</span></div>
+      <script>window.onload=()=>setTimeout(()=>window.print(),350)<\/script></body></html>`;
+    const w=window.open('','_blank','width=1300,height=900'); if(!w)return alert('Επίτρεψε τα αναδυόμενα παράθυρα για να ανοίξει η αναφορά.'); w.document.open();w.document.write(html);w.document.close();
   }
 
   async function savePublic() {
