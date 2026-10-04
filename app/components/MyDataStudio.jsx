@@ -82,6 +82,7 @@ export default function MyDataStudio() {
   const [materialsLoading, setMaterialsLoading] = useState(false);
   const [materialsError, setMaterialsError] = useState('');
   const [materialsRaw, setMaterialsRaw] = useState('');
+  const [materials, setMaterials] = useState([]);
 
   async function loadExpenses() {
     try {
@@ -164,6 +165,7 @@ export default function MyDataStudio() {
       setDetailsError('');
       setMaterialsError('');
       setMaterialsRaw('');
+      setMaterials([]);
       setSelectedDocument(null);
 
       const response = await fetch(
@@ -262,7 +264,35 @@ export default function MyDataStudio() {
         throw new Error(message);
       }
 
+      const xml = parseXmlBody(body);
+      const materialNodes = Array.from(
+        xml.getElementsByTagNameNS('*', 'invoiceDetails')
+      );
+
+      const parsedMaterials = materialNodes.map((line, index) => {
+        const quantity = Number(getText(line, 'quantity') || 0);
+        const netValue = Number(getText(line, 'netValue') || 0);
+
+        return {
+          lineNumber: getText(line, 'lineNumber') || String(index + 1),
+          itemCode: getText(line, 'itemCode'),
+          itemDescr: getText(line, 'itemDescr'),
+          quantity,
+          measurementUnit: getText(line, 'measurementUnit'),
+          netValue,
+          vatCategory: getText(line, 'vatCategory'),
+          vatAmount: Number(getText(line, 'vatAmount') || 0),
+          lineComments: getText(line, 'lineComments'),
+          unitPrice: quantity > 0 ? netValue / quantity : 0,
+        };
+      });
+
       setMaterialsRaw(body);
+      setMaterials(parsedMaterials);
+
+      if (parsedMaterials.length === 0) {
+        setMaterialsError('Το αναλυτικό παραστατικό δεν περιέχει γραμμές υλικών.');
+      }
     } catch (err) {
       console.error('invoice materials:', err);
       setMaterialsError(err?.message || 'Αποτυχία ανάγνωσης υλικών.');
@@ -463,21 +493,53 @@ export default function MyDataStudio() {
                 </div>
               )}
 
-              {materialsRaw && (
+              {materials.length > 0 && (
                 <div className="line" style={{ marginTop: 12 }}>
-                  <h3>📦 Απάντηση αναλυτικού παραστατικού</h3>
-                  <p style={{ marginBottom: 8 }}>
-                    Η σύνδεση πέτυχε. Στο επόμενο βήμα θα μετατρέψουμε αυτά τα δεδομένα σε κανονικό πίνακα υλικών.
+                  <h3>📦 Υλικά παραστατικού</h3>
+                  <p style={{ marginBottom: 10 }}>
+                    Βρέθηκαν <b>{materials.length}</b> γραμμές υλικών.
                   </p>
-                  <pre style={{
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    maxHeight: 420,
-                    overflow: 'auto',
-                    fontSize: 12,
-                  }}>
-                    {materialsRaw}
-                  </pre>
+
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+                      <thead>
+                        <tr>
+                          <th>Γραμμή</th>
+                          <th>Κωδικός προμηθευτή</th>
+                          <th>Περιγραφή</th>
+                          <th>Ποσότητα</th>
+                          <th>Μ.Μ.</th>
+                          <th>Τιμή μονάδας*</th>
+                          <th>Καθαρή αξία</th>
+                          <th>ΦΠΑ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {materials.map((line) => (
+                          <tr key={`${line.lineNumber}-${line.itemCode}`}>
+                            <td>{line.lineNumber}</td>
+                            <td><b>{line.itemCode || '-'}</b></td>
+                            <td>
+                              <b>{line.itemDescr || '-'}</b>
+                              {line.lineComments && (
+                                <div><small>{line.lineComments}</small></div>
+                              )}
+                            </td>
+                            <td>{line.quantity || 0}</td>
+                            <td>{line.measurementUnit || '-'}</td>
+                            <td>{money(line.unitPrice)}</td>
+                            <td>{money(line.netValue)}</td>
+                            <td>{money(line.vatAmount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <small style={{ display: 'block', marginTop: 10 }}>
+                    * Η τιμή μονάδας υπολογίζεται από Καθαρή Αξία ÷ Ποσότητα.
+                    Η μονάδα μέτρησης εμφανίζεται όπως ακριβώς επιστρέφεται από το αναλυτικό παραστατικό.
+                  </small>
                 </div>
               )}
             </div>
