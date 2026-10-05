@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const EMPTY_NOTE = {
-  series: 'ΔΔ',
+  series: 'Δ',
   document_number: '',
   issue_date: new Date().toISOString().slice(0, 10),
   issue_time: new Date().toTimeString().slice(0, 5),
@@ -14,7 +14,7 @@ const EMPTY_NOTE = {
   recipient_address: '',
   loading_address: 'Πλάκες, Μήλος 84800',
   delivery_address: '',
-  movement_purpose: 'Διακίνηση υλικών σε έργο',
+  movement_purpose: 'Λοιπές Διακινήσεις',
   vehicle_number: '',
   carrier_name: '',
   notes: ''
@@ -238,7 +238,7 @@ export default function DeliveryNotesStudio({
 
     setEditingId(draft.id);
     setNote({
-      series: draft.series || 'ΔΔ',
+      series: draft.series || 'Δ',
       document_number: draft.document_number || '',
       issue_date: draft.issue_date || new Date().toISOString().slice(0, 10),
       issue_time: draft.issue_time ? String(draft.issue_time).slice(0, 5) : '',
@@ -340,7 +340,7 @@ export default function DeliveryNotesStudio({
         quantity: Number(line.quantity || 0),
         unit_price: 0,
         project_id: draft.project_id || null,
-        notes: `Δελτίο Διακίνησης ${draft.series || 'ΔΔ'} ${draft.document_number || ''}`.trim()
+        notes: `Δελτίο Διακίνησης ${draft.series || 'Δ'} ${draft.document_number || ''}`.trim()
       }));
 
       const { error: movementError } = await supabase
@@ -383,7 +383,7 @@ export default function DeliveryNotesStudio({
     setMessage('');
 
     try {
-      const label = `Δελτίο Διακίνησης ${draft.series || 'ΔΔ'} ${draft.document_number || ''}`.trim();
+      const label = `Δελτίο Διακίνησης ${draft.series || 'Δ'} ${draft.document_number || ''}`.trim();
 
       const { data: movements, error: readError } = await supabase
         .from('inventory_movements')
@@ -435,17 +435,25 @@ export default function DeliveryNotesStudio({
       return;
     }
 
-    if (!draft.document_number) {
-      alert('Χρειάζεται αριθμός Δελτίου Διακίνησης πριν από τον έλεγχο ΑΑΔΕ.');
-      return;
-    }
-
     const draftLines = (draft.delivery_note_lines || []).filter((x) => !x.is_deleted);
 
     setSaving(true);
     setMessage('');
 
     try {
+      let documentNumber = String(draft.document_number || '').trim();
+
+      if (!documentNumber) {
+        const { data: assignedNumber, error: numberError } = await supabase.rpc(
+          'assign_delivery_note_number',
+          { p_note_id: draft.id }
+        );
+
+        if (numberError) throw numberError;
+        documentNumber = String(assignedNumber || '').trim();
+        if (!documentNumber) throw new Error('Δεν αποδόθηκε αριθμός στο Δελτίο Διακίνησης.');
+      }
+
       const parseAddress = (value) => {
         const text = String(value || '').trim();
         const postalMatch = text.match(/\b(\d{5})\b/);
@@ -465,15 +473,16 @@ export default function DeliveryNotesStudio({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          series: draft.series || 'ΔΔ',
-          documentNumber: String(draft.document_number),
+          series: draft.series || 'Δ',
+          documentNumber,
           issueDate: draft.issue_date,
           issueTime: draft.issue_time ? String(draft.issue_time).slice(0, 5) : '',
           recipientAfm: draft.recipient_afm || '',
           dispatchDate: draft.issue_date,
           dispatchTime: draft.issue_time ? String(draft.issue_time).slice(0, 5) : '',
           vehicleNumber: draft.vehicle_number || '',
-          movementPurpose: draft.movement_purpose || 'Διακίνηση υλικών σε έργο',
+          movementPurpose: draft.movement_purpose || 'Λοιπές Διακινήσεις',
+          movementPurposeTitle: 'Μεταφορά υλικών σε έργο',
           loadingAddress: parseAddress(draft.loading_address),
           deliveryAddress: parseAddress(draft.delivery_address),
           lines: draftLines.map((line) => ({
@@ -491,7 +500,8 @@ export default function DeliveryNotesStudio({
       }
 
       if (result.safeMode && !result.transmitted) {
-        setMessage('🧪 SAFE MODE: Το XML δημιουργήθηκε επιτυχώς. ΔΕΝ διαβιβάστηκε τίποτα στην ΑΑΔΕ.');
+        await loadNotes();
+        setMessage(`🧪 SAFE MODE: Το XML δημιουργήθηκε επιτυχώς για Δ/${documentNumber}. ΔΕΝ διαβιβάστηκε τίποτα στην ΑΑΔΕ.`);
         window.alert(
           '✅ SAFE MODE ΕΠΙΤΥΧΕΣ\n\n' +
           'Το ERP δημιούργησε το XML του Δελτίου Διακίνησης.\n' +
@@ -548,7 +558,7 @@ export default function DeliveryNotesStudio({
 <html lang="el">
 <head>
 <meta charset="utf-8"/>
-<title>Δελτίο Διακίνησης ${escapeHtml(draft.series || 'ΔΔ')} ${escapeHtml(draft.document_number || 'ΠΡΟΣΧΕΔΙΟ')}</title>
+<title>Δελτίο Διακίνησης ${escapeHtml(draft.series || 'Δ')} ${escapeHtml(draft.document_number || 'ΠΡΟΣΧΕΔΙΟ')}</title>
 <style>
   @page { size: A4; margin: 10mm 13mm; }
   * { box-sizing: border-box; }
@@ -611,7 +621,7 @@ export default function DeliveryNotesStudio({
   <h1>ΔΕΛΤΙΟ ΔΙΑΚΙΝΗΣΗΣ</h1>
 
   <div class="doc-info">
-    <div><span class="label">Σειρά</span>${escapeHtml(draft.series || 'ΔΔ')}</div>
+    <div><span class="label">Σειρά</span>${escapeHtml(draft.series || 'Δ')}</div>
     <div><span class="label">Αριθμός</span>${escapeHtml(draft.document_number || 'ΠΡΟΣΧΕΔΙΟ')}</div>
     <div><span class="label">Ημερομηνία</span>${escapeHtml(formatDateGr(draft.issue_date))}</div>
     <div><span class="label">Ώρα</span>${escapeHtml(draft.issue_time ? String(draft.issue_time).slice(0,5) : '—')}</div>
