@@ -8,6 +8,7 @@ import Customers from './components/customers/Customers';
 import QuotesStudio from './components/QuotesStudio';
 import PaymentsStudio from './components/PaymentsStudio';
 import MyDataStudio from './components/MyDataStudio';
+import DeliveryNotesStudio from './components/DeliveryNotesStudio';
 import { normalizeText, formatCurrency, formatDate, formatGreekLongDate, formatGreekTime, formatLocalDate, getGreeting, getFirstName } from './utils/formatters';
 import { calculateQuoteValues, calculateCustomerInvoiceValues, calculateSupplierInvoiceValues, getQuarterDates, isDateInRange } from './utils/calculations';
 import {
@@ -2820,7 +2821,7 @@ async function saveCustomer() {
         <button className={activePage === 'quotes' ? 'active' : ''} onClick={() => setActivePage('quotes')}>📄 Προσφορές</button>
         <button className={activePage === 'payments-center' ? 'active' : ''} onClick={() => setActivePage('payments-center')}>💳 Πληρωμές</button>
         <button
-          className={['income-expenses', 'finance', 'customer-invoices', 'suppliers', 'inventory', 'mydata'].includes(activePage) ? 'active' : ''}
+          className={['income-expenses', 'finance', 'customer-invoices', 'suppliers', 'inventory', 'mydata', 'delivery-notes'].includes(activePage) ? 'active' : ''}
           onClick={() => setActivePage('income-expenses')}
         >
           💶 Έσοδα / Έξοδα
@@ -2843,6 +2844,23 @@ async function saveCustomer() {
               loadInventoryMovements()
             ]);
           }}
+        />
+      )}
+
+      {activePage === 'delivery-notes' && (
+        <DeliveryNotesStudio
+          supabase={supabase}
+          inventory={inventory}
+          customers={customers}
+          projects={projects}
+          inventoryMovements={inventoryMovements}
+          onInventoryChanged={async () => {
+            await Promise.all([
+              loadInventory(),
+              loadInventoryMovements()
+            ]);
+          }}
+          onBack={() => setActivePage('income-expenses')}
         />
       )}
 
@@ -2899,6 +2917,11 @@ async function saveCustomer() {
           <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActivePage('inventory')} onKeyDown={(e) => e.key === 'Enter' && setActivePage('inventory')}>
             <p><b>📦 Αποθήκη</b></p>
             <small>Υλικά, ποσότητες και χαμηλό stock</small>
+          </div>
+
+          <div className="line settings-card" role="button" tabIndex={0} onClick={() => setActivePage('delivery-notes')} onKeyDown={(e) => e.key === 'Enter' && setActivePage('delivery-notes')}>
+            <p><b>🚚 Δελτία Διακίνησης</b></p>
+            <small>Διακίνηση υλικών από την Αποθήκη προς έργα και παραλήπτες</small>
           </div>
         </div>
       </section>
