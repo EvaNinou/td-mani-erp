@@ -424,7 +424,7 @@ export default function DeliveryNotesStudio({
   }
 
 
-  function prepareAadeTransmission(draft) {
+  async function prepareAadeTransmission(draft) {
     if (draft.status !== 'FINALIZED') {
       alert('Πρώτα πρέπει να οριστικοποιηθεί το Δελτίο Διακίνησης.');
       return;
@@ -435,11 +435,78 @@ export default function DeliveryNotesStudio({
       return;
     }
 
-    window.alert(
-      '🚀 ΕΚΔΟΣΗ & ΔΙΑΒΙΒΑΣΗ ΑΑΔΕ\n\n' +
-      'Το στάδιο είναι έτοιμο στο ERP, αλλά η πραγματική αποστολή προς την ΑΑΔΕ είναι ακόμη απενεργοποιημένη για ασφάλεια.\n\n' +
-      'Δεν διαβιβάστηκε κανένα παραστατικό.'
-    );
+    if (!draft.document_number) {
+      alert('Χρειάζεται αριθμός Δελτίου Διακίνησης πριν από τον έλεγχο ΑΑΔΕ.');
+      return;
+    }
+
+    const draftLines = (draft.delivery_note_lines || []).filter((x) => !x.is_deleted);
+
+    setSaving(true);
+    setMessage('');
+
+    try {
+      const parseAddress = (value) => {
+        const text = String(value || '').trim();
+        const postalMatch = text.match(/\b(\d{5})\b/);
+        const postalCode = postalMatch?.[1] || '';
+        let city = '';
+
+        if (postalCode) {
+          const after = text.split(postalCode)[1]?.replace(/^\s*[,\-]?\s*/, '').trim();
+          const before = text.split(postalCode)[0]?.replace(/[,\-\s]+$/, '').trim();
+          city = after || (before?.split(',').pop()?.trim() || '');
+        }
+
+        return { street: text, number: '', postalCode, city };
+      };
+
+      const response = await fetch('/api/mydata/delivery-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          series: draft.series || 'ΔΔ',
+          documentNumber: String(draft.document_number),
+          issueDate: draft.issue_date,
+          issueTime: draft.issue_time ? String(draft.issue_time).slice(0, 5) : '',
+          recipientAfm: draft.recipient_afm || '',
+          dispatchDate: draft.issue_date,
+          dispatchTime: draft.issue_time ? String(draft.issue_time).slice(0, 5) : '',
+          vehicleNumber: draft.vehicle_number || '',
+          movementPurpose: draft.movement_purpose || 'Διακίνηση υλικών σε έργο',
+          loadingAddress: parseAddress(draft.loading_address),
+          deliveryAddress: parseAddress(draft.delivery_address),
+          lines: draftLines.map((line) => ({
+            itemName: line.item_name,
+            quantity: Number(line.quantity || 0),
+            unit: line.unit || 'τεμ.'
+          }))
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || 'Αποτυχία ελέγχου του Δελτίου Διακίνησης.');
+      }
+
+      if (result.safeMode && !result.transmitted) {
+        setMessage('🧪 SAFE MODE: Το XML δημιουργήθηκε επιτυχώς. ΔΕΝ διαβιβάστηκε τίποτα στην ΑΑΔΕ.');
+        window.alert(
+          '✅ SAFE MODE ΕΠΙΤΥΧΕΣ\n\n' +
+          'Το ERP δημιούργησε το XML του Δελτίου Διακίνησης.\n' +
+          'Δεν στάλθηκε τίποτα στην ΑΑΔΕ.'
+        );
+        return;
+      }
+
+      setMessage('✅ Ο έλεγχος myDATA ολοκληρώθηκε.');
+    } catch (e) {
+      setMessage(`❌ ${e.message}`);
+      alert(`❌ ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   function escapeHtml(value) {
