@@ -298,6 +298,156 @@ export default function DeliveryNotesStudio({
     await loadNotes();
   }
 
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  function formatDateGr(value) {
+    if (!value) return '—';
+    const [y, m, d] = String(value).slice(0, 10).split('-');
+    return y && m && d ? `${d}/${m}/${y}` : value;
+  }
+
+  function printDeliveryNote(draft) {
+    const project = projects.find((x) => x.id === draft.project_id);
+    const projectName = project?.title || project?.project_name || project?.name || '';
+    const draftLines = (draft.delivery_note_lines || []).filter((x) => !x.is_deleted);
+    const rows = draftLines.length
+      ? draftLines.map((line, index) => `
+          <tr>
+            <td class="center">${index + 1}</td>
+            <td>${escapeHtml(line.item_name || '')}${line.notes ? `<div class="line-note">${escapeHtml(line.notes)}</div>` : ''}</td>
+            <td class="center">${escapeHtml(line.quantity)}</td>
+            <td class="center">${escapeHtml(line.unit || 'τεμ.')}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="4" class="center">Δεν υπάρχουν υλικά.</td></tr>';
+
+    const popup = window.open('', '_blank', 'width=950,height=900');
+    if (!popup) {
+      alert('Ο browser μπλόκαρε το παράθυρο PDF. Επίτρεψε τα pop-ups για το ERP.');
+      return;
+    }
+
+    popup.document.write(`<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8"/>
+<title>Δελτίο Διακίνησης ${escapeHtml(draft.series || 'ΔΔ')} ${escapeHtml(draft.document_number || 'ΠΡΟΣΧΕΔΙΟ')}</title>
+<style>
+  @page { size: A4; margin: 10mm 13mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color:#111; margin:0; font-size:11px; }
+  .page { width:100%; }
+  .header { display:grid; grid-template-columns:150px 1fr; align-items:center; gap:16px; padding-bottom:8px; border-bottom:2px solid #b99045; }
+  .logo-box { background:#050505; padding:9px; text-align:center; min-height:72px; display:flex; align-items:center; justify-content:center; }
+  .logo-box img { width:128px; max-height:64px; object-fit:contain; }
+  .company { line-height:1.45; }
+  .company strong { font-size:13px; }
+  h1 { text-align:center; font-size:22px; margin:18px 0 12px; }
+  .doc-info { display:grid; grid-template-columns:repeat(4,1fr); background:#f6f1e7; border:1px solid #d8d1c4; margin-bottom:12px; }
+  .doc-info div { padding:8px; border-right:1px solid #d8d1c4; }
+  .doc-info div:last-child { border-right:0; }
+  .label { font-weight:700; display:block; margin-bottom:3px; }
+  .section { border:1px solid #d8d1c4; margin:10px 0; }
+  .section-title { background:#111; color:#fff; font-weight:700; padding:6px 8px; }
+  .field { display:grid; grid-template-columns:165px 1fr; border-top:1px solid #e4dfd6; }
+  .field:first-of-type { border-top:0; }
+  .field div { padding:5px 8px; }
+  .field div:first-child { font-weight:700; border-right:1px solid #e4dfd6; }
+  .materials-title { font-weight:700; margin:12px 0 5px; }
+  table { width:100%; border-collapse:collapse; }
+  th { background:#b99045; color:#fff; padding:7px 6px; font-size:10px; }
+  td { border:1px solid #d8d1c4; padding:7px 6px; vertical-align:top; }
+  .center { text-align:center; }
+  .line-note { color:#666; font-size:9px; margin-top:3px; }
+  .notes { border:1px solid #d8d1c4; margin-top:11px; }
+  .notes-title { background:#f6f1e7; font-weight:700; padding:6px 8px; }
+  .notes-body { min-height:36px; padding:7px 8px; white-space:pre-wrap; }
+  .mydata { display:grid; grid-template-columns:1fr 150px; border:1px solid #b99045; margin-top:11px; }
+  .mydata > div { padding:7px 8px; }
+  .mydata > div + div { border-left:1px solid #d8d1c4; text-align:center; }
+  .signatures { display:grid; grid-template-columns:1fr 1fr; gap:28px; margin-top:18px; text-align:center; }
+  .signature { border-top:1px solid #d8d1c4; padding-top:6px; min-height:54px; }
+  .tagline { color:#b99045; font-weight:700; text-align:center; margin-top:14px; letter-spacing:.4px; }
+  .draft-watermark { color:#777; font-size:9px; text-align:right; margin-top:5px; }
+  @media print { .no-print { display:none !important; } body { print-color-adjust:exact; -webkit-print-color-adjust:exact; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="logo-box"><img src="/tdmani-logo-gold.png" alt="TD MANI"/></div>
+    <div class="company"><strong>TD MANI E.E.</strong><br/>
+      ΚΑΤΑΣΚΕΥΗ ΚΤΙΡΙΩΝ ΓΙΑ ΚΑΤΟΙΚΙΕΣ ΚΑΙ ΜΗ<br/>
+      ΑΦΜ: 801853358<br/>Πλάκες, Μήλος 84800<br/>
+      Τηλ.: 697 814 1512 &nbsp; | &nbsp; taulant.m@yahoo.com
+    </div>
+  </div>
+
+  <h1>ΔΕΛΤΙΟ ΔΙΑΚΙΝΗΣΗΣ</h1>
+
+  <div class="doc-info">
+    <div><span class="label">Σειρά</span>${escapeHtml(draft.series || 'ΔΔ')}</div>
+    <div><span class="label">Αριθμός</span>${escapeHtml(draft.document_number || 'ΠΡΟΣΧΕΔΙΟ')}</div>
+    <div><span class="label">Ημερομηνία</span>${escapeHtml(formatDateGr(draft.issue_date))}</div>
+    <div><span class="label">Ώρα</span>${escapeHtml(draft.issue_time ? String(draft.issue_time).slice(0,5) : '—')}</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">ΣΤΟΙΧΕΙΑ ΠΑΡΑΛΗΠΤΗ</div>
+    <div class="field"><div>Επωνυμία / Ονοματεπώνυμο</div><div>${escapeHtml(draft.recipient_name || '—')}</div></div>
+    <div class="field"><div>ΑΦΜ</div><div>${escapeHtml(draft.recipient_afm || '—')}</div></div>
+    <div class="field"><div>Διεύθυνση</div><div>${escapeHtml(draft.recipient_address || '—')}</div></div>
+    <div class="field"><div>Έργο</div><div>${escapeHtml(projectName || '—')}</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">ΣΤΟΙΧΕΙΑ ΔΙΑΚΙΝΗΣΗΣ</div>
+    <div class="field"><div>Τόπος φόρτωσης</div><div>${escapeHtml(draft.loading_address || '—')}</div></div>
+    <div class="field"><div>Τόπος παράδοσης</div><div>${escapeHtml(draft.delivery_address || '—')}</div></div>
+    <div class="field"><div>Σκοπός διακίνησης</div><div>${escapeHtml(draft.movement_purpose || '—')}</div></div>
+    <div class="field"><div>Αρ. κυκλοφορίας</div><div>${escapeHtml(draft.vehicle_number || '—')}</div></div>
+    <div class="field"><div>Μεταφορέας</div><div>${escapeHtml(draft.carrier_name || '—')}</div></div>
+  </div>
+
+  <div class="materials-title">ΥΛΙΚΑ ΔΙΑΚΙΝΗΣΗΣ</div>
+  <table>
+    <thead><tr><th style="width:45px">Α/Α</th><th>ΠΕΡΙΓΡΑΦΗ ΥΛΙΚΟΥ</th><th style="width:90px">ΠΟΣΟΤΗΤΑ</th><th style="width:75px">Μ.Μ.</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <div class="notes">
+    <div class="notes-title">ΠΑΡΑΤΗΡΗΣΕΙΣ</div>
+    <div class="notes-body">${escapeHtml(draft.notes || '')}</div>
+  </div>
+
+  <div class="mydata">
+    <div><b>myDATA / ΑΑΔΕ</b><br/>MARK: ${escapeHtml(draft.mydata_mark || 'Θα συμπληρώνεται μετά την επιτυχή διαβίβαση.')}</div>
+    <div><b>QR CODE</b><br/>${draft.mydata_qr_url ? 'Διαθέσιμο μετά τη διαβίβαση' : 'Θέση QR μετά τη διαβίβαση'}</div>
+  </div>
+
+  <div class="signatures">
+    <div class="signature"><b>ΠΑΡΑΔΟΣΗ</b><br/><small>Ονοματεπώνυμο / Υπογραφή</small></div>
+    <div class="signature"><b>ΠΑΡΑΛΑΒΗ</b><br/><small>Ονοματεπώνυμο / Υπογραφή</small></div>
+  </div>
+
+  <div class="tagline">TD MANI E.E. • FROM VISION TO REALITY</div>
+  ${draft.status === 'DRAFT' ? '<div class="draft-watermark">ΠΡΟΧΕΙΡΟ — Δεν έχει διαβιβαστεί στην ΑΑΔΕ</div>' : ''}
+</div>
+<script>
+  window.onload = () => setTimeout(() => window.print(), 350);
+</script>
+</body>
+</html>`);
+    popup.document.close();
+  }
+
   return (
     <section className="card">
       <button onClick={onBack}>← Πίσω στα Έσοδα / Έξοδα</button>
@@ -412,6 +562,7 @@ export default function DeliveryNotesStudio({
           <small>Κατάσταση: {d.status === 'DRAFT' ? 'ΠΡΟΧΕΙΡΟ' : d.status}</small>
           {d.status === 'DRAFT' && (
             <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:10}}>
+              <button onClick={() => printDeliveryNote(d)}>📄 PDF</button>
               <button onClick={() => editDraft(d)}>✏️ Επεξεργασία</button>
               <button onClick={() => deleteDraft(d)}>🗑️ Διαγραφή</button>
             </div>
