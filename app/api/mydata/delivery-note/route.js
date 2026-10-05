@@ -211,24 +211,24 @@ function buildInvoiceXml(data) {
           : ''
       }
 
-      <movePurpose>19</movePurpose>
+     <movePurpose>19</movePurpose>
 
-      <otherMovePurposeTitle>${xmlEscape(
-        movementPurposeTitle ||
-          'Μεταφορά υλικών σε έργο'
-      )}</otherMovePurposeTitle>
+<otherDeliveryNoteHeader>
+  ${addressXml(
+    'loadingAddress',
+    loadingAddress
+  )}
 
-      <otherDeliveryNoteHeader>
-        ${addressXml(
-          'loadingAddress',
-          loadingAddress
-        )}
+  ${addressXml(
+    'deliveryAddress',
+    deliveryAddress
+  )}
+</otherDeliveryNoteHeader>
 
-        ${addressXml(
-          'deliveryAddress',
-          deliveryAddress
-        )}
-      </otherDeliveryNoteHeader>
+<otherMovePurposeTitle>${xmlEscape(
+  movementPurposeTitle ||
+    'Μεταφορά υλικών σε έργο'
+)}</otherMovePurposeTitle>
 
     </invoiceHeader>
 
