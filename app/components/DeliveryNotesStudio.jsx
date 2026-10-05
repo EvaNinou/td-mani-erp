@@ -423,6 +423,25 @@ export default function DeliveryNotesStudio({
     }
   }
 
+
+  function prepareAadeTransmission(draft) {
+    if (draft.status !== 'FINALIZED') {
+      alert('Πρώτα πρέπει να οριστικοποιηθεί το Δελτίο Διακίνησης.');
+      return;
+    }
+
+    if (draft.mydata_mark) {
+      alert(`Το δελτίο έχει ήδη διαβιβαστεί στην ΑΑΔΕ.\nMARK: ${draft.mydata_mark}`);
+      return;
+    }
+
+    window.alert(
+      '🚀 ΕΚΔΟΣΗ & ΔΙΑΒΙΒΑΣΗ ΑΑΔΕ\n\n' +
+      'Το στάδιο είναι έτοιμο στο ERP, αλλά η πραγματική αποστολή προς την ΑΑΔΕ είναι ακόμη απενεργοποιημένη για ασφάλεια.\n\n' +
+      'Δεν διαβιβάστηκε κανένα παραστατικό.'
+    );
+  }
+
   function escapeHtml(value) {
     return String(value ?? '')
       .replaceAll('&', '&amp;')
@@ -700,8 +719,14 @@ export default function DeliveryNotesStudio({
                 <button onClick={() => finalizeDraft(d)} disabled={saving}>✅ Οριστικοποίηση</button>
               </>
             )}
-            {d.status === 'FINALIZED' && (
-              <button onClick={() => undoFinalization(d)} disabled={saving}>↩️ Ακύρωση Οριστικοποίησης</button>
+            {d.status === 'FINALIZED' && !d.mydata_mark && (
+              <>
+                <button onClick={() => undoFinalization(d)} disabled={saving}>↩️ Ακύρωση Οριστικοποίησης</button>
+                <button onClick={() => prepareAadeTransmission(d)} disabled={saving}>🚀 Έκδοση & Διαβίβαση ΑΑΔΕ</button>
+              </>
+            )}
+            {d.mydata_mark && (
+              <span style={{fontWeight:700}}>✅ ΕΚΔΟΘΗΚΕ • MARK {d.mydata_mark}</span>
             )}
           </div>
         </div>
