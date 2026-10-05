@@ -299,6 +299,77 @@ export default function DeliveryNotesStudio({
   }
 
 
+
+  async function finalizeDraft(draft) {
+    if (draft.status !== 'DRAFT') {
+      alert('Το δελτίο έχει ήδη οριστικοποιηθεί.');
+      return;
+    }
+
+    const draftLines = (draft.delivery_note_lines || []).filter((x) => !x.is_deleted);
+    if (draftLines.length === 0) {
+      alert('Το δελτίο δεν έχει υλικά.');
+      return;
+    }
+
+    for (const line of draftLines) {
+      if (!line.inventory_item_id) {
+        alert(`Το υλικό "${line.item_name}" δεν είναι συνδεδεμένο με την αποθήκη.`);
+        return;
+      }
+      const available = stockFor(line.inventory_item_id, inventoryMovements);
+      if (Number(line.quantity || 0) > available) {
+        alert(`Δεν υπάρχει αρκετό απόθεμα για "${line.item_name}". Διαθέσιμα: ${available} ${line.unit || 'τεμ.'}`);
+        return;
+      }
+    }
+
+    const ok = window.confirm(
+      'Να οριστικοποιηθεί το Δελτίο Διακίνησης; Μετά την οριστικοποίηση δεν θα μπορεί να επεξεργαστεί ή να διαγραφεί και τα υλικά θα αφαιρεθούν από την αποθήκη.'
+    );
+    if (!ok) return;
+
+    setSaving(true);
+    setMessage('');
+
+    try {
+      const movementRows = draftLines.map((line) => ({
+        item_id: line.inventory_item_id,
+        movement_date: draft.issue_date,
+        movement_type: 'USE',
+        quantity: Number(line.quantity || 0),
+        unit_price: 0,
+        project_id: draft.project_id || null,
+        notes: `Δελτίο Διακίνησης ${draft.series || 'ΔΔ'} ${draft.document_number || ''}`.trim()
+      }));
+
+      const { error: movementError } = await supabase
+        .from('inventory_movements')
+        .insert(movementRows);
+
+      if (movementError) throw movementError;
+
+      const { error: noteError } = await supabase
+        .from('delivery_notes')
+        .update({
+          status: 'FINALIZED',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', draft.id)
+        .eq('status', 'DRAFT');
+
+      if (noteError) throw noteError;
+
+      setMessage('✅ Το Δελτίο Διακίνησης οριστικοποιήθηκε και τα υλικά αφαιρέθηκαν από την αποθήκη.');
+      if (typeof onInventoryChanged === 'function') await onInventoryChanged();
+      await loadNotes();
+    } catch (e) {
+      setMessage(`❌ ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function escapeHtml(value) {
     return String(value ?? '')
       .replaceAll('&', '&amp;')
@@ -567,13 +638,16 @@ export default function DeliveryNotesStudio({
           <p><b>{d.series || 'ΔΔ'} {d.document_number || 'Χωρίς αριθμό'}</b> — {d.issue_date}</p>
           <p>{d.recipient_name || 'Χωρίς παραλήπτη'} • {d.delivery_note_lines?.length || 0} υλικά</p>
           <small>Κατάσταση: {d.status === 'DRAFT' ? 'ΠΡΟΧΕΙΡΟ' : d.status}</small>
-          {d.status === 'DRAFT' && (
-            <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:10}}>
-              <button onClick={() => printDeliveryNote(d)}>📄 PDF</button>
-              <button onClick={() => editDraft(d)}>✏️ Επεξεργασία</button>
-              <button onClick={() => deleteDraft(d)}>🗑️ Διαγραφή</button>
-            </div>
-          )}
+          <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:10}}>
+            <button onClick={() => printDeliveryNote(d)}>📄 PDF</button>
+            {d.status === 'DRAFT' && (
+              <>
+                <button onClick={() => editDraft(d)}>✏️ Επεξεργασία</button>
+                <button onClick={() => deleteDraft(d)}>🗑️ Διαγραφή</button>
+                <button onClick={() => finalizeDraft(d)} disabled={saving}>✅ Οριστικοποίηση</button>
+              </>
+            )}
+          </div>
         </div>
       ))}
     </section>
