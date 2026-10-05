@@ -370,6 +370,59 @@ export default function DeliveryNotesStudio({
     }
   }
 
+
+  async function undoFinalization(draft) {
+    if (draft.status !== 'FINALIZED') return;
+
+    const ok = window.confirm(
+      'Να ακυρωθεί η οριστικοποίηση; Το δελτίο θα επιστρέψει σε ΠΡΟΧΕΙΡΟ και οι ποσότητες θα επιστραφούν στην αποθήκη.'
+    );
+    if (!ok) return;
+
+    setSaving(true);
+    setMessage('');
+
+    try {
+      const label = `Δελτίο Διακίνησης ${draft.series || 'ΔΔ'} ${draft.document_number || ''}`.trim();
+
+      const { data: movements, error: readError } = await supabase
+        .from('inventory_movements')
+        .select('id, notes, movement_type')
+        .eq('movement_type', 'USE')
+        .eq('notes', label);
+
+      if (readError) throw readError;
+
+      const ids = (movements || []).map((x) => x.id);
+      if (ids.length) {
+        const { error: deleteError } = await supabase
+          .from('inventory_movements')
+          .delete()
+          .in('id', ids);
+        if (deleteError) throw deleteError;
+      }
+
+      const { error: noteError } = await supabase
+        .from('delivery_notes')
+        .update({
+          status: 'DRAFT',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', draft.id)
+        .eq('status', 'FINALIZED');
+
+      if (noteError) throw noteError;
+
+      setMessage('↩️ Η οριστικοποίηση ακυρώθηκε. Το δελτίο επέστρεψε σε ΠΡΟΧΕΙΡΟ και το απόθεμα αποκαταστάθηκε.');
+      if (typeof onInventoryChanged === 'function') await onInventoryChanged();
+      await loadNotes();
+    } catch (e) {
+      setMessage(`❌ ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function escapeHtml(value) {
     return String(value ?? '')
       .replaceAll('&', '&amp;')
@@ -646,6 +699,9 @@ export default function DeliveryNotesStudio({
                 <button onClick={() => deleteDraft(d)}>🗑️ Διαγραφή</button>
                 <button onClick={() => finalizeDraft(d)} disabled={saving}>✅ Οριστικοποίηση</button>
               </>
+            )}
+            {d.status === 'FINALIZED' && (
+              <button onClick={() => undoFinalization(d)} disabled={saving}>↩️ Ακύρωση Οριστικοποίησης</button>
             )}
           </div>
         </div>
