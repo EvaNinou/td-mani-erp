@@ -513,6 +513,22 @@ export default function DeliveryNotesStudio({
         return;
       }
 
+      if (result.testMode) {
+        const rawAadeResponse = String(result.aadeResponse || '').trim();
+        const statusText = result.httpStatus ? `HTTP ${result.httpStatus}` : 'χωρίς HTTP status';
+
+        setMessage(
+          `🧪 TEST ΑΑΔΕ: Λήφθηκε απάντηση (${statusText}). Δες το αναδυόμενο παράθυρο για το αποτέλεσμα.`
+        );
+
+        window.alert(
+          '🧪 ΑΠΑΝΤΗΣΗ TEST ΑΑΔΕ\n\n' +
+          `Κατάσταση: ${statusText}\n\n` +
+          (rawAadeResponse || 'Η ΑΑΔΕ δεν επέστρεψε κείμενο απάντησης.')
+        );
+        return;
+      }
+
       setMessage('✅ Ο έλεγχος myDATA ολοκληρώθηκε.');
     } catch (e) {
       setMessage(`❌ ${e.message}`);
