@@ -65,6 +65,7 @@ export default function DeliveryNotesStudio({
     setNote((prev) => ({
       ...prev,
       customer_id: customerId,
+      project_id: '',
       recipient_name: customer?.name || prev.recipient_name,
       recipient_afm: customer?.afm || prev.recipient_afm,
       recipient_address: customer?.address || prev.recipient_address
@@ -224,9 +225,21 @@ export default function DeliveryNotesStudio({
           <option value="">— Επιλογή πελάτη —</option>
           {customers.filter((x) => !x.is_deleted).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
         </select>
-        <select value={note.project_id} onChange={(e) => chooseProject(e.target.value)}>
-          <option value="">— Επιλογή έργου —</option>
-          {projects.filter((x) => !x.is_deleted).map((x) => <option key={x.id} value={x.id}>{x.title || x.project_name || x.name || 'Έργο'}</option>)}
+        <select
+          value={note.project_id}
+          onChange={(e) => chooseProject(e.target.value)}
+          disabled={!note.customer_id}
+        >
+          <option value="">
+            {note.customer_id ? '— Χωρίς έργο / Προαιρετικό —' : '— Πρώτα επίλεξε πελάτη —'}
+          </option>
+          {projects
+            .filter((x) => !x.is_deleted && x.customer_id === note.customer_id)
+            .map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.title || x.project_name || x.name || 'Έργο'}
+              </option>
+            ))}
         </select>
         <input placeholder="Επωνυμία / Ονοματεπώνυμο παραλήπτη" value={note.recipient_name} onChange={(e) => setNote({ ...note, recipient_name: e.target.value })} />
         <input placeholder="ΑΦΜ παραλήπτη" value={note.recipient_afm} onChange={(e) => setNote({ ...note, recipient_afm: e.target.value })} />
@@ -293,4 +306,3 @@ export default function DeliveryNotesStudio({
     </section>
   );
 }
-
