@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-// SAFE MODE = true
-// ΔΕΝ πραγματοποιείται καμία πραγματική διαβίβαση στην ΑΑΔΕ.
-const SAFE_MODE = true;
+// ΜΟΝΟ ΔΟΚΙΜΑΣΤΙΚΟ ΠΕΡΙΒΑΛΛΟΝ ΑΑΔΕ
+const TEST_MYDATA_URL =
+  'https://mydataapidev.aade.gr/SendInvoices';
 
 function xmlEscape(value = '') {
   return String(value)
@@ -190,16 +190,14 @@ function buildInvoiceXml(data) {
     }
 
     <invoiceHeader>
-
       <series>${xmlEscape(series || 'Δ')}</series>
-
       <aa>${xmlEscape(documentNumber)}</aa>
-
       <issueDate>${issueDate}</issueDate>
-
       <invoiceType>9.3</invoiceType>
 
-      <dispatchDate>${dispatchDate || issueDate}</dispatchDate>
+      <dispatchDate>${
+        dispatchDate || issueDate
+      }</dispatchDate>
 
       <dispatchTime>${normalizeTime(
         dispatchTime || issueTime
@@ -207,18 +205,20 @@ function buildInvoiceXml(data) {
 
       ${
         vehicleNumber
-          ? `<vehicleNumber>${xmlEscape(vehicleNumber)}</vehicleNumber>`
+          ? `<vehicleNumber>${xmlEscape(
+              vehicleNumber
+            )}</vehicleNumber>`
           : ''
       }
 
       <movePurpose>19</movePurpose>
 
       <otherMovePurposeTitle>${xmlEscape(
-        movementPurposeTitle || 'Μεταφορά υλικών σε έργο'
+        movementPurposeTitle ||
+          'Μεταφορά υλικών σε έργο'
       )}</otherMovePurposeTitle>
 
       <otherDeliveryNoteHeader>
-
         ${addressXml(
           'loadingAddress',
           loadingAddress
@@ -228,7 +228,6 @@ function buildInvoiceXml(data) {
           'deliveryAddress',
           deliveryAddress
         )}
-
       </otherDeliveryNoteHeader>
 
     </invoiceHeader>
@@ -236,42 +235,45 @@ function buildInvoiceXml(data) {
     ${rows}
 
     <invoiceSummary>
-
       <totalNetValue>0.00</totalNetValue>
-
       <totalVatAmount>0.00</totalVatAmount>
-
       <totalWithheldAmount>0.00</totalWithheldAmount>
-
       <totalFeesAmount>0.00</totalFeesAmount>
-
       <totalStampDutyAmount>0.00</totalStampDutyAmount>
-
       <totalOtherTaxesAmount>0.00</totalOtherTaxesAmount>
-
       <totalDeductionsAmount>0.00</totalDeductionsAmount>
-
       <totalGrossValue>0.00</totalGrossValue>
-
     </invoiceSummary>
 
   </invoice>
-
 </InvoicesDoc>`;
 }
 
 export async function POST(request) {
   try {
-    const userId = process.env.MYDATA_USER_ID;
-    const subscriptionKey =
-      process.env.MYDATA_SUBSCRIPTION_KEY;
+    /*
+      ΠΡΟΣΟΧΗ:
+      Χρησιμοποιούμε ΑΠΟΚΛΕΙΣΤΙΚΑ
+      τους TEST κωδικούς.
 
-    if (!userId || !subscriptionKey) {
+      Δεν υπάρχει fallback στους
+      production κωδικούς.
+    */
+
+    const testUserId =
+      process.env.MYDATA_TEST_USER_ID;
+
+    const testSubscriptionKey =
+      process.env.MYDATA_TEST_SUBSCRIPTION_KEY;
+
+    if (!testUserId || !testSubscriptionKey) {
       return NextResponse.json(
         {
           ok: false,
+          testMode: true,
+          transmitted: false,
           error:
-            'Δεν έχουν ρυθμιστεί οι κωδικοί myDATA στο Vercel.'
+            'Δεν έχουν ρυθμιστεί οι TEST κωδικοί myDATA στο Vercel.'
         },
         { status: 500 }
       );
@@ -302,7 +304,7 @@ export async function POST(request) {
         {
           ok: false,
           error:
-            'Λείπει ο αριθμός του Δελτίου Αποστολής.'
+            'Λείπει ο αριθμός του Δελτίου Διακίνησης.'
         },
         { status: 400 }
       );
@@ -313,7 +315,7 @@ export async function POST(request) {
         {
           ok: false,
           error:
-            'Η σειρά του Δελτίου Αποστολής πρέπει να είναι Δ.'
+            'Η σειρά του Δελτίου πρέπει να είναι Δ.'
         },
         { status: 400 }
       );
@@ -419,7 +421,7 @@ export async function POST(request) {
         {
           ok: false,
           error:
-            'Το Δελτίο Αποστολής πρέπει να έχει τουλάχιστον ένα υλικό.'
+            'Το Δελτίο πρέπει να έχει τουλάχιστον ένα υλικό.'
         },
         { status: 400 }
       );
@@ -443,34 +445,20 @@ export async function POST(request) {
 
     const normalized = {
       ...body,
-
       series: 'Δ',
-
       documentNumber:
         String(documentNumber),
-
       issueDate,
-
       issueTime,
-
       recipientAfm,
-
       dispatchDate:
         dispatchDate || issueDate,
-
       dispatchTime:
         dispatchTime || issueTime,
-
       vehicleNumber,
-
-      movementPurposeCode: 19,
-
       movementPurposeTitle,
-
       loadingAddress,
-
       deliveryAddress,
-
       lines
     };
 
@@ -478,83 +466,69 @@ export async function POST(request) {
       buildInvoiceXml(normalized);
 
     /*
-      SAFE MODE
-
-      Όσο SAFE_MODE === true,
-      ο κώδικας σταματά εδώ.
-
-      ΔΕΝ υπάρχει κλήση:
-      /myDATA/SendInvoices
-
-      Άρα ΔΕΝ διαβιβάζεται
-      πραγματικό παραστατικό.
+      ΑΠΟΣΤΟΛΗ ΜΟΝΟ ΣΤΟ TEST / DEV
+      ΠΕΡΙΒΑΛΛΟΝ ΤΗΣ ΑΑΔΕ
     */
 
-    if (SAFE_MODE) {
-      return NextResponse.json({
-        ok: true,
+    const aadeResponse = await fetch(
+      TEST_MYDATA_URL,
+      {
+        method: 'POST',
 
-        safeMode: true,
+        headers: {
+          'aade-user-id': testUserId,
 
-        transmitted: false,
+          'ocp-apim-subscription-key':
+            testSubscriptionKey,
 
-        message:
-          'SAFE MODE: Το XML 9.3 δημιουργήθηκε αλλά ΔΕΝ διαβιβάστηκε στην ΑΑΔΕ.',
+          'Content-Type':
+            'application/xml',
 
-        document: {
-          invoiceType: '9.3',
-
-          series: 'Δ',
-
-          aa:
-            String(documentNumber),
-
-          issueDate,
-
-          dispatchDate:
-            dispatchDate || issueDate,
-
-          dispatchTime:
-            normalizeTime(
-              dispatchTime || issueTime
-            ),
-
-          movePurpose: 19,
-
-          otherMovePurposeTitle:
-            movementPurposeTitle,
-
-          loadingAddress,
-
-          deliveryAddress,
-
-          lineCount:
-            lines.length
+          Accept:
+            'application/xml'
         },
 
-        xml
-      });
-    }
+        body: xml,
+
+        cache: 'no-store'
+      }
+    );
+
+    const responseText =
+      await aadeResponse.text();
 
     /*
-      Δεν ενεργοποιούμε ακόμη
-      πραγματική διαβίβαση.
+      Δεν θεωρούμε αυτόματα επιτυχία
+      μόνο επειδή πήραμε HTTP 200.
+
+      Επιστρέφουμε την απάντηση της
+      TEST ΑΑΔΕ για να τη δούμε.
     */
 
-    return NextResponse.json(
-      {
-        ok: false,
+    return NextResponse.json({
+      ok: aadeResponse.ok,
 
-        transmitted: false,
+      testMode: true,
 
-        error:
-          'Η πραγματική διαβίβαση στην ΑΑΔΕ δεν έχει ενεργοποιηθεί ακόμη.'
-      },
-      { status: 503 }
-    );
+      production: false,
+
+      transmittedToTestEnvironment:
+        true,
+
+      httpStatus:
+        aadeResponse.status,
+
+      message:
+        aadeResponse.ok
+          ? 'Η TEST ΑΑΔΕ απάντησε στο αίτημα.'
+          : 'Η TEST ΑΑΔΕ επέστρεψε σφάλμα.',
+
+      aadeResponse:
+        responseText
+    });
   } catch (error) {
     console.error(
-      'Delivery note myDATA error:',
+      'TEST Delivery Note myDATA error:',
       error
     );
 
@@ -562,10 +536,15 @@ export async function POST(request) {
       {
         ok: false,
 
-        transmitted: false,
+        testMode: true,
+
+        production: false,
+
+        transmittedToTestEnvironment:
+          false,
 
         error:
-          'Αποτυχία δημιουργίας του Δελτίου Αποστολής για myDATA.'
+          'Αποτυχία επικοινωνίας με το δοκιμαστικό περιβάλλον myDATA.'
       },
       { status: 500 }
     );
