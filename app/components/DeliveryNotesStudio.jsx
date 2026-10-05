@@ -12,8 +12,12 @@ const EMPTY_NOTE = {
   recipient_name: '',
   recipient_afm: '',
   recipient_address: '',
-  loading_address: 'Πλάκες, Μήλος 84800',
+  loading_address: 'Πλάκες',
+  loading_city: 'Μήλος',
+  loading_postal_code: '84800',
   delivery_address: '',
+  delivery_city: 'Μήλος',
+  delivery_postal_code: '84800',
   movement_purpose: 'Λοιπές Διακινήσεις',
   vehicle_number: '',
   carrier_name: '',
@@ -247,8 +251,12 @@ export default function DeliveryNotesStudio({
       recipient_name: draft.recipient_name || '',
       recipient_afm: draft.recipient_afm || '',
       recipient_address: draft.recipient_address || '',
-      loading_address: draft.loading_address || '',
+      loading_address: draft.loading_address || 'Πλάκες',
+      loading_city: draft.loading_city || 'Μήλος',
+      loading_postal_code: draft.loading_postal_code || '84800',
       delivery_address: draft.delivery_address || '',
+      delivery_city: draft.delivery_city || 'Μήλος',
+      delivery_postal_code: draft.delivery_postal_code || '84800',
       movement_purpose: draft.movement_purpose || '',
       vehicle_number: draft.vehicle_number || '',
       carrier_name: draft.carrier_name || '',
@@ -454,21 +462,6 @@ export default function DeliveryNotesStudio({
         if (!documentNumber) throw new Error('Δεν αποδόθηκε αριθμός στο Δελτίο Διακίνησης.');
       }
 
-      const parseAddress = (value) => {
-        const text = String(value || '').trim();
-        const postalMatch = text.match(/\b(\d{5})\b/);
-        const postalCode = postalMatch?.[1] || '';
-        let city = '';
-
-        if (postalCode) {
-          const after = text.split(postalCode)[1]?.replace(/^\s*[,\-]?\s*/, '').trim();
-          const before = text.split(postalCode)[0]?.replace(/[,\-\s]+$/, '').trim();
-          city = after || (before?.split(',').pop()?.trim() || '');
-        }
-
-        return { street: text, number: '', postalCode, city };
-      };
-
       const response = await fetch('/api/mydata/delivery-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -483,8 +476,18 @@ export default function DeliveryNotesStudio({
           vehicleNumber: draft.vehicle_number || '',
           movementPurpose: draft.movement_purpose || 'Λοιπές Διακινήσεις',
           movementPurposeTitle: 'Μεταφορά υλικών σε έργο',
-          loadingAddress: parseAddress(draft.loading_address),
-          deliveryAddress: parseAddress(draft.delivery_address),
+          loadingAddress: {
+            street: String(draft.loading_address || '').trim(),
+            number: '',
+            city: String(draft.loading_city || '').trim(),
+            postalCode: String(draft.loading_postal_code || '').trim()
+          },
+          deliveryAddress: {
+            street: String(draft.delivery_address || '').trim(),
+            number: '',
+            city: String(draft.delivery_city || '').trim(),
+            postalCode: String(draft.delivery_postal_code || '').trim()
+          },
           lines: draftLines.map((line) => ({
             itemName: line.item_name,
             quantity: Number(line.quantity || 0),
@@ -684,11 +687,11 @@ export default function DeliveryNotesStudio({
       <div className="grid">
         <div>
           <label>Σειρά</label>
-          <input value={note.series} onChange={(e) => setNote({ ...note, series: e.target.value })} />
+          <input value={note.series} readOnly />
         </div>
         <div>
           <label>Αριθμός</label>
-          <input placeholder="Θα οριστικοποιήσουμε την αρίθμηση μετά" value={note.document_number} onChange={(e) => setNote({ ...note, document_number: e.target.value })} />
+          <input placeholder="Θα αποδοθεί κατά την έκδοση" value={note.document_number} readOnly />
         </div>
         <div>
           <label>Ημερομηνία</label>
@@ -725,15 +728,27 @@ export default function DeliveryNotesStudio({
         <input placeholder="Επωνυμία / Ονοματεπώνυμο παραλήπτη" value={note.recipient_name} onChange={(e) => setNote({ ...note, recipient_name: e.target.value })} />
         <input placeholder="ΑΦΜ παραλήπτη" value={note.recipient_afm} onChange={(e) => setNote({ ...note, recipient_afm: e.target.value })} />
         <input placeholder="Διεύθυνση παραλήπτη" value={note.recipient_address} onChange={(e) => setNote({ ...note, recipient_address: e.target.value })} />
-        <input placeholder="Διεύθυνση παράδοσης" value={note.delivery_address} onChange={(e) => setNote({ ...note, delivery_address: e.target.value })} />
       </div>
 
       <h3>Στοιχεία Διακίνησης</h3>
       <div className="grid">
-        <input placeholder="Τόπος φόρτωσης" value={note.loading_address} onChange={(e) => setNote({ ...note, loading_address: e.target.value })} />
-        <input placeholder="Σκοπός διακίνησης" value={note.movement_purpose} onChange={(e) => setNote({ ...note, movement_purpose: e.target.value })} />
+        <input placeholder="Σκοπός διακίνησης" value={note.movement_purpose} readOnly />
         <input placeholder="Αρ. κυκλοφορίας οχήματος" value={note.vehicle_number} onChange={(e) => setNote({ ...note, vehicle_number: e.target.value.toUpperCase() })} />
         <input placeholder="Μεταφορέας" value={note.carrier_name} onChange={(e) => setNote({ ...note, carrier_name: e.target.value })} />
+      </div>
+
+      <h3>Τόπος Φόρτωσης</h3>
+      <div className="grid">
+        <input placeholder="Οδός / Περιοχή" value={note.loading_address} onChange={(e) => setNote({ ...note, loading_address: e.target.value })} />
+        <input placeholder="Πόλη" value={note.loading_city} onChange={(e) => setNote({ ...note, loading_city: e.target.value })} />
+        <input placeholder="Τ.Κ." value={note.loading_postal_code} onChange={(e) => setNote({ ...note, loading_postal_code: e.target.value })} />
+      </div>
+
+      <h3>Τόπος Παράδοσης</h3>
+      <div className="grid">
+        <input placeholder="Οδός / Περιοχή" value={note.delivery_address} onChange={(e) => setNote({ ...note, delivery_address: e.target.value })} />
+        <input placeholder="Πόλη" value={note.delivery_city} onChange={(e) => setNote({ ...note, delivery_city: e.target.value })} />
+        <input placeholder="Τ.Κ." value={note.delivery_postal_code} onChange={(e) => setNote({ ...note, delivery_postal_code: e.target.value })} />
       </div>
 
       <h3>📦 Υλικά</h3>
