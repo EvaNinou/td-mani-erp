@@ -43,6 +43,7 @@ export default function DeliveryNotesStudio({
   const [savedNotes, setSavedNotes] = useState([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => { loadNotes(); }, []);
 
@@ -156,24 +157,47 @@ export default function DeliveryNotesStudio({
     setMessage('');
 
     try {
-      const { data: saved, error } = await supabase
-        .from('delivery_notes')
-        .insert([{
-          ...note,
-          customer_id: note.customer_id || null,
-          project_id: note.project_id || null,
-          issue_time: note.issue_time || null,
-          status: 'DRAFT'
-        }])
-        .select()
-        .single();
+      const payload = {
+        ...note,
+        customer_id: note.customer_id || null,
+        project_id: note.project_id || null,
+        issue_time: note.issue_time || null,
+        status: 'DRAFT',
+        updated_at: new Date().toISOString()
+      };
 
-      if (error) throw error;
+      let savedId = editingId;
+
+      if (editingId) {
+        const { error } = await supabase
+          .from('delivery_notes')
+          .update(payload)
+          .eq('id', editingId)
+          .eq('status', 'DRAFT');
+
+        if (error) throw error;
+
+        const { error: deleteLinesError } = await supabase
+          .from('delivery_note_lines')
+          .delete()
+          .eq('delivery_note_id', editingId);
+
+        if (deleteLinesError) throw deleteLinesError;
+      } else {
+        const { data: saved, error } = await supabase
+          .from('delivery_notes')
+          .insert([payload])
+          .select()
+          .single();
+
+        if (error) throw error;
+        savedId = saved.id;
+      }
 
       const { error: linesError } = await supabase
         .from('delivery_note_lines')
         .insert(validLines.map((line) => ({
-          delivery_note_id: saved.id,
+          delivery_note_id: savedId,
           inventory_item_id: line.inventory_item_id || null,
           item_name: line.item_name,
           quantity: Number(line.quantity),
@@ -183,15 +207,95 @@ export default function DeliveryNotesStudio({
 
       if (linesError) throw linesError;
 
-      setMessage('✅ Το Δελτίο Διακίνησης αποθηκεύτηκε ως ΠΡΟΧΕΙΡΟ. Δεν έχει αφαιρεθεί απόθεμα και δεν έχει διαβιβαστεί στην ΑΑΔΕ.');
-      setNote({ ...EMPTY_NOTE, issue_date: new Date().toISOString().slice(0, 10), issue_time: new Date().toTimeString().slice(0, 5) });
-      setLines([]);
+      setMessage(editingId
+        ? '✅ Οι αλλαγές στο πρόχειρο Δελτίο Διακίνησης αποθηκεύτηκαν.'
+        : '✅ Το Δελτίο Διακίνησης αποθηκεύτηκε ως ΠΡΟΧΕΙΡΟ. Δεν έχει αφαιρεθεί απόθεμα και δεν έχει διαβιβαστεί στην ΑΑΔΕ.'
+      );
+      resetForm();
       await loadNotes();
     } catch (e) {
       setMessage(`❌ ${e.message}`);
     } finally {
       setSaving(false);
     }
+  }
+
+  function resetForm() {
+    setEditingId(null);
+    setNote({
+      ...EMPTY_NOTE,
+      issue_date: new Date().toISOString().slice(0, 10),
+      issue_time: new Date().toTimeString().slice(0, 5)
+    });
+    setLines([]);
+  }
+
+  function editDraft(draft) {
+    if (draft.status !== 'DRAFT') {
+      alert('Μόνο τα πρόχειρα δελτία μπορούν να επεξεργαστούν.');
+      return;
+    }
+
+    setEditingId(draft.id);
+    setNote({
+      series: draft.series || 'ΔΔ',
+      document_number: draft.document_number || '',
+      issue_date: draft.issue_date || new Date().toISOString().slice(0, 10),
+      issue_time: draft.issue_time ? String(draft.issue_time).slice(0, 5) : '',
+      customer_id: draft.customer_id || '',
+      project_id: draft.project_id || '',
+      recipient_name: draft.recipient_name || '',
+      recipient_afm: draft.recipient_afm || '',
+      recipient_address: draft.recipient_address || '',
+      loading_address: draft.loading_address || '',
+      delivery_address: draft.delivery_address || '',
+      movement_purpose: draft.movement_purpose || '',
+      vehicle_number: draft.vehicle_number || '',
+      carrier_name: draft.carrier_name || '',
+      notes: draft.notes || ''
+    });
+
+    setLines((draft.delivery_note_lines || [])
+      .filter((line) => !line.is_deleted)
+      .map((line) => ({
+        key: line.id || crypto.randomUUID(),
+        inventory_item_id: line.inventory_item_id || '',
+        item_name: line.item_name || '',
+        quantity: line.quantity ?? '',
+        unit: line.unit || 'τεμ.',
+        notes: line.notes || ''
+      })));
+
+    setMessage('✏️ Επεξεργάζεσαι πρόχειρο Δελτίο Διακίνησης.');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function deleteDraft(draft) {
+    if (draft.status !== 'DRAFT') {
+      alert('Μόνο τα πρόχειρα δελτία μπορούν να διαγραφούν από εδώ.');
+      return;
+    }
+
+    const ok = window.confirm('Να διαγραφεί αυτό το πρόχειρο Δελτίο Διακίνησης;');
+    if (!ok) return;
+
+    const { error } = await supabase
+      .from('delivery_notes')
+      .update({
+        is_deleted: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', draft.id)
+      .eq('status', 'DRAFT');
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    if (editingId === draft.id) resetForm();
+    setMessage('🗑️ Το πρόχειρο Δελτίο Διακίνησης διαγράφηκε.');
+    await loadNotes();
   }
 
   return (
@@ -288,9 +392,14 @@ export default function DeliveryNotesStudio({
 
       <textarea placeholder="Γενικές παρατηρήσεις" value={note.notes} onChange={(e) => setNote({ ...note, notes: e.target.value })} />
 
-      <button onClick={saveDraft} disabled={saving}>
-        {saving ? 'Αποθήκευση...' : '💾 Αποθήκευση ως Πρόχειρο'}
-      </button>
+      <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+        <button onClick={saveDraft} disabled={saving}>
+          {saving ? 'Αποθήκευση...' : editingId ? '💾 Αποθήκευση αλλαγών' : '💾 Αποθήκευση ως Πρόχειρο'}
+        </button>
+        {editingId && (
+          <button onClick={resetForm} disabled={saving}>✖ Ακύρωση επεξεργασίας</button>
+        )}
+      </div>
 
       {message && <p><b>{message}</b></p>}
 
@@ -301,6 +410,12 @@ export default function DeliveryNotesStudio({
           <p><b>{d.series || 'ΔΔ'} {d.document_number || 'Χωρίς αριθμό'}</b> — {d.issue_date}</p>
           <p>{d.recipient_name || 'Χωρίς παραλήπτη'} • {d.delivery_note_lines?.length || 0} υλικά</p>
           <small>Κατάσταση: {d.status === 'DRAFT' ? 'ΠΡΟΧΕΙΡΟ' : d.status}</small>
+          {d.status === 'DRAFT' && (
+            <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:10}}>
+              <button onClick={() => editDraft(d)}>✏️ Επεξεργασία</button>
+              <button onClick={() => deleteDraft(d)}>🗑️ Διαγραφή</button>
+            </div>
+          )}
         </div>
       ))}
     </section>
