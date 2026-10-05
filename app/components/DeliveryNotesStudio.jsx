@@ -374,8 +374,16 @@ export default function DeliveryNotesStudio({
   .mydata > div + div { border-left:1px solid #d8d1c4; text-align:center; }
   .signatures { display:grid; grid-template-columns:1fr 1fr; gap:28px; margin-top:18px; text-align:center; }
   .signature { border-top:1px solid #d8d1c4; padding-top:6px; min-height:54px; }
-  .tagline { color:#b99045; font-weight:700; text-align:center; margin-top:14px; letter-spacing:.4px; }
-  .draft-watermark { color:#777; font-size:9px; text-align:right; margin-top:5px; }
+  .tagline {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 4mm;
+    color:#b99045;
+    font-weight:700;
+    text-align:center;
+    letter-spacing:.4px;
+  }
   @media print { .no-print { display:none !important; } body { print-color-adjust:exact; -webkit-print-color-adjust:exact; } }
 </style>
 </head>
@@ -437,8 +445,7 @@ export default function DeliveryNotesStudio({
     <div class="signature"><b>ΠΑΡΑΛΑΒΗ</b><br/><small>Ονοματεπώνυμο / Υπογραφή</small></div>
   </div>
 
-  <div class="tagline">TD MANI E.E. • FROM VISION TO REALITY</div>
-  ${draft.status === 'DRAFT' ? '<div class="draft-watermark">ΠΡΟΧΕΙΡΟ — Δεν έχει διαβιβαστεί στην ΑΑΔΕ</div>' : ''}
+  <div class="tagline">TD MANI • FROM VISION TO REALITY</div>
 </div>
 <script>
   window.onload = () => setTimeout(() => window.print(), 350);
