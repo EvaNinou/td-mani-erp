@@ -154,13 +154,8 @@ function buildInvoiceXml(data) {
       <netValue>0.00</netValue>
       <vatCategory>8</vatCategory>
       <vatAmount>0.00</vatAmount>
-      <itemDescr>${xmlEscape(line.itemName)}</itemDescr>
-      ${
-        line.itemCode
-          ? `<itemCode>${xmlEscape(line.itemCode)}</itemCode>`
-          : ''
-      }
       ${otherUnit}
+      <itemDescr>${xmlEscape(line.itemName)}</itemDescr>
     </invoiceDetails>`;
     })
     .join('');
@@ -211,24 +206,24 @@ function buildInvoiceXml(data) {
           : ''
       }
 
-     <movePurpose>19</movePurpose>
+      <movePurpose>19</movePurpose>
 
-<otherDeliveryNoteHeader>
-  ${addressXml(
-    'loadingAddress',
-    loadingAddress
-  )}
+      <otherDeliveryNoteHeader>
+        ${addressXml(
+          'loadingAddress',
+          loadingAddress
+        )}
 
-  ${addressXml(
-    'deliveryAddress',
-    deliveryAddress
-  )}
-</otherDeliveryNoteHeader>
+        ${addressXml(
+          'deliveryAddress',
+          deliveryAddress
+        )}
+      </otherDeliveryNoteHeader>
 
-<otherMovePurposeTitle>${xmlEscape(
-  movementPurposeTitle ||
-    'Μεταφορά υλικών σε έργο'
-)}</otherMovePurposeTitle>
+      <otherMovePurposeTitle>${xmlEscape(
+        movementPurposeTitle ||
+          'Μεταφορά υλικών σε έργο'
+      )}</otherMovePurposeTitle>
 
     </invoiceHeader>
 
