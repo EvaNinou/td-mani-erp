@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-// SAFE MODE:
-// true = δημιουργεί μόνο το XML.
-// ΔΕΝ στέλνει τίποτα στην ΑΑΔΕ.
+// SAFE MODE = true
+// ΔΕΝ πραγματοποιείται καμία πραγματική διαβίβαση στην ΑΑΔΕ.
 const SAFE_MODE = true;
 
 function xmlEscape(value = '') {
@@ -28,8 +27,24 @@ function validAfm(value) {
   return /^\d{9}$/.test(String(value || ''));
 }
 
+function normalizeTime(value) {
+  const time = String(value || '').trim();
+
+  if (/^\d{2}:\d{2}:\d{2}$/.test(time)) {
+    return time;
+  }
+
+  if (/^\d{2}:\d{2}$/.test(time)) {
+    return `${time}:00`;
+  }
+
+  return time;
+}
+
 function addressXml(tag, address) {
-  if (!address?.postalCode || !address?.city) return '';
+  if (!address?.postalCode || !address?.city) {
+    return '';
+  }
 
   return `
         <${tag}>
@@ -52,28 +67,46 @@ function measurementUnit(unit = '') {
   const u = String(unit).trim().toLowerCase();
 
   if (
-    ['τεμ.', 'τεμ', 'τεμάχια', 'τεμαχια', 'pcs', 'piece', 'pieces'].includes(u)
+    [
+      'τεμ.',
+      'τεμ',
+      'τεμάχια',
+      'τεμαχια',
+      'pcs',
+      'piece',
+      'pieces'
+    ].includes(u)
   ) {
     return 1;
   }
 
-  if (['kg', 'κιλά', 'κιλα', 'κιλό', 'κιλο'].includes(u)) {
+  if (
+    ['kg', 'κιλά', 'κιλα', 'κιλό', 'κιλο'].includes(u)
+  ) {
     return 2;
   }
 
-  if (['lt', 'l', 'λίτρα', 'λιτρα'].includes(u)) {
+  if (
+    ['lt', 'l', 'λίτρα', 'λιτρα'].includes(u)
+  ) {
     return 3;
   }
 
-  if (['m', 'μ', 'μέτρα', 'μετρα'].includes(u)) {
+  if (
+    ['m', 'μ', 'μέτρα', 'μετρα'].includes(u)
+  ) {
     return 4;
   }
 
-  if (['m²', 'm2', 'τ.μ.', 'τμ'].includes(u)) {
+  if (
+    ['m²', 'm2', 'τ.μ.', 'τμ', 'm^2'].includes(u)
+  ) {
     return 5;
   }
 
-  if (['m³', 'm3', 'κ.μ.', 'κμ'].includes(u)) {
+  if (
+    ['m³', 'm3', 'κ.μ.', 'κμ', 'm^3'].includes(u)
+  ) {
     return 6;
   }
 
@@ -90,7 +123,7 @@ function buildInvoiceXml(data) {
     dispatchDate,
     dispatchTime,
     vehicleNumber,
-    movementPurpose,
+    movementPurposeTitle,
     loadingAddress,
     deliveryAddress,
     lines
@@ -101,48 +134,46 @@ function buildInvoiceXml(data) {
 
   const rows = lines
     .map((line, index) => {
+      const quantity = Number(line.quantity);
       const unitCode = measurementUnit(line.unit);
 
       const otherUnit =
         unitCode === 7
           ? `
-          <otherMeasurementUnitQuantity>${Math.max(
-            1,
-            Math.round(Number(line.quantity))
-          )}</otherMeasurementUnitQuantity>
-          <otherMeasurementUnitTitle>${xmlEscape(
-            line.unit || 'Λοιπή μονάδα'
-          )}</otherMeasurementUnitTitle>`
+        <otherMeasurementUnitQuantity>${quantity}</otherMeasurementUnitQuantity>
+        <otherMeasurementUnitTitle>${xmlEscape(
+          line.unit || 'Λοιπή μονάδα'
+        )}</otherMeasurementUnitTitle>`
           : '';
 
       return `
-      <invoiceDetails>
-        <lineNumber>${index + 1}</lineNumber>
-        <quantity>${Number(line.quantity)}</quantity>
-        <measurementUnit>${unitCode}</measurementUnit>
-        <netValue>0.00</netValue>
-        <vatCategory>8</vatCategory>
-        <vatAmount>0.00</vatAmount>
-        <itemDescr>${xmlEscape(line.itemName)}</itemDescr>
-        ${
-          line.itemCode
-            ? `<itemCode>${xmlEscape(line.itemCode)}</itemCode>`
-            : ''
-        }
-        ${otherUnit}
-      </invoiceDetails>`;
+    <invoiceDetails>
+      <lineNumber>${index + 1}</lineNumber>
+      <quantity>${quantity}</quantity>
+      <measurementUnit>${unitCode}</measurementUnit>
+      <netValue>0.00</netValue>
+      <vatCategory>8</vatCategory>
+      <vatAmount>0.00</vatAmount>
+      <itemDescr>${xmlEscape(line.itemName)}</itemDescr>
+      ${
+        line.itemCode
+          ? `<itemCode>${xmlEscape(line.itemCode)}</itemCode>`
+          : ''
+      }
+      ${otherUnit}
+    </invoiceDetails>`;
     })
     .join('');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <InvoicesDoc
   xmlns="http://www.aade.gr/myDATA/invoice/v1.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
->
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
   <invoice>
 
     <issuer>
-      <vatNumber>${issuerVatNumber}</vatNumber>
+      <vatNumber>${xmlEscape(issuerVatNumber)}</vatNumber>
       <country>GR</country>
       <branch>0</branch>
     </issuer>
@@ -159,14 +190,20 @@ function buildInvoiceXml(data) {
     }
 
     <invoiceHeader>
-      <series>${xmlEscape(series || 'ΔΔ')}</series>
+
+      <series>${xmlEscape(series || 'Δ')}</series>
+
       <aa>${xmlEscape(documentNumber)}</aa>
+
       <issueDate>${issueDate}</issueDate>
 
       <invoiceType>9.3</invoiceType>
 
       <dispatchDate>${dispatchDate || issueDate}</dispatchDate>
-      <dispatchTime>${dispatchTime || issueTime}:00</dispatchTime>
+
+      <dispatchTime>${normalizeTime(
+        dispatchTime || issueTime
+      )}</dispatchTime>
 
       ${
         vehicleNumber
@@ -177,14 +214,20 @@ function buildInvoiceXml(data) {
       <movePurpose>19</movePurpose>
 
       <otherMovePurposeTitle>${xmlEscape(
-        movementPurpose || 'Διακίνηση υλικών σε έργο'
+        movementPurposeTitle || 'Μεταφορά υλικών σε έργο'
       )}</otherMovePurposeTitle>
 
       <otherDeliveryNoteHeader>
 
-        ${addressXml('loadingAddress', loadingAddress)}
+        ${addressXml(
+          'loadingAddress',
+          loadingAddress
+        )}
 
-        ${addressXml('deliveryAddress', deliveryAddress)}
+        ${addressXml(
+          'deliveryAddress',
+          deliveryAddress
+        )}
 
       </otherDeliveryNoteHeader>
 
@@ -193,17 +236,27 @@ function buildInvoiceXml(data) {
     ${rows}
 
     <invoiceSummary>
+
       <totalNetValue>0.00</totalNetValue>
+
       <totalVatAmount>0.00</totalVatAmount>
+
       <totalWithheldAmount>0.00</totalWithheldAmount>
+
       <totalFeesAmount>0.00</totalFeesAmount>
+
       <totalStampDutyAmount>0.00</totalStampDutyAmount>
+
       <totalOtherTaxesAmount>0.00</totalOtherTaxesAmount>
+
       <totalDeductionsAmount>0.00</totalDeductionsAmount>
+
       <totalGrossValue>0.00</totalGrossValue>
+
     </invoiceSummary>
 
   </invoice>
+
 </InvoicesDoc>`;
 }
 
@@ -227,24 +280,40 @@ export async function POST(request) {
     const body = await request.json();
 
     const {
-      series = 'ΔΔ',
+      series = 'Δ',
       documentNumber,
       issueDate,
       issueTime,
       recipientAfm = '',
       dispatchDate,
       dispatchTime,
+      vehicleNumber = '',
       loadingAddress,
       deliveryAddress,
       lines = []
     } = body;
+
+    const movementPurposeTitle =
+      body.movementPurposeTitle ||
+      'Μεταφορά υλικών σε έργο';
 
     if (!documentNumber) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            'Λείπει ο αριθμός του Δελτίου Διακίνησης.'
+            'Λείπει ο αριθμός του Δελτίου Αποστολής.'
+        },
+        { status: 400 }
+      );
+    }
+
+    if (series !== 'Δ') {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Η σειρά του Δελτίου Αποστολής πρέπει να είναι Δ.'
         },
         { status: 400 }
       );
@@ -272,29 +341,38 @@ export async function POST(request) {
       );
     }
 
-    if (dispatchDate && !validDate(dispatchDate)) {
+    if (
+      dispatchDate &&
+      !validDate(dispatchDate)
+    ) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            'Η ημερομηνία αποστολής πρέπει να είναι YYYY-MM-DD.'
+            'Η ημερομηνία διακίνησης πρέπει να είναι YYYY-MM-DD.'
         },
         { status: 400 }
       );
     }
 
-    if (dispatchTime && !validTime(dispatchTime)) {
+    if (
+      dispatchTime &&
+      !validTime(dispatchTime)
+    ) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            'Η ώρα αποστολής πρέπει να είναι HH:MM.'
+            'Η ώρα διακίνησης πρέπει να είναι HH:MM.'
         },
         { status: 400 }
       );
     }
 
-    if (recipientAfm && !validAfm(recipientAfm)) {
+    if (
+      recipientAfm &&
+      !validAfm(recipientAfm)
+    ) {
       return NextResponse.json(
         {
           ok: false,
@@ -313,7 +391,7 @@ export async function POST(request) {
         {
           ok: false,
           error:
-            'Χρειάζονται ΤΚ και πόλη στη διεύθυνση φόρτωσης.'
+            'Χρειάζονται Πόλη και Τ.Κ. στον Τόπο Φόρτωσης.'
         },
         { status: 400 }
       );
@@ -327,18 +405,21 @@ export async function POST(request) {
         {
           ok: false,
           error:
-            'Χρειάζονται ΤΚ και πόλη στη διεύθυνση παράδοσης.'
+            'Χρειάζονται Πόλη και Τ.Κ. στον Τόπο Παράδοσης.'
         },
         { status: 400 }
       );
     }
 
-    if (!Array.isArray(lines) || lines.length === 0) {
+    if (
+      !Array.isArray(lines) ||
+      lines.length === 0
+    ) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            'Το Δελτίο Διακίνησης πρέπει να έχει τουλάχιστον ένα υλικό.'
+            'Το Δελτίο Αποστολής πρέπει να έχει τουλάχιστον ένα υλικό.'
         },
         { status: 400 }
       );
@@ -362,46 +443,93 @@ export async function POST(request) {
 
     const normalized = {
       ...body,
-      series,
-      documentNumber: String(documentNumber),
+
+      series: 'Δ',
+
+      documentNumber:
+        String(documentNumber),
+
       issueDate,
+
       issueTime,
+
       recipientAfm,
-      dispatchDate: dispatchDate || issueDate,
-      dispatchTime: dispatchTime || issueTime,
+
+      dispatchDate:
+        dispatchDate || issueDate,
+
+      dispatchTime:
+        dispatchTime || issueTime,
+
+      vehicleNumber,
+
+      movementPurposeCode: 19,
+
+      movementPurposeTitle,
+
+      loadingAddress,
+
+      deliveryAddress,
+
       lines
     };
 
-    const xml = buildInvoiceXml(normalized);
+    const xml =
+      buildInvoiceXml(normalized);
 
     /*
       SAFE MODE
 
-      Σταματάμε εδώ.
+      Όσο SAFE_MODE === true,
+      ο κώδικας σταματά εδώ.
 
-      ΔΕΝ γίνεται fetch προς:
+      ΔΕΝ υπάρχει κλήση:
       /myDATA/SendInvoices
 
-      Άρα ΔΕΝ εκδίδεται πραγματικό παραστατικό.
+      Άρα ΔΕΝ διαβιβάζεται
+      πραγματικό παραστατικό.
     */
 
     if (SAFE_MODE) {
       return NextResponse.json({
         ok: true,
+
         safeMode: true,
+
         transmitted: false,
 
         message:
-          'SAFE MODE: Το XML δημιουργήθηκε, αλλά ΔΕΝ διαβιβάστηκε στην ΑΑΔΕ.',
+          'SAFE MODE: Το XML 9.3 δημιουργήθηκε αλλά ΔΕΝ διαβιβάστηκε στην ΑΑΔΕ.',
 
         document: {
           invoiceType: '9.3',
-          series,
-          aa: String(documentNumber),
+
+          series: 'Δ',
+
+          aa:
+            String(documentNumber),
+
           issueDate,
-          dispatchDate: dispatchDate || issueDate,
-          dispatchTime: dispatchTime || issueTime,
-          movePurpose: 19
+
+          dispatchDate:
+            dispatchDate || issueDate,
+
+          dispatchTime:
+            normalizeTime(
+              dispatchTime || issueTime
+            ),
+
+          movePurpose: 19,
+
+          otherMovePurposeTitle:
+            movementPurposeTitle,
+
+          loadingAddress,
+
+          deliveryAddress,
+
+          lineCount:
+            lines.length
         },
 
         xml
@@ -409,15 +537,18 @@ export async function POST(request) {
     }
 
     /*
-      Η πραγματική SendInvoices θα ενεργοποιηθεί
-      μόνο αφού ελέγξουμε πρώτα το XML.
+      Δεν ενεργοποιούμε ακόμη
+      πραγματική διαβίβαση.
     */
 
     return NextResponse.json(
       {
         ok: false,
+
+        transmitted: false,
+
         error:
-          'Η πραγματική διαβίβαση δεν έχει ενεργοποιηθεί ακόμη.'
+          'Η πραγματική διαβίβαση στην ΑΑΔΕ δεν έχει ενεργοποιηθεί ακόμη.'
       },
       { status: 503 }
     );
@@ -430,8 +561,11 @@ export async function POST(request) {
     return NextResponse.json(
       {
         ok: false,
+
+        transmitted: false,
+
         error:
-          'Αποτυχία δημιουργίας του Δελτίου Διακίνησης για myDATA.'
+          'Αποτυχία δημιουργίας του Δελτίου Αποστολής για myDATA.'
       },
       { status: 500 }
     );
