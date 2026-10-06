@@ -42,22 +42,19 @@ function normalizeTime(value) {
 }
 
 function addressXml(tag, address) {
-  if (!address?.postalCode || !address?.city) {
+  if (
+    !address?.street ||
+    !address?.number ||
+    !address?.postalCode ||
+    !address?.city
+  ) {
     return '';
   }
 
   return `
         <${tag}>
-          ${
-            address.street
-              ? `<street>${xmlEscape(address.street)}</street>`
-              : ''
-          }
-          ${
-            address.number
-              ? `<number>${xmlEscape(address.number)}</number>`
-              : ''
-          }
+          <street>${xmlEscape(address.street)}</street>
+          <number>${xmlEscape(address.number)}</number>
           <postalCode>${xmlEscape(address.postalCode)}</postalCode>
           <city>${xmlEscape(address.city)}</city>
         </${tag}>`;
@@ -120,6 +117,9 @@ function buildInvoiceXml(data) {
     issueDate,
     issueTime,
     recipientAfm,
+    recipientName,
+    recipientBranch,
+    recipientAddress,
     dispatchDate,
     dispatchTime,
     vehicleNumber,
@@ -132,21 +132,30 @@ function buildInvoiceXml(data) {
   const issuerVatNumber =
     process.env.MYDATA_ENTITY_VAT_NUMBER || '801853358';
 
- const rows = lines
-  .map((line, index) => {
-    const quantity = Number(line.quantity);
-    const unitCode = measurementUnit(line.unit);
+  const issuerName = 'TD MANI E.E.';
 
-    const otherUnit =
-      unitCode === 7
-        ? `
+  const issuerAddress = {
+    street: 'Πλάκες',
+    number: '0',
+    postalCode: '84800',
+    city: 'Μήλος'
+  };
+
+  const rows = lines
+    .map((line, index) => {
+      const quantity = Number(line.quantity);
+      const unitCode = measurementUnit(line.unit);
+
+      const otherUnit =
+        unitCode === 7
+          ? `
       <otherMeasurementUnitQuantity>${quantity}</otherMeasurementUnitQuantity>
       <otherMeasurementUnitTitle>${xmlEscape(
         line.unit || 'Λοιπή μονάδα'
       )}</otherMeasurementUnitTitle>`
-        : '';
+          : '';
 
-    return `
+      return `
   <invoiceDetails>
     <lineNumber>${index + 1}</lineNumber>
     ${
@@ -161,11 +170,16 @@ function buildInvoiceXml(data) {
     <vatCategory>8</vatCategory>
     <vatAmount>0.00</vatAmount>
     ${otherUnit}
+    <incomeClassification>
+      <classificationType>E3_561_007</classificationType>
+      <classificationCategory>category1_95</classificationCategory>
+      <amount>0.00</amount>
+    </incomeClassification>
     <movePurposeLine>19</movePurposeLine>
     <otherMovePurposeLineTitle>Μεταφορά υλικών σε έργο</otherMovePurposeLineTitle>
   </invoiceDetails>`;
-  })
-  .join('');
+    })
+    .join('');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <InvoicesDoc
@@ -178,6 +192,13 @@ function buildInvoiceXml(data) {
       <vatNumber>${xmlEscape(issuerVatNumber)}</vatNumber>
       <country>GR</country>
       <branch>0</branch>
+      <name>${xmlEscape(issuerName)}</name>
+      <address>
+        <street>${xmlEscape(issuerAddress.street)}</street>
+        <number>${xmlEscape(issuerAddress.number)}</number>
+        <postalCode>${xmlEscape(issuerAddress.postalCode)}</postalCode>
+        <city>${xmlEscape(issuerAddress.city)}</city>
+      </address>
     </issuer>
 
     ${
@@ -186,7 +207,9 @@ function buildInvoiceXml(data) {
     <counterpart>
       <vatNumber>${xmlEscape(recipientAfm)}</vatNumber>
       <country>GR</country>
-      <branch>0</branch>
+      <branch>${xmlEscape(recipientBranch || '0')}</branch>
+      <name>${xmlEscape(recipientName || '')}</name>
+      ${addressXml('address', recipientAddress)}
     </counterpart>`
         : ''
     }
@@ -289,6 +312,9 @@ export async function POST(request) {
       issueDate,
       issueTime,
       recipientAfm = '',
+      recipientName = '',
+      recipientBranch = '0',
+      recipientAddress,
       dispatchDate,
       dispatchTime,
       vehicleNumber = '',
@@ -387,7 +413,39 @@ export async function POST(request) {
       );
     }
 
+    if (recipientAfm && !recipientName.trim()) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Χρειάζεται Επωνυμία / Ονοματεπώνυμο παραλήπτη.'
+        },
+        { status: 400 }
+      );
+    }
+
     if (
+      recipientAfm &&
+      (
+        !recipientAddress?.street ||
+        !recipientAddress?.number ||
+        !recipientAddress?.city ||
+        !recipientAddress?.postalCode
+      )
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Χρειάζονται Οδός, Αριθμός, Πόλη και Τ.Κ. στη διεύθυνση παραλήπτη.'
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      !loadingAddress?.street ||
+      !loadingAddress?.number ||
       !loadingAddress?.postalCode ||
       !loadingAddress?.city
     ) {
@@ -395,13 +453,15 @@ export async function POST(request) {
         {
           ok: false,
           error:
-            'Χρειάζονται Πόλη και Τ.Κ. στον Τόπο Φόρτωσης.'
+            'Χρειάζονται Οδός, Αριθμός, Πόλη και Τ.Κ. στον Τόπο Φόρτωσης.'
         },
         { status: 400 }
       );
     }
 
     if (
+      !deliveryAddress?.street ||
+      !deliveryAddress?.number ||
       !deliveryAddress?.postalCode ||
       !deliveryAddress?.city
     ) {
@@ -409,7 +469,7 @@ export async function POST(request) {
         {
           ok: false,
           error:
-            'Χρειάζονται Πόλη και Τ.Κ. στον Τόπο Παράδοσης.'
+            'Χρειάζονται Οδός, Αριθμός, Πόλη και Τ.Κ. στον Τόπο Παράδοσης.'
         },
         { status: 400 }
       );
@@ -453,6 +513,9 @@ export async function POST(request) {
       issueDate,
       issueTime,
       recipientAfm,
+      recipientName,
+      recipientBranch,
+      recipientAddress,
       dispatchDate:
         dispatchDate || issueDate,
       dispatchTime:
