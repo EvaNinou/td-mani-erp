@@ -552,72 +552,60 @@ export default function DeliveryNotesStudio({
         return;
       }
 
-      if (result.testMode) {
-        const rawAadeResponse = String(result.aadeResponse || '').trim();
-        const decodedAadeResponse = rawAadeResponse
-          .replaceAll('&lt;', '<')
-          .replaceAll('&gt;', '>')
-          .replaceAll('&quot;', '"')
-          .replaceAll('&apos;', "'")
-          .replaceAll('&amp;', '&');
+      const mark = String(result.invoiceMark || '').trim();
+      const uid = String(result.invoiceUid || '').trim();
+      const qrUrl = String(result.qrUrl || '').trim();
 
-        const readTag = (tag) => {
-          const match = decodedAadeResponse.match(
-            new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i')
-          );
-          return match ? String(match[1] || '').trim() : '';
-        };
+      if (mark && uid) {
+        const { error: saveMyDataError } = await supabase
+          .from('delivery_notes')
+          .update({
+            mydata_mark: mark,
+            mydata_uid: uid,
+            mydata_qr_url: qrUrl || null,
+            transmitted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', draft.id);
 
-        const statusCode = readTag('statusCode');
-        const mark = readTag('invoiceMark');
-        const uid = readTag('invoiceUid');
-        const qrUrl = readTag('qrUrl');
+        if (saveMyDataError) throw saveMyDataError;
 
-        if (statusCode.toLowerCase() === 'success' && mark && uid) {
-          const { error: saveMyDataError } = await supabase
-            .from('delivery_notes')
-            .update({
-              mydata_mark: mark,
-              mydata_uid: uid,
-              mydata_qr_url: qrUrl || null,
-              transmitted_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', draft.id);
+        await loadNotes();
 
-          if (saveMyDataError) throw saveMyDataError;
-
-          await loadNotes();
-
+        if (result.production) {
           setMessage(
-            `✅ TEST ΑΑΔΕ: Επιτυχής διαβίβαση Δ/${documentNumber} • MARK ${mark}`
+            `✅ ΑΑΔΕ: Επιτυχής διαβίβαση Δ/${documentNumber} • MARK ${mark}`
           );
 
           window.alert(
-            '✅ ΕΠΙΤΥΧΗΣ ΔΙΑΒΙΒΑΣΗ TEST ΑΑΔΕ\n\n' +
+            '✅ ΕΠΙΤΥΧΗΣ ΔΙΑΒΙΒΑΣΗ ΑΑΔΕ\n\n' +
             `Δελτίο: Δ/${documentNumber}\n` +
             `MARK: ${mark}\n` +
             `UID: ${uid}` +
             (qrUrl ? '\nQR: Αποθηκεύτηκε επιτυχώς.' : '')
           );
-          return;
+        } else {
+          setMessage(
+            `🧪 TEST ΑΑΔΕ: Επιτυχής διαβίβαση Δ/${documentNumber} • MARK ${mark}`
+          );
+
+          window.alert(
+            '🧪 ΕΠΙΤΥΧΗΣ ΔΙΑΒΙΒΑΣΗ TEST ΑΑΔΕ\n\n' +
+            `Δελτίο: Δ/${documentNumber}\n` +
+            `MARK: ${mark}\n` +
+            `UID: ${uid}` +
+            (qrUrl ? '\nQR: Αποθηκεύτηκε επιτυχώς.' : '')
+          );
         }
 
-        const statusText = result.httpStatus ? `HTTP ${result.httpStatus}` : 'χωρίς HTTP status';
-
-        setMessage(
-          `🧪 TEST ΑΑΔΕ: Η διαβίβαση δεν ολοκληρώθηκε επιτυχώς (${statusText}).`
-        );
-
-        window.alert(
-          '🧪 ΑΠΑΝΤΗΣΗ TEST ΑΑΔΕ\n\n' +
-          `Κατάσταση: ${statusText}\n\n` +
-          (rawAadeResponse || 'Η ΑΑΔΕ δεν επέστρεψε κείμενο απάντησης.')
-        );
         return;
       }
 
-      setMessage('✅ Ο έλεγχος myDATA ολοκληρώθηκε.');
+      throw new Error(
+        result.production
+          ? 'Η ΑΑΔΕ δεν επέστρεψε MARK και UID.'
+          : 'Η TEST ΑΑΔΕ δεν επέστρεψε MARK και UID.'
+      );
     } catch (e) {
       setMessage(`❌ ${e.message}`);
       alert(`❌ ${e.message}`);
@@ -800,7 +788,7 @@ export default function DeliveryNotesStudio({
     <section className="card">
       <button onClick={onBack}>← Πίσω στα Έσοδα / Έξοδα</button>
       <h2>🚚 Δελτίο Διακίνησης</h2>
-      <p>Πρώτη έκδοση για μορφοποίηση. Προς το παρόν αποθηκεύουμε μόνο <b>ΠΡΟΧΕΙΡΑ</b> — χωρίς διαβίβαση στην ΑΑΔΕ και χωρίς αφαίρεση stock.</p>
+      <p>Δημιουργία, οριστικοποίηση και διαβίβαση Δελτίων Διακίνησης στην ΑΑΔΕ μέσω myDATA.</p>
 
       <h3>Στοιχεία Παραστατικού</h3>
       <div className="grid">
