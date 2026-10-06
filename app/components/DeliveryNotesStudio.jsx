@@ -407,6 +407,11 @@ export default function DeliveryNotesStudio({
   async function undoFinalization(draft) {
     if (draft.status !== 'FINALIZED') return;
 
+    if (draft.mydata_mark) {
+      alert(`Το δελτίο έχει ήδη εκδοθεί και διαβιβαστεί στην ΑΑΔΕ.\nMARK: ${draft.mydata_mark}\n\nΔεν επιτρέπεται αναίρεση οριστικοποίησης.`);
+      return;
+    }
+
     const ok = window.confirm(
       'Να ακυρωθεί η οριστικοποίηση; Το δελτίο θα επιστρέψει σε ΠΡΟΧΕΙΡΟ και οι ποσότητες θα επιστραφούν στην αποθήκη.'
     );
@@ -442,7 +447,8 @@ export default function DeliveryNotesStudio({
           updated_at: new Date().toISOString()
         })
         .eq('id', draft.id)
-        .eq('status', 'FINALIZED');
+        .eq('status', 'FINALIZED')
+        .is('mydata_mark', null);
 
       if (noteError) throw noteError;
 
@@ -532,7 +538,7 @@ export default function DeliveryNotesStudio({
       const result = await response.json();
 
       if (!response.ok || !result.ok) {
-        throw new Error(result.error || 'Αποτυχία ελέγχου του Δελτίου Διακίνησης.');
+        throw new Error(result.error || result.message || 'Αποτυχία ελέγχου του Δελτίου Διακίνησης.');
       }
 
       if (result.safeMode && !result.transmitted) {
@@ -1007,7 +1013,9 @@ export default function DeliveryNotesStudio({
               </>
             )}
             {d.mydata_mark && (
-              <span style={{fontWeight:700}}>✅ ΕΚΔΟΘΗΚΕ • MARK {d.mydata_mark}</span>
+              <span style={{fontWeight:700}}>
+                🔒 ΕΚΔΟΘΗΚΕ & ΚΛΕΙΔΩΘΗΚΕ • MARK {d.mydata_mark}
+              </span>
             )}
           </div>
         </div>
