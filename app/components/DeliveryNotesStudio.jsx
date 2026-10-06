@@ -638,6 +638,9 @@ export default function DeliveryNotesStudio({
   function printDeliveryNote(draft) {
     const project = projects.find((x) => x.id === draft.project_id);
     const projectName = project?.title || project?.project_name || project?.name || '';
+    const qrImageUrl = draft.mydata_qr_url
+      ? `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(draft.mydata_qr_url)}`
+      : '';
     const draftLines = (draft.delivery_note_lines || []).filter((x) => !x.is_deleted);
     const rows = draftLines.length
       ? draftLines.map((line, index) => `
@@ -757,8 +760,19 @@ export default function DeliveryNotesStudio({
   </div>
 
   <div class="mydata">
-    <div><b>myDATA / ΑΑΔΕ</b><br/>MARK: ${escapeHtml(draft.mydata_mark || 'Θα συμπληρώνεται μετά την επιτυχή διαβίβαση.')}</div>
-    <div><b>QR CODE</b><br/>${draft.mydata_qr_url ? 'Διαθέσιμο μετά τη διαβίβαση' : 'Θέση QR μετά τη διαβίβαση'}</div>
+    <div>
+      <b>myDATA / ΑΑΔΕ</b><br/>
+      MARK: ${escapeHtml(draft.mydata_mark || 'Θα συμπληρώνεται μετά την επιτυχή διαβίβαση.')}
+      ${draft.mydata_uid ? `<br/>UID: ${escapeHtml(draft.mydata_uid)}` : ''}
+    </div>
+    <div>
+      <b>QR CODE</b><br/>
+      ${
+        qrImageUrl
+          ? `<img src="${qrImageUrl}" alt="myDATA QR Code" style="width:110px;height:110px;margin-top:6px;" />`
+          : 'Θέση QR μετά τη διαβίβαση'
+      }
+    </div>
   </div>
 
   <div class="signatures">
