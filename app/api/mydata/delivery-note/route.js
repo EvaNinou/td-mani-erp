@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-// ΜΟΝΟ ΔΟΚΙΜΑΣΤΙΚΟ ΠΕΡΙΒΑΛΛΟΝ ΑΑΔΕ
+// myDATA endpoints
 const TEST_MYDATA_URL =
   'https://mydataapidev.aade.gr/SendInvoices';
+
+const PRODUCTION_MYDATA_URL =
+  'https://mydatapi.aade.gr/myDATA/SendInvoices';
 
 function xmlEscape(value = '') {
   return String(value)
@@ -282,28 +285,46 @@ function buildInvoiceXml(data) {
 export async function POST(request) {
   try {
     /*
-      ΠΡΟΣΟΧΗ:
-      Χρησιμοποιούμε ΑΠΟΚΛΕΙΣΤΙΚΑ
-      τους TEST κωδικούς.
+      ΑΣΦΑΛΕΙΑ:
 
-      Δεν υπάρχει fallback στους
-      production κωδικούς.
+      Από προεπιλογή το ERP λειτουργεί σε TEST.
+
+      Για να ενεργοποιηθεί η πραγματική ΑΑΔΕ
+      πρέπει να υπάρχουν ΤΑΥΤΟΧΡΟΝΑ στο Vercel:
+
+      MYDATA_MODE=production
+      MYDATA_PRODUCTION_ENABLED=YES
+
+      Αν λείπει έστω και ένα από τα δύο,
+      χρησιμοποιείται το TEST περιβάλλον.
     */
 
-    const testUserId =
-      process.env.MYDATA_TEST_USER_ID;
+    const productionMode =
+      process.env.MYDATA_MODE === 'production' &&
+      process.env.MYDATA_PRODUCTION_ENABLED === 'YES';
 
-    const testSubscriptionKey =
-      process.env.MYDATA_TEST_SUBSCRIPTION_KEY;
+    const userId = productionMode
+      ? process.env.MYDATA_USER_ID
+      : process.env.MYDATA_TEST_USER_ID;
 
-    if (!testUserId || !testSubscriptionKey) {
+    const subscriptionKey = productionMode
+      ? process.env.MYDATA_SUBSCRIPTION_KEY
+      : process.env.MYDATA_TEST_SUBSCRIPTION_KEY;
+
+    const myDataUrl = productionMode
+      ? PRODUCTION_MYDATA_URL
+      : TEST_MYDATA_URL;
+
+    if (!userId || !subscriptionKey) {
       return NextResponse.json(
         {
           ok: false,
-          testMode: true,
+          testMode: !productionMode,
+          production: productionMode,
           transmitted: false,
-          error:
-            'Δεν έχουν ρυθμιστεί οι TEST κωδικοί myDATA στο Vercel.'
+          error: productionMode
+            ? 'Δεν έχουν ρυθμιστεί οι PRODUCTION κωδικοί myDATA στο Vercel.'
+            : 'Δεν έχουν ρυθμιστεί οι TEST κωδικοί myDATA στο Vercel.'
         },
         { status: 500 }
       );
@@ -535,21 +556,16 @@ export async function POST(request) {
     const xml =
       buildInvoiceXml(normalized);
 
-    /*
-      ΑΠΟΣΤΟΛΗ ΜΟΝΟ ΣΤΟ TEST / DEV
-      ΠΕΡΙΒΑΛΛΟΝ ΤΗΣ ΑΑΔΕ
-    */
-
     const aadeResponse = await fetch(
-      TEST_MYDATA_URL,
+      myDataUrl,
       {
         method: 'POST',
 
         headers: {
-          'aade-user-id': testUserId,
+          'aade-user-id': userId,
 
           'ocp-apim-subscription-key':
-            testSubscriptionKey,
+            subscriptionKey,
 
           'Content-Type':
             'application/xml',
@@ -576,7 +592,10 @@ export async function POST(request) {
 
     function readResponseTag(tag) {
       const match = decodedResponse.match(
-        new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i')
+        new RegExp(
+          `<${tag}>([\\s\\S]*?)<\\/${tag}>`,
+          'i'
+        )
       );
 
       return match
@@ -605,11 +624,12 @@ export async function POST(request) {
     return NextResponse.json({
       ok: success,
 
-      testMode: true,
+      testMode: !productionMode,
 
-      production: false,
+      production: productionMode,
 
-      transmittedToTestEnvironment: true,
+      transmittedToTestEnvironment:
+        !productionMode,
 
       httpStatus:
         aadeResponse.status,
@@ -623,15 +643,25 @@ export async function POST(request) {
       qrUrl,
 
       message: success
-        ? 'Η TEST ΑΑΔΕ δέχτηκε το Δελτίο Διακίνησης.'
-        : 'Η TEST ΑΑΔΕ επέστρεψε σφάλμα.',
+        ? productionMode
+          ? 'Η ΑΑΔΕ δέχτηκε το πραγματικό Δελτίο Διακίνησης.'
+          : 'Η TEST ΑΑΔΕ δέχτηκε το Δελτίο Διακίνησης.'
+        : productionMode
+          ? 'Η ΑΑΔΕ επέστρεψε σφάλμα.'
+          : 'Η TEST ΑΑΔΕ επέστρεψε σφάλμα.',
 
       aadeResponse:
         responseText
     });
   } catch (error) {
+    const productionMode =
+      process.env.MYDATA_MODE === 'production' &&
+      process.env.MYDATA_PRODUCTION_ENABLED === 'YES';
+
     console.error(
-      'TEST Delivery Note myDATA error:',
+      productionMode
+        ? 'PRODUCTION Delivery Note myDATA error:'
+        : 'TEST Delivery Note myDATA error:',
       error
     );
 
@@ -639,15 +669,16 @@ export async function POST(request) {
       {
         ok: false,
 
-        testMode: true,
+        testMode: !productionMode,
 
-        production: false,
+        production: productionMode,
 
         transmittedToTestEnvironment:
           false,
 
-        error:
-          'Αποτυχία επικοινωνίας με το δοκιμαστικό περιβάλλον myDATA.'
+        error: productionMode
+          ? 'Αποτυχία επικοινωνίας με το παραγωγικό περιβάλλον myDATA.'
+          : 'Αποτυχία επικοινωνίας με το δοκιμαστικό περιβάλλον myDATA.'
       },
       { status: 500 }
     );
