@@ -548,10 +548,59 @@ export default function DeliveryNotesStudio({
 
       if (result.testMode) {
         const rawAadeResponse = String(result.aadeResponse || '').trim();
+        const decodedAadeResponse = rawAadeResponse
+          .replaceAll('&lt;', '<')
+          .replaceAll('&gt;', '>')
+          .replaceAll('&quot;', '"')
+          .replaceAll('&apos;', "'")
+          .replaceAll('&amp;', '&');
+
+        const readTag = (tag) => {
+          const match = decodedAadeResponse.match(
+            new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i')
+          );
+          return match ? String(match[1] || '').trim() : '';
+        };
+
+        const statusCode = readTag('statusCode');
+        const mark = readTag('invoiceMark');
+        const uid = readTag('invoiceUid');
+        const qrUrl = readTag('qrUrl');
+
+        if (statusCode.toLowerCase() === 'success' && mark && uid) {
+          const { error: saveMyDataError } = await supabase
+            .from('delivery_notes')
+            .update({
+              mydata_mark: mark,
+              mydata_uid: uid,
+              mydata_qr_url: qrUrl || null,
+              transmitted_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', draft.id);
+
+          if (saveMyDataError) throw saveMyDataError;
+
+          await loadNotes();
+
+          setMessage(
+            `✅ TEST ΑΑΔΕ: Επιτυχής διαβίβαση Δ/${documentNumber} • MARK ${mark}`
+          );
+
+          window.alert(
+            '✅ ΕΠΙΤΥΧΗΣ ΔΙΑΒΙΒΑΣΗ TEST ΑΑΔΕ\n\n' +
+            `Δελτίο: Δ/${documentNumber}\n` +
+            `MARK: ${mark}\n` +
+            `UID: ${uid}` +
+            (qrUrl ? '\nQR: Αποθηκεύτηκε επιτυχώς.' : '')
+          );
+          return;
+        }
+
         const statusText = result.httpStatus ? `HTTP ${result.httpStatus}` : 'χωρίς HTTP status';
 
         setMessage(
-          `🧪 TEST ΑΑΔΕ: Λήφθηκε απάντηση (${statusText}). Δες το αναδυόμενο παράθυρο για το αποτέλεσμα.`
+          `🧪 TEST ΑΑΔΕ: Η διαβίβαση δεν ολοκληρώθηκε επιτυχώς (${statusText}).`
         );
 
         window.alert(
