@@ -567,31 +567,64 @@ export async function POST(request) {
     const responseText =
       await aadeResponse.text();
 
-    /*
-      Δεν θεωρούμε αυτόματα επιτυχία
-      μόνο επειδή πήραμε HTTP 200.
+    const decodedResponse = String(responseText || '')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&apos;', "'")
+      .replaceAll('&amp;', '&');
 
-      Επιστρέφουμε την απάντηση της
-      TEST ΑΑΔΕ για να τη δούμε.
-    */
+    function readResponseTag(tag) {
+      const match = decodedResponse.match(
+        new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i')
+      );
+
+      return match
+        ? String(match[1] || '').trim()
+        : '';
+    }
+
+    const statusCode =
+      readResponseTag('statusCode');
+
+    const invoiceUid =
+      readResponseTag('invoiceUid');
+
+    const invoiceMark =
+      readResponseTag('invoiceMark');
+
+    const qrUrl =
+      readResponseTag('qrUrl');
+
+    const success =
+      aadeResponse.ok &&
+      statusCode.toLowerCase() === 'success' &&
+      Boolean(invoiceUid) &&
+      Boolean(invoiceMark);
 
     return NextResponse.json({
-      ok: aadeResponse.ok,
+      ok: success,
 
       testMode: true,
 
       production: false,
 
-      transmittedToTestEnvironment:
-        true,
+      transmittedToTestEnvironment: true,
 
       httpStatus:
         aadeResponse.status,
 
-      message:
-        aadeResponse.ok
-          ? 'Η TEST ΑΑΔΕ απάντησε στο αίτημα.'
-          : 'Η TEST ΑΑΔΕ επέστρεψε σφάλμα.',
+      statusCode,
+
+      invoiceUid,
+
+      invoiceMark,
+
+      qrUrl,
+
+      message: success
+        ? 'Η TEST ΑΑΔΕ δέχτηκε το Δελτίο Διακίνησης.'
+        : 'Η TEST ΑΑΔΕ επέστρεψε σφάλμα.',
 
       aadeResponse:
         responseText
