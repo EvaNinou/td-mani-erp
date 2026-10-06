@@ -170,9 +170,8 @@ function buildInvoiceXml(data) {
     <vatCategory>8</vatCategory>
     <vatAmount>0.00</vatAmount>
     ${otherUnit}
-    <incomeClassification>
-  <icls:classificationType>E3_561_007</icls:classificationType>
-  <icls:classificationCategory>category1_95</icls:classificationCategory>
+  <incomeClassification>
+  <icls:classificationCategory>category3</icls:classificationCategory>
   <icls:amount>0.00</icls:amount>
 </incomeClassification>
     <movePurposeLine>19</movePurposeLine>
@@ -260,16 +259,21 @@ function buildInvoiceXml(data) {
 
     ${rows}
 
-    <invoiceSummary>
-      <totalNetValue>0.00</totalNetValue>
-      <totalVatAmount>0.00</totalVatAmount>
-      <totalWithheldAmount>0.00</totalWithheldAmount>
-      <totalFeesAmount>0.00</totalFeesAmount>
-      <totalStampDutyAmount>0.00</totalStampDutyAmount>
-      <totalOtherTaxesAmount>0.00</totalOtherTaxesAmount>
-      <totalDeductionsAmount>0.00</totalDeductionsAmount>
-      <totalGrossValue>0.00</totalGrossValue>
-    </invoiceSummary>
+  <invoiceSummary>
+  <totalNetValue>0.00</totalNetValue>
+  <totalVatAmount>0.00</totalVatAmount>
+  <totalWithheldAmount>0.00</totalWithheldAmount>
+  <totalFeesAmount>0.00</totalFeesAmount>
+  <totalStampDutyAmount>0.00</totalStampDutyAmount>
+  <totalOtherTaxesAmount>0.00</totalOtherTaxesAmount>
+  <totalDeductionsAmount>0.00</totalDeductionsAmount>
+  <totalGrossValue>0.00</totalGrossValue>
+
+  <incomeClassification>
+    <icls:classificationCategory>category3</icls:classificationCategory>
+    <icls:amount>0.00</icls:amount>
+  </incomeClassification>
+</invoiceSummary>
 
   </invoice>
 </InvoicesDoc>`;
