@@ -12,12 +12,21 @@ const EMPTY_NOTE = {
   recipient_name: '',
   recipient_afm: '',
   recipient_address: '',
+  recipient_street: '',
+  recipient_number: '',
+  recipient_city: '',
+  recipient_postal_code: '',
+  recipient_branch: '0',
   loading_address: 'Πλάκες',
+  loading_number: '',
   loading_city: 'Μήλος',
   loading_postal_code: '84800',
   delivery_address: '',
+  delivery_number: '',
   delivery_city: 'Μήλος',
   delivery_postal_code: '84800',
+  dispatch_date: new Date().toISOString().slice(0, 10),
+  dispatch_time: new Date().toTimeString().slice(0, 5),
   movement_purpose: 'Λοιπές Διακινήσεις',
   vehicle_number: '',
   carrier_name: '',
@@ -73,7 +82,12 @@ export default function DeliveryNotesStudio({
       project_id: '',
       recipient_name: customer?.name || prev.recipient_name,
       recipient_afm: customer?.afm || prev.recipient_afm,
-      recipient_address: customer?.address || prev.recipient_address
+      recipient_address: customer?.address || prev.recipient_address,
+      recipient_street: customer?.street || customer?.address || prev.recipient_street,
+      recipient_number: customer?.number || prev.recipient_number,
+      recipient_city: customer?.city || prev.recipient_city,
+      recipient_postal_code: customer?.postal_code || customer?.postalCode || prev.recipient_postal_code,
+      recipient_branch: customer?.branch || prev.recipient_branch || '0'
     }));
   }
 
@@ -229,7 +243,9 @@ export default function DeliveryNotesStudio({
     setNote({
       ...EMPTY_NOTE,
       issue_date: new Date().toISOString().slice(0, 10),
-      issue_time: new Date().toTimeString().slice(0, 5)
+      issue_time: new Date().toTimeString().slice(0, 5),
+      dispatch_date: new Date().toISOString().slice(0, 10),
+      dispatch_time: new Date().toTimeString().slice(0, 5)
     });
     setLines([]);
   }
@@ -251,13 +267,22 @@ export default function DeliveryNotesStudio({
       recipient_name: draft.recipient_name || '',
       recipient_afm: draft.recipient_afm || '',
       recipient_address: draft.recipient_address || '',
+      recipient_street: draft.recipient_street || draft.recipient_address || '',
+      recipient_number: draft.recipient_number || '',
+      recipient_city: draft.recipient_city || '',
+      recipient_postal_code: draft.recipient_postal_code || '',
+      recipient_branch: draft.recipient_branch || '0',
       loading_address: draft.loading_address || 'Πλάκες',
+      loading_number: draft.loading_number || '',
       loading_city: draft.loading_city || 'Μήλος',
       loading_postal_code: draft.loading_postal_code || '84800',
       delivery_address: draft.delivery_address || '',
+      delivery_number: draft.delivery_number || '',
       delivery_city: draft.delivery_city || 'Μήλος',
       delivery_postal_code: draft.delivery_postal_code || '84800',
-      movement_purpose: draft.movement_purpose || '',
+      dispatch_date: draft.dispatch_date || draft.issue_date || new Date().toISOString().slice(0, 10),
+      dispatch_time: draft.dispatch_time ? String(draft.dispatch_time).slice(0, 5) : (draft.issue_time ? String(draft.issue_time).slice(0, 5) : ''),
+      movement_purpose: draft.movement_purpose || 'Λοιπές Διακινήσεις',
       vehicle_number: draft.vehicle_number || '',
       carrier_name: draft.carrier_name || '',
       notes: draft.notes || ''
@@ -471,20 +496,28 @@ export default function DeliveryNotesStudio({
           issueDate: draft.issue_date,
           issueTime: draft.issue_time ? String(draft.issue_time).slice(0, 5) : '',
           recipientAfm: draft.recipient_afm || '',
-          dispatchDate: draft.issue_date,
-          dispatchTime: draft.issue_time ? String(draft.issue_time).slice(0, 5) : '',
+          recipientName: draft.recipient_name || '',
+          recipientBranch: draft.recipient_branch || '0',
+          recipientAddress: {
+            street: String(draft.recipient_street || draft.recipient_address || '').trim(),
+            number: String(draft.recipient_number || '').trim(),
+            city: String(draft.recipient_city || '').trim(),
+            postalCode: String(draft.recipient_postal_code || '').trim()
+          },
+          dispatchDate: draft.dispatch_date || draft.issue_date,
+          dispatchTime: draft.dispatch_time ? String(draft.dispatch_time).slice(0, 5) : (draft.issue_time ? String(draft.issue_time).slice(0, 5) : ''),
           vehicleNumber: draft.vehicle_number || '',
           movementPurpose: draft.movement_purpose || 'Λοιπές Διακινήσεις',
           movementPurposeTitle: 'Μεταφορά υλικών σε έργο',
           loadingAddress: {
             street: String(draft.loading_address || '').trim(),
-            number: '',
+            number: String(draft.loading_number || '').trim(),
             city: String(draft.loading_city || '').trim(),
             postalCode: String(draft.loading_postal_code || '').trim()
           },
           deliveryAddress: {
             street: String(draft.delivery_address || '').trim(),
-            number: '',
+            number: String(draft.delivery_number || '').trim(),
             city: String(draft.delivery_city || '').trim(),
             postalCode: String(draft.delivery_postal_code || '').trim()
           },
@@ -700,7 +733,12 @@ export default function DeliveryNotesStudio({
       <h2>🚚 Δελτίο Διακίνησης</h2>
       <p>Πρώτη έκδοση για μορφοποίηση. Προς το παρόν αποθηκεύουμε μόνο <b>ΠΡΟΧΕΙΡΑ</b> — χωρίς διαβίβαση στην ΑΑΔΕ και χωρίς αφαίρεση stock.</p>
 
+      <h3>Στοιχεία Παραστατικού</h3>
       <div className="grid">
+        <div>
+          <label>Τύπος Παραστατικού</label>
+          <input value="9.3 - Δελτίο Αποστολής" readOnly />
+        </div>
         <div>
           <label>Σειρά</label>
           <input value={note.series} readOnly />
@@ -710,61 +748,133 @@ export default function DeliveryNotesStudio({
           <input placeholder="Θα αποδοθεί κατά την έκδοση" value={note.document_number} readOnly />
         </div>
         <div>
-          <label>Ημερομηνία</label>
+          <label>Ημερομηνία Έκδοσης</label>
           <input type="date" value={note.issue_date} onChange={(e) => setNote({ ...note, issue_date: e.target.value })} />
         </div>
         <div>
-          <label>Ώρα</label>
+          <label>Ώρα Έκδοσης</label>
           <input type="time" value={note.issue_time} onChange={(e) => setNote({ ...note, issue_time: e.target.value })} />
         </div>
       </div>
 
       <h3>Παραλήπτης / Έργο</h3>
       <div className="grid">
-        <select value={note.customer_id} onChange={(e) => chooseCustomer(e.target.value)}>
-          <option value="">— Επιλογή πελάτη —</option>
-          {customers.filter((x) => !x.is_deleted).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-        </select>
-        <select
-          value={note.project_id}
-          onChange={(e) => chooseProject(e.target.value)}
-          disabled={!note.customer_id}
-        >
-          <option value="">
-            {note.customer_id ? '— Χωρίς έργο / Προαιρετικό —' : '— Πρώτα επίλεξε πελάτη —'}
-          </option>
-          {projects
-            .filter((x) => !x.is_deleted && x.customer_id === note.customer_id)
-            .map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.title || x.project_name || x.name || 'Έργο'}
-              </option>
+        <div>
+          <label>Πελάτης</label>
+          <select value={note.customer_id} onChange={(e) => chooseCustomer(e.target.value)}>
+            <option value="">— Επιλογή πελάτη —</option>
+            {customers.filter((x) => !x.is_deleted).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label>Έργο</label>
+          <select value={note.project_id} onChange={(e) => chooseProject(e.target.value)} disabled={!note.customer_id}>
+            <option value="">{note.customer_id ? '— Χωρίς έργο / Προαιρετικό —' : '— Πρώτα επίλεξε πελάτη —'}</option>
+            {projects.filter((x) => !x.is_deleted && x.customer_id === note.customer_id).map((x) => (
+              <option key={x.id} value={x.id}>{x.title || x.project_name || x.name || 'Έργο'}</option>
             ))}
-        </select>
-        <input placeholder="Επωνυμία / Ονοματεπώνυμο παραλήπτη" value={note.recipient_name} onChange={(e) => setNote({ ...note, recipient_name: e.target.value })} />
-        <input placeholder="ΑΦΜ παραλήπτη" value={note.recipient_afm} onChange={(e) => setNote({ ...note, recipient_afm: e.target.value })} />
-        <input placeholder="Διεύθυνση παραλήπτη" value={note.recipient_address} onChange={(e) => setNote({ ...note, recipient_address: e.target.value })} />
+          </select>
+        </div>
+        <div>
+          <label>Επωνυμία / Ονοματεπώνυμο</label>
+          <input value={note.recipient_name} onChange={(e) => setNote({ ...note, recipient_name: e.target.value })} />
+        </div>
+        <div>
+          <label>ΑΦΜ</label>
+          <input value={note.recipient_afm} onChange={(e) => setNote({ ...note, recipient_afm: e.target.value })} />
+        </div>
+        <div>
+          <label>Υποκατάστημα</label>
+          <input value={note.recipient_branch} onChange={(e) => setNote({ ...note, recipient_branch: e.target.value })} />
+        </div>
+        <div>
+          <label>Χώρα</label>
+          <input value="GR - Ελλάδα" readOnly />
+        </div>
+        <div>
+          <label>Οδός Παραλήπτη</label>
+          <input value={note.recipient_street} onChange={(e) => setNote({ ...note, recipient_street: e.target.value, recipient_address: e.target.value })} />
+        </div>
+        <div>
+          <label>Αριθμός</label>
+          <input value={note.recipient_number} onChange={(e) => setNote({ ...note, recipient_number: e.target.value })} />
+        </div>
+        <div>
+          <label>Πόλη</label>
+          <input value={note.recipient_city} onChange={(e) => setNote({ ...note, recipient_city: e.target.value })} />
+        </div>
+        <div>
+          <label>Τ.Κ.</label>
+          <input value={note.recipient_postal_code} onChange={(e) => setNote({ ...note, recipient_postal_code: e.target.value })} />
+        </div>
       </div>
 
       <h3>Στοιχεία Διακίνησης</h3>
       <div className="grid">
-        <input placeholder="Σκοπός διακίνησης" value={note.movement_purpose} readOnly />
-        <input placeholder="Αρ. κυκλοφορίας οχήματος" value={note.vehicle_number} onChange={(e) => setNote({ ...note, vehicle_number: e.target.value.toUpperCase() })} />
-        <input placeholder="Μεταφορέας" value={note.carrier_name} onChange={(e) => setNote({ ...note, carrier_name: e.target.value })} />
+        <div>
+          <label>Ημερομηνία Αποστολής</label>
+          <input type="date" value={note.dispatch_date} onChange={(e) => setNote({ ...note, dispatch_date: e.target.value })} />
+        </div>
+        <div>
+          <label>Ώρα Αποστολής</label>
+          <input type="time" value={note.dispatch_time} onChange={(e) => setNote({ ...note, dispatch_time: e.target.value })} />
+        </div>
+        <div>
+          <label>Αρ. Κυκλοφορίας Οχήματος</label>
+          <input value={note.vehicle_number} onChange={(e) => setNote({ ...note, vehicle_number: e.target.value.toUpperCase() })} />
+        </div>
+        <div>
+          <label>Σκοπός Διακίνησης</label>
+          <input value={note.movement_purpose} readOnly />
+        </div>
+        <div>
+          <label>Τίτλος Λοιπής Διακίνησης</label>
+          <input value="Μεταφορά υλικών σε έργο" readOnly />
+        </div>
+        <div>
+          <label>Μεταφορέας</label>
+          <input value={note.carrier_name} onChange={(e) => setNote({ ...note, carrier_name: e.target.value })} />
+        </div>
       </div>
 
       <h3>Τόπος Φόρτωσης</h3>
       <div className="grid">
-        <input placeholder="Οδός / Περιοχή" value={note.loading_address} onChange={(e) => setNote({ ...note, loading_address: e.target.value })} />
-        <input placeholder="Πόλη" value={note.loading_city} onChange={(e) => setNote({ ...note, loading_city: e.target.value })} />
-        <input placeholder="Τ.Κ." value={note.loading_postal_code} onChange={(e) => setNote({ ...note, loading_postal_code: e.target.value })} />
+        <div>
+          <label>Οδός</label>
+          <input value={note.loading_address} onChange={(e) => setNote({ ...note, loading_address: e.target.value })} />
+        </div>
+        <div>
+          <label>Αριθμός</label>
+          <input value={note.loading_number} onChange={(e) => setNote({ ...note, loading_number: e.target.value })} />
+        </div>
+        <div>
+          <label>Πόλη</label>
+          <input value={note.loading_city} onChange={(e) => setNote({ ...note, loading_city: e.target.value })} />
+        </div>
+        <div>
+          <label>Τ.Κ.</label>
+          <input value={note.loading_postal_code} onChange={(e) => setNote({ ...note, loading_postal_code: e.target.value })} />
+        </div>
       </div>
 
       <h3>Τόπος Παράδοσης</h3>
       <div className="grid">
-        <input placeholder="Οδός / Περιοχή" value={note.delivery_address} onChange={(e) => setNote({ ...note, delivery_address: e.target.value })} />
-        <input placeholder="Πόλη" value={note.delivery_city} onChange={(e) => setNote({ ...note, delivery_city: e.target.value })} />
-        <input placeholder="Τ.Κ." value={note.delivery_postal_code} onChange={(e) => setNote({ ...note, delivery_postal_code: e.target.value })} />
+        <div>
+          <label>Οδός</label>
+          <input value={note.delivery_address} onChange={(e) => setNote({ ...note, delivery_address: e.target.value })} />
+        </div>
+        <div>
+          <label>Αριθμός</label>
+          <input value={note.delivery_number} onChange={(e) => setNote({ ...note, delivery_number: e.target.value })} />
+        </div>
+        <div>
+          <label>Πόλη</label>
+          <input value={note.delivery_city} onChange={(e) => setNote({ ...note, delivery_city: e.target.value })} />
+        </div>
+        <div>
+          <label>Τ.Κ.</label>
+          <input value={note.delivery_postal_code} onChange={(e) => setNote({ ...note, delivery_postal_code: e.target.value })} />
+        </div>
       </div>
 
       <h3>📦 Υλικά</h3>
