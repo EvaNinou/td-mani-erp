@@ -132,33 +132,40 @@ function buildInvoiceXml(data) {
   const issuerVatNumber =
     process.env.MYDATA_ENTITY_VAT_NUMBER || '801853358';
 
-  const rows = lines
-    .map((line, index) => {
-      const quantity = Number(line.quantity);
-      const unitCode = measurementUnit(line.unit);
+ const rows = lines
+  .map((line, index) => {
+    const quantity = Number(line.quantity);
+    const unitCode = measurementUnit(line.unit);
 
-      const otherUnit =
-        unitCode === 7
-          ? `
-        <otherMeasurementUnitQuantity>${quantity}</otherMeasurementUnitQuantity>
-        <otherMeasurementUnitTitle>${xmlEscape(
-          line.unit || 'Λοιπή μονάδα'
-        )}</otherMeasurementUnitTitle>`
-          : '';
+    const otherUnit =
+      unitCode === 7
+        ? `
+      <otherMeasurementUnitQuantity>${quantity}</otherMeasurementUnitQuantity>
+      <otherMeasurementUnitTitle>${xmlEscape(
+        line.unit || 'Λοιπή μονάδα'
+      )}</otherMeasurementUnitTitle>`
+        : '';
 
-      return `
-    <invoiceDetails>
-      <lineNumber>${index + 1}</lineNumber>
-      <quantity>${quantity}</quantity>
-      <measurementUnit>${unitCode}</measurementUnit>
-      <netValue>0.00</netValue>
-      <vatCategory>8</vatCategory>
-      <vatAmount>0.00</vatAmount>
-      ${otherUnit}
-      <itemDescr>${xmlEscape(line.itemName)}</itemDescr>
-    </invoiceDetails>`;
-    })
-    .join('');
+    return `
+  <invoiceDetails>
+    <lineNumber>${index + 1}</lineNumber>
+    ${
+      line.itemCode
+        ? `<itemCode>${xmlEscape(line.itemCode)}</itemCode>`
+        : ''
+    }
+    <itemDescr>${xmlEscape(line.itemName)}</itemDescr>
+    <quantity>${quantity}</quantity>
+    <measurementUnit>${unitCode}</measurementUnit>
+    <netValue>0.00</netValue>
+    <vatCategory>8</vatCategory>
+    <vatAmount>0.00</vatAmount>
+    ${otherUnit}
+    <movePurposeLine>19</movePurposeLine>
+    <otherMovePurposeLineTitle>Μεταφορά υλικών σε έργο</otherMovePurposeLineTitle>
+  </invoiceDetails>`;
+  })
+  .join('');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <InvoicesDoc
