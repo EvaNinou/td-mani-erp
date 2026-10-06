@@ -171,10 +171,10 @@ function buildInvoiceXml(data) {
     <vatAmount>0.00</vatAmount>
     ${otherUnit}
     <incomeClassification>
-      <classificationType>E3_561_007</classificationType>
-      <classificationCategory>category1_95</classificationCategory>
-      <amount>0.00</amount>
-    </incomeClassification>
+  <icls:classificationType>E3_561_007</icls:classificationType>
+  <icls:classificationCategory>category1_95</icls:classificationCategory>
+  <icls:amount>0.00</icls:amount>
+</incomeClassification>
     <movePurposeLine>19</movePurposeLine>
     <otherMovePurposeLineTitle>Μεταφορά υλικών σε έργο</otherMovePurposeLineTitle>
   </invoiceDetails>`;
@@ -184,6 +184,7 @@ function buildInvoiceXml(data) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <InvoicesDoc
   xmlns="http://www.aade.gr/myDATA/invoice/v1.0"
+  xmlns:icls="https://www.aade.gr/myDATA/incomeClassificaton/v1.0"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
   <invoice>
