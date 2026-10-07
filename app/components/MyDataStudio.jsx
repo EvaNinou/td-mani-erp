@@ -90,19 +90,32 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
   const [savingLine, setSavingLine] = useState('');
   const [purchaseSaving, setPurchaseSaving] = useState(false);
   const [purchaseMessage, setPurchaseMessage] = useState('');
+  const [localSuppliers, setLocalSuppliers] = useState(suppliers);
+  const [supplierSaving, setSupplierSaving] = useState(false);
+  const [supplierMessage, setSupplierMessage] = useState('');
+
+  useEffect(() => { setLocalSuppliers(suppliers); }, [suppliers]);
+
+  function supplierByVat(vat) {
+    return localSuppliers.find((item) => String(item.afm || '').trim() === String(vat || '').trim());
+  }
+
+  function supplierNameByVat(vat) {
+    return supplierByVat(vat)?.name || '';
+  }
 
   useEffect(() => {
     setLocalInventory(inventory);
   }, [inventory]);
 
-  async function loadSupplierMappings(supplierVat, parsedMaterials) {
+  async function loadSupplierMappings(supplierVat, parsedMaterials, supplierOverride = null) {
     if (!supabase || !supplierVat || !Array.isArray(parsedMaterials)) return;
 
     try {
       setMappingLoading(true);
       setMappingError('');
 
-      const supplier = suppliers.find(
+      const supplier = supplierOverride || localSuppliers.find(
         (item) => String(item.afm || '').trim() === String(supplierVat).trim()
       );
 
@@ -564,6 +577,7 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
         mark: getText(invoice, 'mark') || mark,
         uid: getText(invoice, 'uid'),
         issuerVat: getText(issuer, 'vatNumber'),
+        issuerName: getText(issuer, 'name') || getText(issuer, 'companyName') || supplierNameByVat(getText(issuer, 'vatNumber')),
         issuerCountry: getText(issuer, 'country'),
         issuerBranch: getText(issuer, 'branch'),
         counterpartVat: getText(counterpart, 'vatNumber'),
@@ -583,6 +597,46 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
       setDetailsError(err?.message || 'Παρουσιάστηκε άγνωστο σφάλμα.');
     } finally {
       setDetailsLoading(false);
+    }
+  }
+
+  async function saveCurrentSupplier() {
+    if (!supabase || !selectedDocument?.issuerVat) return;
+    const vat = String(selectedDocument.issuerVat || '').trim();
+
+    if (supplierByVat(vat)) {
+      setSupplierMessage('✅ Ο προμηθευτής υπάρχει ήδη στους Προμηθευτές.');
+      return;
+    }
+
+    const suggestedName = String(selectedDocument.issuerName || '').trim() || `Προμηθευτής ${vat}`;
+    const supplierName = window.prompt('Επωνυμία προμηθευτή:', suggestedName);
+    if (!supplierName?.trim()) return;
+
+    try {
+      setSupplierSaving(true);
+      setSupplierMessage('');
+
+      const { data, error: insertError } = await supabase
+        .from('suppliers')
+        .insert({ name: supplierName.trim(), afm: vat })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      setLocalSuppliers((current) => [...current, data]);
+      setSelectedDocument((current) => current ? { ...current, issuerName: data.name || supplierName.trim() } : current);
+      setSupplierMessage(`✅ Ο προμηθευτής ${data.name || supplierName.trim()} αποθηκεύτηκε.`);
+
+      if (materials.length > 0) {
+        await loadSupplierMappings(vat, materials, data);
+      }
+    } catch (err) {
+      console.error('save supplier:', err);
+      setSupplierMessage(`❌ Δεν αποθηκεύτηκε ο προμηθευτής${err?.message ? `: ${err.message}` : '.'}`);
+    } finally {
+      setSupplierSaving(false);
     }
   }
 
@@ -670,7 +724,7 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
     if (!q) return documents;
 
     return documents.filter((doc) =>
-      [doc.counterVatNumber, doc.issueDate, doc.invType, doc.minMark, doc.maxMark]
+      [doc.counterVatNumber, supplierNameByVat(doc.counterVatNumber), doc.issueDate, doc.invType, doc.minMark, doc.maxMark]
         .join(' ')
         .toLowerCase()
         .includes(q)
@@ -731,7 +785,7 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
           </div>
 
           <input
-            placeholder="Αναζήτηση με ΑΦΜ, ημερομηνία, τύπο ή MARK..."
+            placeholder="Αναζήτηση με επωνυμία, ΑΦΜ, ημερομηνία, τύπο ή MARK..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -746,6 +800,7 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
                 <thead>
                   <tr>
                     <th>Ημερομηνία</th>
+                    <th>Επωνυμία Προμηθευτή</th>
                     <th>ΑΦΜ Προμηθευτή</th>
                     <th>Τύπος</th>
                     <th>Πλήθος</th>
@@ -760,6 +815,7 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
                   {visibleDocuments.map((doc) => (
                     <tr key={doc.id}>
                       <td>{doc.issueDate || '-'}</td>
+                      <td><b>{supplierNameByVat(doc.counterVatNumber) || '—'}</b></td>
                       <td><b>{doc.counterVatNumber || '-'}</b></td>
                       <td>{doc.invType || '-'}</td>
                       <td>{doc.count || '1'}</td>
@@ -797,6 +853,18 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
               <p><b>{selectedDocument.series || '-'} {selectedDocument.aa || ''}</b></p>
             </div>
             <button onClick={() => setSelectedDocument(null)}>✕ Κλείσιμο</button>
+          </div>
+
+          <div className="line" style={{ marginBottom: 12 }}>
+            <small>Προμηθευτής</small>
+            <p><b>{supplierNameByVat(selectedDocument.issuerVat) || selectedDocument.issuerName || 'Δεν είναι αποθηκευμένος'}</b></p>
+            <p>ΑΦΜ: <b>{selectedDocument.issuerVat || '-'}</b></p>
+            {!supplierByVat(selectedDocument.issuerVat) && (
+              <button type="button" onClick={saveCurrentSupplier} disabled={supplierSaving}>
+                {supplierSaving ? 'Αποθήκευση...' : '➕ Αποθήκευση Προμηθευτή'}
+              </button>
+            )}
+            {supplierMessage && <p style={{ marginTop: 8 }}><b>{supplierMessage}</b></p>}
           </div>
 
           <div className="grid">
