@@ -67,6 +67,28 @@ function firstNode(parent, tagName) {
   return normal[0] || null;
 }
 
+function parseDetailedInvoiceForList(invoice, fallback = {}) {
+  const issuer = firstNode(invoice, 'issuer');
+  const header = firstNode(invoice, 'invoiceHeader');
+  const summary = firstNode(invoice, 'invoiceSummary');
+  const mark = getText(invoice, 'mark');
+  const issuerVat = getText(issuer, 'vatNumber') || fallback.counterVatNumber || '';
+  const issueDate = getText(header, 'issueDate') || fallback.issueDate || '';
+  const invType = getText(header, 'invoiceType') || fallback.invType || '';
+  return {
+    id: mark || `${issuerVat}-${issueDate}-${getText(header, 'series')}-${getText(header, 'aa')}`,
+    counterVatNumber: issuerVat,
+    issuerName: getText(issuer, 'name') || getText(issuer, 'companyName') || '',
+    issueDate, invType,
+    series: getText(header, 'series'),
+    aa: getText(header, 'aa'),
+    netValue: Number(getText(summary, 'totalNetValue') || 0),
+    vatAmount: Number(getText(summary, 'totalVatAmount') || 0),
+    grossValue: Number(getText(summary, 'totalGrossValue') || 0),
+    count: '1', minMark: mark, maxMark: mark, mark, isDetailed: true,
+  };
+}
+
 export default function MyDataStudio({ supabase, suppliers = [], inventory = [], onInventoryChanged }) {
   const [dateFrom, setDateFrom] = useState(firstDayOfMonthInput());
   const [dateTo, setDateTo] = useState(todayInput());
@@ -448,74 +470,74 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
 
   async function loadExpenses() {
     try {
-      setLoading(true);
-      setError('');
-      setSelectedDocument(null);
-
+      setLoading(true); setError(''); setSelectedDocument(null);
       const from = toApiDate(dateFrom);
       const to = toApiDate(dateTo);
-
-      const response = await fetch(
-        `/api/mydata/expenses?dateFrom=${encodeURIComponent(from)}&dateTo=${encodeURIComponent(to)}`,
-        { method: 'GET', cache: 'no-store' }
-      );
-
+      const response = await fetch(`/api/mydata/expenses?dateFrom=${encodeURIComponent(from)}&dateTo=${encodeURIComponent(to)}`, { method: 'GET', cache: 'no-store' });
       const body = await response.text();
-
       if (!response.ok) {
         let message = 'Αποτυχία λήψης δεδομένων από το myDATA.';
-        try {
-          const json = JSON.parse(body);
-          if (json?.error) message = json.error;
-        } catch {}
+        try { const json = JSON.parse(body); if (json?.error) message = json.error; } catch {}
         throw new Error(message);
       }
-
       const xml = parseXmlBody(body);
       const bookInfos = Array.from(xml.getElementsByTagNameNS('*', 'bookInfo'));
+      const groups = bookInfos.map((bookInfo, index) => ({
+        id: `${getText(bookInfo,'minMark') || getText(bookInfo,'maxMark') || index}-${getText(bookInfo,'counterVatNumber')}-${getText(bookInfo,'issueDate')}`,
+        counterVatNumber: getText(bookInfo,'counterVatNumber'),
+        issueDate: getText(bookInfo,'issueDate'),
+        invType: getText(bookInfo,'invType'),
+        netValue: Number(getText(bookInfo,'netValue') || 0),
+        vatAmount: Number(getText(bookInfo,'vatAmount') || 0),
+        grossValue: Number(getText(bookInfo,'grossValue') || 0),
+        count: getText(bookInfo,'count') || '1',
+        minMark: getText(bookInfo,'minMark'),
+        maxMark: getText(bookInfo,'maxMark'),
+      }));
 
-      const parsedDocuments = bookInfos.map((bookInfo, index) => {
-        const counterVatNumber = getText(bookInfo, 'counterVatNumber');
-        const issueDate = getText(bookInfo, 'issueDate');
-        const invType = getText(bookInfo, 'invType');
-        const netValue = Number(getText(bookInfo, 'netValue') || 0);
-        const vatAmount = Number(getText(bookInfo, 'vatAmount') || 0);
-        const grossValue = Number(getText(bookInfo, 'grossValue') || 0);
-        const count = getText(bookInfo, 'count');
-        const minMark = getText(bookInfo, 'minMark');
-        const maxMark = getText(bookInfo, 'maxMark');
+      const expanded = await Promise.all(groups.map(async (group) => {
+        const expected = Number(group.count || 1);
+        if (expected <= 1 || !group.minMark || !group.maxMark || group.minMark === group.maxMark) return [group];
+        try {
+          const r = await fetch(`/api/mydata/document?minMark=${encodeURIComponent(group.minMark)}&maxMark=${encodeURIComponent(group.maxMark)}`, { method:'GET', cache:'no-store' });
+          const body2 = await r.text();
+          if (!r.ok) throw new Error('Αποτυχία ανάλυσης συγκεντρωτικής εγγραφής.');
+          const x = parseXmlBody(body2);
+          const invoices = Array.from(x.getElementsByTagNameNS('*','invoice'));
+          const docs = invoices.map(i => parseDetailedInvoiceForList(i, group)).filter(doc =>
+            (!group.counterVatNumber || String(doc.counterVatNumber) === String(group.counterVatNumber)) &&
+            (!group.issueDate || String(doc.issueDate) === String(group.issueDate)) &&
+            (!group.invType || String(doc.invType) === String(group.invType))
+          );
+          if (docs.length !== expected) {
+            console.warn('myDATA aggregate was not fully expanded:', group, docs.length);
+            return [group];
+          }
+          return docs;
+        } catch (e) {
+          console.error('myDATA expand group:', e);
+          return [group];
+        }
+      }));
 
-        return {
-          id: `${minMark || maxMark || index}-${counterVatNumber}-${issueDate}`,
-          counterVatNumber,
-          issueDate,
-          invType,
-          netValue,
-          vatAmount,
-          grossValue,
-          count,
-          minMark,
-          maxMark,
-        };
+      const parsedDocuments = expanded.flat();
+      parsedDocuments.sort((x,y) => {
+        const d=String(y.issueDate).localeCompare(String(x.issueDate));
+        if(d) return d;
+        try {
+          const A=BigInt(x.mark||x.minMark||0), B=BigInt(y.mark||y.minMark||0);
+          return A===B?0:(A>B?-1:1);
+        } catch { return 0; }
       });
-
-      parsedDocuments.sort((a, b) =>
-        String(b.issueDate).localeCompare(String(a.issueDate))
-      );
-
       setDocuments(parsedDocuments);
       setLastUpdate(new Date());
     } catch (err) {
-      console.error('myDATA:', err);
-      setDocuments([]);
-      setError(err?.message || 'Παρουσιάστηκε άγνωστο σφάλμα.');
-    } finally {
-      setLoading(false);
-    }
+      console.error('myDATA:', err); setDocuments([]); setError(err?.message || 'Παρουσιάστηκε άγνωστο σφάλμα.');
+    } finally { setLoading(false); }
   }
 
   async function loadDocumentDetails(doc) {
-    const mark = doc.minMark || doc.maxMark;
+    const mark = doc.mark || doc.minMark || doc.maxMark;
 
     if (!mark) {
       setDetailsError('Δεν υπάρχει MARK για αυτό το παραστατικό.');
@@ -724,7 +746,7 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
     if (!q) return documents;
 
     return documents.filter((doc) =>
-      [doc.counterVatNumber, supplierNameByVat(doc.counterVatNumber), doc.issueDate, doc.invType, doc.minMark, doc.maxMark]
+      [doc.counterVatNumber, doc.issuerName, supplierNameByVat(doc.counterVatNumber), doc.issueDate, doc.invType, doc.series, doc.aa, doc.mark, doc.minMark, doc.maxMark]
         .join(' ')
         .toLowerCase()
         .includes(q)
@@ -815,7 +837,7 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
                   {visibleDocuments.map((doc) => (
                     <tr key={doc.id}>
                       <td>{doc.issueDate || '-'}</td>
-                      <td><b>{supplierNameByVat(doc.counterVatNumber) || '—'}</b></td>
+                      <td><b>{supplierNameByVat(doc.counterVatNumber) || doc.issuerName || '—'}</b></td>
                       <td><b>{doc.counterVatNumber || '-'}</b></td>
                       <td>{doc.invType || '-'}</td>
                       <td>{doc.count || '1'}</td>
