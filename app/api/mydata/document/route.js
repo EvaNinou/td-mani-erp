@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+function isDigits(value) {
+  return /^\d+$/.test(String(value || ''));
+}
+
 export async function GET(request) {
   try {
     const userId = process.env.MYDATA_USER_ID;
@@ -18,29 +22,93 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const mark = searchParams.get('mark');
 
-    if (!mark || !/^\d+$/.test(mark)) {
+    const mark = searchParams.get('mark');
+    const minMark = searchParams.get('minMark');
+    const maxMark = searchParams.get('maxMark');
+
+    let startMark;
+    let endMark;
+
+    // 1. ΛΗΨΗ ΕΝΟΣ ΣΥΓΚΕΚΡΙΜΕΝΟΥ ΠΑΡΑΣΤΑΤΙΚΟΥ
+    // Διατηρούμε ακριβώς τη λειτουργία που ήδη είχαμε.
+    if (mark) {
+      if (!isDigits(mark)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'Δεν δόθηκε έγκυρο MARK παραστατικού.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const requestedMark = BigInt(mark);
+
+      if (requestedMark <= 0n) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'Το MARK πρέπει να είναι μεγαλύτερο από μηδέν.',
+          },
+          { status: 400 }
+        );
+      }
+
+      startMark = requestedMark - 1n;
+      endMark = requestedMark;
+    }
+
+    // 2. ΛΗΨΗ ΕΥΡΟΥΣ ΠΑΡΑΣΤΑΤΙΚΩΝ
+    else if (minMark && maxMark) {
+      if (!isDigits(minMark) || !isDigits(maxMark)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'Δεν δόθηκε έγκυρο εύρος MARK.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const requestedMinMark = BigInt(minMark);
+      const requestedMaxMark = BigInt(maxMark);
+
+      if (
+        requestedMinMark <= 0n ||
+        requestedMaxMark <= 0n ||
+        requestedMaxMark < requestedMinMark
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'Το εύρος MARK δεν είναι έγκυρο.',
+          },
+          { status: 400 }
+        );
+      }
+
+      // Η RequestDocs επιστρέφει εγγραφές με MARK
+      // μεγαλύτερο από το mark.
+      // Για να συμπεριλάβουμε και το minMark,
+      // ξεκινάμε από minMark - 1.
+      startMark = requestedMinMark - 1n;
+      endMark = requestedMaxMark;
+    }
+
+    else {
       return NextResponse.json(
         {
           ok: false,
-          error: 'Δεν δόθηκε έγκυρο MARK παραστατικού.',
+          error: 'Χρειάζεται mark ή minMark/maxMark.',
         },
         { status: 400 }
       );
     }
 
-    // Η RequestDocs επιστρέφει MARK μεγαλύτερα από το "mark"
-    // και έως το "maxMark".
-    // Άρα για να πάρουμε ΜΟΝΟ το συγκεκριμένο:
-    // mark = ζητούμενο MARK - 1
-    // maxMark = ζητούμενο MARK
-    const requestedMark = BigInt(mark);
-    const startMark = requestedMark - 1n;
-
     const params = new URLSearchParams({
       mark: startMark.toString(),
-      maxMark: requestedMark.toString(),
+      maxMark: endMark.toString(),
     });
 
     const myDataUrl =
@@ -65,7 +133,7 @@ export async function GET(request) {
         {
           ok: false,
           status: response.status,
-          error: 'Η ΑΑΔΕ δεν δέχτηκε το αίτημα για το παραστατικό.',
+          error: 'Η ΑΑΔΕ δεν δέχτηκε το αίτημα για τα παραστατικά.',
         },
         { status: response.status }
       );
@@ -78,13 +146,14 @@ export async function GET(request) {
         'Cache-Control': 'no-store',
       },
     });
+
   } catch (error) {
     console.error('myDATA document error:', error);
 
     return NextResponse.json(
       {
         ok: false,
-        error: 'Αποτυχία λήψης του παραστατικού από το myDATA.',
+        error: 'Αποτυχία λήψης παραστατικών από το myDATA.',
       },
       { status: 500 }
     );
