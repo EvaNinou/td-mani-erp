@@ -2,7 +2,10 @@
 
 import { useMemo, useState } from 'react';
 
-const emptyLine = () => ({ description: '', quantity: '1', unitPrice: '' });
+const emptyLine = () => ({ description: '', quantity: '', unit: 'm²', unitPrice: '' });
+const unitOptions = ['m²', 'm (τρέχον)', 'm³', 'τεμ.', 'kg', 'tn', 'ώρα', 'ημέρα', 'σετ', 'κατ’ αποκοπή'];
+const META_START = '[[TD_MANI_QUOTE_V2]]';
+const META_END = '[[/TD_MANI_QUOTE_V2]]';
 const today = () => new Date().toISOString().slice(0, 10);
 const plusDays = (date, days) => {
   const d = new Date(`${date || today()}T12:00:00`);
@@ -14,6 +17,13 @@ const greekDate = (value) => value ? new Date(`${value}T12:00:00`).toLocaleDateS
 
 export default function QuotesStudio({ customers = [], projects = [], quotes = [], supabase, onSaved }) {
   const [customerId, setCustomerId] = useState('');
+  const [customerMode, setCustomerMode] = useState('manual');
+  const [manualCustomer, setManualCustomer] = useState('');
+  const [manualProject, setManualProject] = useState('');
+  const [projectMode, setProjectMode] = useState('manual');
+  const [pricingMode, setPricingMode] = useState('unit');
+  const [materialsMode, setMaterialsMode] = useState('labor');
+  const [hasExpiry, setHasExpiry] = useState(false);
   const [projectId, setProjectId] = useState('');
   const [title, setTitle] = useState('Οικοδομικές εργασίες');
   const [description, setDescription] = useState('');
@@ -21,8 +31,8 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   const [validUntil, setValidUntil] = useState(plusDays(today(), 30));
   const [lines, setLines] = useState([emptyLine()]);
   const [vatEnabled, setVatEnabled] = useState(true);
-  const [withholdingEnabled, setWithholdingEnabled] = useState(true);
-  const [notes, setNotes] = useState('Η προσφορά ισχύει για 30 ημέρες.\nΠεριλαμβάνονται υλικά και εργασία.\nΟποιαδήποτε επιπλέον εργασία θα κοστολογείται ξεχωριστά.');
+  const [withholdingEnabled, setWithholdingEnabled] = useState(false);
+  const [notes, setNotes] = useState('Οποιαδήποτε επιπλέον εργασία θα κοστολογείται ξεχωριστά.');
   const [preview, setPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedQuotePreview, setSavedQuotePreview] = useState(null);
@@ -31,7 +41,11 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   const project = projects.find((x) => String(x.id) === String(projectId));
   const customerProjects = projects.filter((x) => !x.is_deleted && (!customerId || String(x.customer_id) === String(customerId)));
   const quoteNumber = useMemo(() => `ΠΡ-${new Date().getFullYear()}-${String((quotes?.length || 0) + 1).padStart(3, '0')}`, [quotes]);
-  const subtotal = lines.reduce((sum, line) => sum + Number(line.quantity || 0) * Number(line.unitPrice || 0), 0);
+  const subtotal = lines.reduce((sum, line) => sum + (pricingMode === 'unit' ? 0 : Number(line.quantity || 0) * Number(line.unitPrice || 0)), 0);
+  const displayCustomer = customerMode === 'saved' ? (customer?.name || '') : manualCustomer.trim();
+  const displayProject = projectMode === 'saved' ? (project?.title || '') : manualProject.trim();
+  const terms = [materialsMode === 'labor' ? 'Οι τιμές αφορούν αποκλειστικά την εργασία. Δεν περιλαμβάνεται η προμήθεια υλικών.' : materialsMode === 'both' ? 'Οι τιμές περιλαμβάνουν εργασία και υλικά.' : 'Οι τιμές αφορούν αποκλειστικά τα υλικά.', pricingMode === 'unit' ? 'Η τελική αξία θα προκύψει βάσει πραγματικών επιμετρήσεων και τιμών μονάδας.' : '', 'Οι τιμές είναι καθαρές, χωρίς ΦΠΑ, εκτός αν αναφέρεται διαφορετικά.'].filter(Boolean);
+  const allNotes = [...terms, ...notes.split('\n').map(x => x.trim()).filter(Boolean)];
   const vat = vatEnabled ? subtotal * 0.24 : 0;
   const withholding = withholdingEnabled ? subtotal * 0.03 : 0;
   const total = subtotal + vat - withholding;
@@ -47,6 +61,13 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
 
   function parseSavedQuote(quote) {
     const raw = quote?.description || '';
+    const metaMatch = raw.match(/\[\[TD_MANI_QUOTE_V2\]\]([\s\S]*?)\[\[\/TD_MANI_QUOTE_V2\]\]/);
+    if (metaMatch) {
+      try {
+        const m = JSON.parse(metaMatch[1]);
+        return { savedLines: m.lines || [], savedValidUntil: m.validUntil || '', generalDescription: m.description || '', savedNotes: (m.notes || []).join('\n'), savedDate: m.quoteDate ? greekDate(m.quoteDate) : (quote?.issue_date ? greekDate(quote.issue_date) : '-'), customerName: m.customerName || quote.customer_name || '', projectName: m.projectName || quote.project_name || '', pricingMode: m.pricingMode || quote.pricing_mode || 'total', materialsMode: m.materialsMode || (quote.materials_included ? 'both' : 'labor'), v2: true };
+      } catch (e) { console.error('quote metadata:', e); }
+    }
     const blocks = raw.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
     const itemPattern = /^(.*?)\s*\|\s*([\d.,]+)\s*x\s*(.*)$/;
     const itemBlockIndex = blocks.findIndex((b) => b.split('\n').some((line) => itemPattern.test(line.trim())));
@@ -65,7 +86,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
     const savedNotes = noteBlocks.join('\n');
     const savedDate = quote?.created_at ? new Date(quote.created_at).toLocaleDateString('el-GR') : '-';
 
-    return { savedLines, savedValidUntil, generalDescription, savedNotes, savedDate };
+    return { savedLines: savedLines.map(x => ({...x, unit: ''})), savedValidUntil, generalDescription, savedNotes, savedDate, customerName: quote.customer_name || '', projectName: quote.project_name || '', pricingMode: 'total', v2: false };
   }
 
   async function deleteSavedQuote(id) {
@@ -96,7 +117,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #fff; }
   body { font-family: Arial, Helvetica, sans-serif; color: #171717; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .td-quote-pdf { width: 210mm; height: 296mm; min-height: 296mm; max-height: 296mm; margin: 0 auto; padding: 8mm 10mm 0; background: #fff; display: flex; flex-direction: column; overflow: hidden; }
+  .td-quote-pdf { width: 210mm; min-height: 296mm; margin: 0 auto; padding: 8mm 10mm 0; background: #fff; display: flex; flex-direction: column; overflow: visible; }
   .td-quote-pdf-header { display: grid; grid-template-columns: 31mm 1fr 55mm; gap: 7mm; align-items: start; }
   .td-quote-logo img { width: 29mm; height: 20mm; object-fit: contain; display: block; }
   .td-quote-contact b { display:block; font-size: 17pt; letter-spacing: .6px; margin: 1mm 0; }
@@ -147,12 +168,12 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
     }
     .td-quote-pdf {
       width: 210mm !important;
-      height: 278mm !important;
       min-height: 278mm !important;
-      max-height: 278mm !important;
+      height: auto !important;
+      max-height: none !important;
       padding: 7mm 10mm 0 !important;
       margin: 0 !important;
-      overflow: hidden !important;
+      overflow: visible !important;
       break-after: avoid-page !important;
       page-break-after: avoid !important;
     }
@@ -184,28 +205,41 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   }
 
   async function saveQuote() {
-    if (!projectId || !title.trim() || !lines.some((line) => line.description.trim())) {
-      alert('Διάλεξε έργο και συμπλήρωσε τουλάχιστον μία εργασία.');
-      return;
+    if (!displayCustomer || !displayProject || !title.trim() || !lines.some(line => line.description.trim())) {
+      alert('Συμπλήρωσε πελάτη, έργο και τουλάχιστον μία εργασία.'); return;
+    }
+    if (lines.some(line => line.description.trim() && (line.unitPrice === '' || Number(line.unitPrice) < 0 || (pricingMode !== 'unit' && (line.quantity === '' || Number(line.quantity) <= 0))))) {
+      alert('Συμπλήρωσε σωστά τις τιμές και, όπου χρειάζεται, τις ποσότητες.'); return;
     }
     setSaving(true);
-    const itemText = lines.filter((x) => x.description.trim()).map((x) => `${x.description} | ${x.quantity} x ${euro(x.unitPrice)}`).join('\n');
-    const payload = {
-      project_id: projectId,
-      work_type: title.trim(),
-      description: [description.trim(), itemText, `Ισχύει έως: ${validUntil}`, notes.trim()].filter(Boolean).join('\n\n'),
-      subtotal,
-      vat,
-      withholding,
-      payable: total,
-      job_type: vatEnabled ? 'invoice' : 'cash',
-      status: 'pending'
-    };
-    const { error } = await supabase.from('quotes').insert([{ quote_number: quoteNumber, ...payload }]);
-    setSaving(false);
-    if (error) return alert(error.message);
-    await onSaved?.();
-    alert('Η προσφορά αποθηκεύτηκε.');
+    try {
+      const savedLines = lines.filter(x => x.description.trim());
+      const meta = { version: 2, customerName: displayCustomer, projectName: displayProject, quoteDate, validUntil: hasExpiry ? validUntil : '', pricingMode, materialsMode, description: description.trim(), notes: allNotes, lines: savedLines };
+      const payload = {
+        project_id: projectMode === 'saved' && projectId ? projectId : null,
+        customer_id: customerMode === 'saved' && customerId ? customerId : null,
+        customer_name: displayCustomer,
+        project_name: displayProject,
+        materials_included: materialsMode === 'both',
+        pricing_mode: pricingMode,
+        work_type: title.trim(),
+        description: `${META_START}${JSON.stringify(meta)}${META_END}`,
+        issue_date: quoteDate || null,
+        expiry_date: hasExpiry ? validUntil : null,
+        subtotal: pricingMode === 'unit' ? null : subtotal,
+        vat: pricingMode === 'unit' ? null : vat,
+        withholding: pricingMode === 'unit' ? null : withholding,
+        payable: pricingMode === 'unit' ? null : total,
+        job_type: vatEnabled ? 'invoice' : 'cash',
+        status: 'pending'
+      };
+      const { error } = await supabase.from('quotes').insert([{ quote_number: quoteNumber, ...payload }]);
+      if (error) throw error;
+      await onSaved?.();
+      alert('Η προσφορά αποθηκεύτηκε.');
+    } catch (error) {
+      alert(`Δεν αποθηκεύτηκε η προσφορά: ${error.message || error}`);
+    } finally { setSaving(false); }
   }
 
   return (
@@ -253,22 +287,18 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
         </div>
 
         <div className="quote-form-grid">
-          <div>
-            <label>Πελάτης</label>
-            <select value={customerId} onChange={(e) => { setCustomerId(e.target.value); setProjectId(''); }}>
-              <option value="">Διάλεξε πελάτη</option>
-              {customers.filter((x) => !x.is_deleted).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-            </select>
+          <div><label>Πελάτης</label><select value={customerMode} onChange={e => setCustomerMode(e.target.value)}><option value="manual">Ελεύθερη καταχώρηση</option><option value="saved">Από πελάτες ERP</option></select>
+            {customerMode === 'manual' ? <input value={manualCustomer} onChange={e => setManualCustomer(e.target.value)} placeholder="Επωνυμία / Ονοματεπώνυμο" /> : <select value={customerId} onChange={e => { setCustomerId(e.target.value); setProjectId(''); }}><option value="">Διάλεξε πελάτη</option>{customers.filter(x => !x.is_deleted).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select>}
           </div>
-          <div>
-            <label>Έργο</label>
-            <select value={projectId} onChange={(e) => { const id = e.target.value; setProjectId(id); const p = projects.find((x) => String(x.id) === String(id)); if (p && !customerId) setCustomerId(String(p.customer_id || '')); }}>
-              <option value="">Διάλεξε έργο</option>
-              {customerProjects.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
-            </select>
+          <div><label>Έργο</label><select value={projectMode} onChange={e => setProjectMode(e.target.value)}><option value="manual">Ελεύθερη καταχώρηση</option><option value="saved">Από έργα ERP</option></select>
+            {projectMode === 'manual' ? <input value={manualProject} onChange={e => setManualProject(e.target.value)} placeholder="π.χ. ΧΥΤΗ Μήλου" /> : <select value={projectId} onChange={e => setProjectId(e.target.value)}><option value="">Διάλεξε έργο</option>{customerProjects.map(x => <option key={x.id} value={x.id}>{x.title}</option>)}</select>}
           </div>
-          <div><label>Ημερομηνία</label><input type="date" value={quoteDate} onChange={(e) => setQuoteDate(e.target.value)} /></div>
-          <div><label>Ισχύει έως</label><input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></div>
+          <div><label>Ημερομηνία</label><input type="date" value={quoteDate} onChange={e => setQuoteDate(e.target.value)} /></div>
+          <div><label className="quote-check"><input type="checkbox" checked={hasExpiry} onChange={e => setHasExpiry(e.target.checked)} /> Ημερομηνία λήξης</label>{hasExpiry && <input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} />}</div>
+        </div>
+        <div className="quote-form-grid" style={{marginTop:12}}>
+          <div><label>Περιλαμβάνονται</label><select value={materialsMode} onChange={e => setMaterialsMode(e.target.value)}><option value="labor">Μόνο εργασίες (χωρίς υλικά)</option><option value="both">Εργασίες και υλικά</option><option value="materials">Μόνο υλικά</option></select></div>
+          <div><label>Τρόπος κοστολόγησης</label><select value={pricingMode} onChange={e => setPricingMode(e.target.value)}><option value="unit">Τιμές μονάδας / επιμέτρηση</option><option value="total">Ποσότητα × τιμή / συνολικό ποσό</option></select></div>
         </div>
 
         <label>Τίτλος προσφοράς</label>
@@ -277,34 +307,33 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Σύντομη περιγραφή του αντικειμένου της προσφοράς" />
 
         <h3>Είδη / Εργασίες</h3>
-        <div className="quote-lines">
-          <div className="quote-line quote-line-head"><span>#</span><span>Περιγραφή</span><span>Ποσότητα</span><span>Τιμή μονάδας</span><span>Σύνολο</span><span></span></div>
-          {lines.map((line, index) => (
-            <div className="quote-line" key={index}>
-              <span>{index + 1}</span>
-              <input value={line.description} onChange={(e) => updateLine(index, 'description', e.target.value)} placeholder="Εργασία / υλικό" />
-              <input type="number" min="0" step="0.01" value={line.quantity} onChange={(e) => updateLine(index, 'quantity', e.target.value)} />
-              <input type="number" min="0" step="0.01" value={line.unitPrice} onChange={(e) => updateLine(index, 'unitPrice', e.target.value)} placeholder="0,00" />
-              <b>{euro(Number(line.quantity || 0) * Number(line.unitPrice || 0))}</b>
-              <button className="quote-remove" onClick={() => removeLine(index)} disabled={lines.length === 1}>×</button>
-            </div>
-          ))}
+        <div className="quote-lines" style={{overflowX:'auto'}}>
+          <div className="quote-line quote-line-head" style={{gridTemplateColumns: pricingMode === 'unit' ? '30px minmax(180px,1fr) 120px 130px 38px' : '30px minmax(180px,1fr) 110px 90px 120px 120px 38px', minWidth:pricingMode === 'unit'?650:830}}><span>#</span><span>Περιγραφή</span><span>Μονάδα</span>{pricingMode !== 'unit' && <span>Ποσότητα</span>}<span>Τιμή μονάδας</span>{pricingMode !== 'unit' && <span>Σύνολο</span>}<span></span></div>
+          {lines.map((line,index) => <div className="quote-line" key={index} style={{gridTemplateColumns: pricingMode === 'unit' ? '30px minmax(180px,1fr) 120px 130px 38px' : '30px minmax(180px,1fr) 110px 90px 120px 120px 38px', minWidth:pricingMode === 'unit'?650:830}}>
+            <span>{index+1}</span><input value={line.description} onChange={e => updateLine(index,'description',e.target.value)} placeholder="Εργασία / υλικό" />
+            <select value={line.unit} onChange={e => updateLine(index,'unit',e.target.value)}>{unitOptions.map(x => <option key={x} value={x}>{x}</option>)}</select>
+            {pricingMode !== 'unit' && <input type="number" min="0" step="0.01" value={line.quantity} onChange={e => updateLine(index,'quantity',e.target.value)} placeholder="Ποσότητα" />}
+            <input type="number" min="0" step="0.01" value={line.unitPrice} onChange={e => updateLine(index,'unitPrice',e.target.value)} placeholder="0,00" />
+            {pricingMode !== 'unit' && <b>{euro(Number(line.quantity || 0)*Number(line.unitPrice || 0))}</b>}
+            <button className="quote-remove" onClick={() => removeLine(index)} disabled={lines.length===1}>×</button>
+          </div>)}
         </div>
-        <button onClick={() => setLines([...lines, emptyLine()])}>＋ Προσθήκη είδους</button>
+        <button onClick={() => setLines([...lines,emptyLine()])}>＋ Προσθήκη είδους</button>
 
         <div className="quote-bottom-grid">
           <div>
             <label>Σημειώσεις / Όροι</label>
+            <div style={{marginBottom:8,fontSize:12,opacity:.85}}>{terms.map((t,i)=><div key={i}>✓ {t}</div>)}</div>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
             <label className="quote-check"><input type="checkbox" checked={vatEnabled} onChange={(e) => setVatEnabled(e.target.checked)} /> ΦΠΑ 24%</label>
             <label className="quote-check"><input type="checkbox" checked={withholdingEnabled} onChange={(e) => setWithholdingEnabled(e.target.checked)} /> Παρακράτηση 3%</label>
           </div>
-          <div className="quote-totals">
+          {pricingMode !== 'unit' && <div className="quote-totals">
             <p><span>Καθαρή αξία</span><b>{euro(subtotal)}</b></p>
             <p><span>ΦΠΑ 24%</span><b>{euro(vat)}</b></p>
             <p><span>Παρακράτηση 3%</span><b>-{euro(withholding)}</b></p>
             <p className="quote-grand"><span>Τελικό ποσό</span><b>{euro(total)}</b></p>
-          </div>
+          </div>}
         </div>
 
         <div className="quote-actions">
@@ -344,10 +373,10 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                   return (
                     <tr key={quote.id}>
                       <td><b>{quote.quote_number || '-'}</b></td>
-                      <td>{savedCustomer?.name || '-'}</td>
-                      <td>{savedProject?.title || '-'}</td>
+                      <td>{quote.customer_name || savedCustomer?.name || '-'}</td>
+                      <td>{quote.project_name || savedProject?.title || '-'}</td>
                       <td>{quote.work_type || '-'}</td>
-                      <td><b>{euro(quote.payable)}</b></td>
+                      <td><b>{quote.pricing_mode === 'unit' ? 'Τιμές μονάδας' : euro(quote.payable)}</b></td>
                       <td>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                           <button onClick={() => {
@@ -392,7 +421,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                     <h2>ΠΡΟΣΦΟΡΑ</h2>
                     <p><b>Αρ. Προσφοράς:</b> {savedQuotePreview.quote_number || '-'}</p>
                     <p><b>Ημερομηνία:</b> {parsed.savedDate}</p>
-                    <p><b>Ισχύει έως:</b> {parsed.savedValidUntil ? greekDate(parsed.savedValidUntil) : '-'}</p>
+                    <p><b>Ισχύει έως:</b> {parsed.savedValidUntil ? greekDate(parsed.savedValidUntil) : 'Χωρίς λήξη'}</p>
                   </div>
                 </div>
               </header>
@@ -400,14 +429,14 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
               <div className="td-quote-parties">
                 <div>
                   <small>ΠΡΟΣ</small>
-                  <h3>{savedCustomer?.name || 'Πελάτης'}</h3>
-                  <p>ΑΦΜ: {savedCustomer?.afm || '-'}</p>
-                  <p>Τηλέφωνο: {savedCustomer?.phone || '-'}</p>
+                  <h3>{parsed.customerName || savedCustomer?.name || 'Πελάτης'}</h3>
+                  {savedCustomer?.afm && <p>ΑΦΜ: {savedCustomer.afm}</p>}
+                  {savedCustomer?.phone && <p>Τηλέφωνο: {savedCustomer.phone}</p>}
                 </div>
                 <div>
                   <small>ΕΡΓΟ</small>
-                  <h3>{savedProject?.title || '-'}</h3>
-                  <p>{savedProject?.address || savedProject?.area || '-'}</p>
+                  <h3>{parsed.projectName || savedProject?.title || '-'}</h3>
+                  {(savedProject?.address || savedProject?.area) && <p>{savedProject.address || savedProject.area}</p>}
                 </div>
               </div>
 
@@ -418,22 +447,23 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
 
               {parsed.savedLines.length > 0 && (
                 <table className="td-quote-table">
-                  <thead><tr><th>#</th><th>Περιγραφή</th><th>Ποσότητα</th><th>Τιμή Μονάδας</th><th>Σύνολο</th></tr></thead>
+                  <thead><tr><th>#</th><th>Περιγραφή</th><th>Μονάδα</th>{parsed.pricingMode !== 'unit' && <th>Ποσότητα</th>}<th>Τιμή Μονάδας</th>{parsed.pricingMode !== 'unit' && <th>Σύνολο</th>}</tr></thead>
                   <tbody>
                     {parsed.savedLines.map((line, index) => (
                       <tr key={index}>
                         <td>{index + 1}</td>
                         <td>{line.description}</td>
-                        <td>{line.quantity}</td>
-                        <td>{euro(line.unitPrice)}</td>
-                        <td>{euro(Number(line.quantity || 0) * Number(line.unitPrice || 0))}</td>
+                        <td>{line.unit || '-'}</td>
+                         {parsed.pricingMode !== 'unit' && <td>{line.quantity}</td>}
+                         <td>{euro(line.unitPrice)}</td>
+                         {parsed.pricingMode !== 'unit' && <td>{euro(Number(line.quantity || 0) * Number(line.unitPrice || 0))}</td>}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               )}
 
-              <div className="td-quote-summary">
+              {parsed.pricingMode !== 'unit' && <div className="td-quote-summary">
                 <div></div>
                 <div>
                   <p><span>Σύνολο</span><b>{euro(savedQuotePreview.subtotal)}</b></p>
@@ -441,7 +471,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                   {Number(savedQuotePreview.withholding || 0) !== 0 && <p><span>Παρακράτηση 3%</span><b>-{euro(savedQuotePreview.withholding)}</b></p>}
                   <p className="final"><span>Τελικό Ποσό</span><b>{euro(savedQuotePreview.payable)}</b></p>
                 </div>
-              </div>
+              </div>}
 
               {parsed.savedNotes && (
                 <div className="td-quote-notes">
@@ -478,7 +508,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                   <h2>ΠΡΟΣΦΟΡΑ</h2>
                   <p><b>Αρ. Προσφοράς:</b> {quoteNumber}</p>
                   <p><b>Ημερομηνία:</b> {greekDate(quoteDate)}</p>
-                  <p><b>Ισχύει έως:</b> {greekDate(validUntil)}</p>
+                  <p><b>Ισχύει έως:</b> {hasExpiry ? greekDate(validUntil) : 'Χωρίς λήξη'}</p>
                 </div>
               </div>
             </header>
@@ -486,14 +516,14 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
             <div className="td-quote-parties">
               <div>
                 <small>ΠΡΟΣ</small>
-                <h3>{customer?.name || 'Πελάτης'}</h3>
-                <p>ΑΦΜ: {customer?.afm || '-'}</p>
-                <p>Τηλέφωνο: {customer?.phone || '-'}</p>
+                <h3>{displayCustomer || 'Πελάτης'}</h3>
+                {customerMode === 'saved' && customer?.afm && <p>ΑΦΜ: {customer.afm}</p>}
+                {customerMode === 'saved' && customer?.phone && <p>Τηλέφωνο: {customer.phone}</p>}
               </div>
               <div>
                 <small>ΕΡΓΟ</small>
-                <h3>{project?.title || '-'}</h3>
-                <p>{project?.address || project?.area || '-'}</p>
+                <h3>{displayProject || '-'}</h3>
+                {projectMode === 'saved' && (project?.address || project?.area) && <p>{project.address || project.area}</p>}
               </div>
             </div>
             <div className="td-quote-description">
@@ -501,14 +531,14 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
               {description && <p>{description}</p>}
             </div>
             <table className="td-quote-table">
-              <thead><tr><th>#</th><th>Περιγραφή</th><th>Ποσότητα</th><th>Τιμή Μονάδας</th><th>Σύνολο</th></tr></thead>
+              <thead><tr><th>#</th><th>Περιγραφή</th><th>Μονάδα</th>{pricingMode !== 'unit' && <th>Ποσότητα</th>}<th>Τιμή Μονάδας</th>{pricingMode !== 'unit' && <th>Σύνολο</th>}</tr></thead>
               <tbody>
                 {lines.filter((x) => x.description.trim()).map((line, index) => (
-                  <tr key={index}><td>{index + 1}</td><td>{line.description}</td><td>{line.quantity}</td><td>{euro(line.unitPrice)}</td><td>{euro(Number(line.quantity || 0) * Number(line.unitPrice || 0))}</td></tr>
+                  <tr key={index}><td>{index + 1}</td><td>{line.description}</td><td>{line.unit}</td>{pricingMode !== 'unit' && <td>{line.quantity}</td>}<td>{euro(line.unitPrice)}</td>{pricingMode !== 'unit' && <td>{euro(Number(line.quantity || 0) * Number(line.unitPrice || 0))}</td>}</tr>
                 ))}
               </tbody>
             </table>
-            <div className="td-quote-summary">
+            {pricingMode !== 'unit' && <div className="td-quote-summary">
               <div></div>
               <div>
                 <p><span>Σύνολο</span><b>{euro(subtotal)}</b></p>
@@ -516,10 +546,10 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                 {withholdingEnabled && <p><span>Παρακράτηση 3%</span><b>-{euro(withholding)}</b></p>}
                 <p className="final"><span>Τελικό Ποσό</span><b>{euro(total)}</b></p>
               </div>
-            </div>
+            </div>}
             <div className="td-quote-notes">
               <h3>Σημειώσεις</h3>
-              {notes.split('\n').filter(Boolean).map((x, i) => <p key={i}>• {x}</p>)}
+              {allNotes.map((x, i) => <p key={i}>• {x}</p>)}
             </div>
             <footer className="td-quote-footer">
               <div><p>Με εκτίμηση,</p><b>TD MANI E.E.</b><span>Οικοδομικές Εργασίες</span></div>
