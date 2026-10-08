@@ -37,6 +37,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   const [preview, setPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedQuotePreview, setSavedQuotePreview] = useState(null);
+  const [editingQuoteId, setEditingQuoteId] = useState(null);
 
   const customer = customers.find((x) => String(x.id) === String(customerId));
   const project = projects.find((x) => String(x.id) === String(projectId));
@@ -87,6 +88,59 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
     const savedDate = quote?.created_at ? new Date(quote.created_at).toLocaleDateString('el-GR') : '-';
 
     return { savedLines: savedLines.map(x => ({...x, unit: ''})), savedValidUntil, generalDescription, savedNotes, savedDate, customerName: quote.customer_name || '', projectName: quote.project_name || '', pricingMode: 'total', v2: false };
+  }
+
+  function startEditingQuote(quote) {
+    const parsed = parseSavedQuote(quote);
+    const linkedCustomer = quote.customer_id && customers.some(x => String(x.id) === String(quote.customer_id));
+    const linkedProject = quote.project_id && projects.some(x => String(x.id) === String(quote.project_id));
+    setEditingQuoteId(quote.id);
+    setCustomerMode(linkedCustomer ? 'saved' : 'manual');
+    setCustomerId(linkedCustomer ? String(quote.customer_id) : '');
+    setManualCustomer(parsed.customerName || quote.customer_name || '');
+    setProjectMode(linkedProject ? 'saved' : 'manual');
+    setProjectId(linkedProject ? String(quote.project_id) : '');
+    setManualProject(parsed.projectName || quote.project_name || '');
+    setPricingMode(parsed.pricingMode || 'total');
+    setFixedAmount(String(parsed.fixedAmount ?? quote.subtotal ?? ''));
+    setMaterialsMode(parsed.materialsMode || 'labor');
+    const expiry = parsed.savedValidUntil || quote.expiry_date || '';
+    setHasExpiry(Boolean(expiry));
+    setValidUntil(expiry || plusDays(today(), 30));
+    setTitle(quote.work_type || 'Οικοδομικές εργασίες');
+    setDescription(parsed.generalDescription || '');
+    setQuoteDate(quote.issue_date || today());
+    setLines(parsed.savedLines.length ? parsed.savedLines.map(x => ({
+      description: x.description || '',
+      quantity: String(x.quantity ?? ''),
+      unit: x.unit || 'm²',
+      unitPrice: String(x.unitPrice ?? '')
+    })) : [emptyLine()]);
+    const defaultTerms = [
+      'Οι τιμές αφορούν αποκλειστικά την εργασία. Δεν περιλαμβάνεται η προμήθεια υλικών.',
+      'Οι τιμές περιλαμβάνουν εργασία και υλικά.',
+      'Οι τιμές αφορούν αποκλειστικά τα υλικά.',
+      'Η τελική αξία θα προκύψει βάσει πραγματικών επιμετρήσεων και τιμών μονάδας.',
+      'Οι τιμές είναι καθαρές, χωρίς ΦΠΑ, εκτός αν αναφέρεται διαφορετικά.'
+    ];
+    setNotes((parsed.savedNotes || '').split('\n').filter(x => x.trim() && !defaultTerms.includes(x.trim())).join('\n'));
+    setVatEnabled(quote.job_type ? quote.job_type === 'invoice' : Number(quote.vat || 0) > 0);
+    setWithholdingEnabled(Number(quote.withholding || 0) > 0);
+    setPreview(false);
+    setSavedQuotePreview(null);
+    setTimeout(() => document.querySelector('.quote-studio')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  function cancelEditingQuote() {
+    setEditingQuoteId(null);
+    setCustomerMode('manual'); setCustomerId(''); setManualCustomer('');
+    setProjectMode('manual'); setProjectId(''); setManualProject('');
+    setPricingMode('unit'); setFixedAmount(''); setMaterialsMode('labor');
+    setHasExpiry(false); setQuoteDate(today()); setValidUntil(plusDays(today(), 30));
+    setTitle('Οικοδομικές εργασίες'); setDescription(''); setLines([emptyLine()]);
+    setVatEnabled(true); setWithholdingEnabled(false);
+    setNotes('Οποιαδήποτε επιπλέον εργασία θα κοστολογείται ξεχωριστά.');
+    setPreview(false);
   }
 
   async function deleteSavedQuote(id) {
@@ -237,11 +291,14 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
         status: 'pending'
       };
       // Μοναδικό εσωτερικό αναγνωριστικό, χωρίς εμφανή αρίθμηση προσφοράς.
-      const internalQuoteKey = `internal-${crypto.randomUUID()}`;
-      const { error } = await supabase.from('quotes').insert([{ quote_number: internalQuoteKey, ...payload }]);
+      const internalQuoteKey = editingQuoteId ? null : `internal-${crypto.randomUUID()}`;
+      const { error } = editingQuoteId
+        ? await supabase.from('quotes').update(payload).eq('id', editingQuoteId)
+        : await supabase.from('quotes').insert([{ quote_number: internalQuoteKey, ...payload }]);
       if (error) throw error;
       await onSaved?.();
-      alert('Η προσφορά αποθηκεύτηκε.');
+      alert(editingQuoteId ? 'Οι αλλαγές αποθηκεύτηκαν στην ίδια προσφορά.' : 'Η προσφορά αποθηκεύτηκε.');
+      if (editingQuoteId) cancelEditingQuote();
     } catch (error) {
       alert(`Δεν αποθηκεύτηκε η προσφορά: ${error.message || error}`);
     } finally { setSaving(false); }
@@ -287,7 +344,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
       `}</style>
       <section className="card page-section quotes-section quote-studio no-print">
         <div className="quote-studio-head">
-          <div><h2>📄 Νέα Προσφορά</h2><p>Δημιούργησε επαγγελματική προσφορά TD MANI και εξήγαγέ την σε PDF.</p></div>
+          <div><h2>{editingQuoteId ? '✏️ Επεξεργασία Προσφοράς' : '📄 Νέα Προσφορά'}</h2><p>{editingQuoteId ? 'Οι αλλαγές ενημερώνουν την υπάρχουσα προσφορά.' : 'Δημιούργησε επαγγελματική προσφορά TD MANI και εξήγαγέ την σε PDF.'}</p></div>
         </div>
 
         <div className="quote-form-grid">
@@ -347,7 +404,8 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
 
         <div className="quote-actions">
           <button onClick={() => setPreview(true)}>👁 Προεπισκόπηση PDF</button>
-          <button onClick={saveQuote} disabled={saving}>{saving ? 'Αποθήκευση...' : '💾 Αποθήκευση Προσφοράς'}</button>
+          <button onClick={saveQuote} disabled={saving}>{saving ? 'Αποθήκευση...' : editingQuoteId ? '💾 Αποθήκευση αλλαγών' : '💾 Αποθήκευση Προσφοράς'}</button>
+          {editingQuoteId && <button type="button" onClick={cancelEditingQuote}>Ακύρωση επεξεργασίας</button>}
         </div>
       </section>
 
@@ -368,7 +426,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
               <thead>
                 <tr>
                                     <th>Πελάτης</th>
-                  <th>Έργο</th>
+                  <th>Περιοχή</th>
                   <th>Περιγραφή</th>
                   <th>Ποσό</th>
                   <th>Ενέργειες</th>
@@ -391,7 +449,8 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                               setSavedQuotePreview(quote);
                               setTimeout(() => document.querySelector("#saved-quote-pdf")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
                             }}>👁 Προβολή</button>
-                          <button className="quote-remove" onClick={() => deleteSavedQuote(quote.id)}>🗑 Διαγραφή</button>
+                          <button onClick={() => startEditingQuote(quote)}>✏️ Επεξεργασία</button>
+                           <button className="quote-remove" onClick={() => deleteSavedQuote(quote.id)}>🗑 Διαγραφή</button>
                         </div>
                       </td>
                     </tr>
