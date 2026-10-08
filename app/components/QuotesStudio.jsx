@@ -22,6 +22,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   const [manualProject, setManualProject] = useState('');
   const [projectMode, setProjectMode] = useState('manual');
   const [pricingMode, setPricingMode] = useState('unit');
+  const [fixedAmount, setFixedAmount] = useState('');
   const [materialsMode, setMaterialsMode] = useState('labor');
   const [hasExpiry, setHasExpiry] = useState(false);
   const [projectId, setProjectId] = useState('');
@@ -41,7 +42,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   const project = projects.find((x) => String(x.id) === String(projectId));
   const customerProjects = projects.filter((x) => !x.is_deleted && (!customerId || String(x.customer_id) === String(customerId)));
   const quoteNumber = useMemo(() => `ΠΡ-${new Date().getFullYear()}-${String((quotes?.length || 0) + 1).padStart(3, '0')}`, [quotes]);
-  const subtotal = lines.reduce((sum, line) => sum + (pricingMode === 'unit' ? 0 : Number(line.quantity || 0) * Number(line.unitPrice || 0)), 0);
+  const subtotal = pricingMode === 'fixed' ? Number(fixedAmount || 0) : lines.reduce((sum, line) => sum + (pricingMode === 'unit' ? 0 : Number(line.quantity || 0) * Number(line.unitPrice || 0)), 0);
   const displayCustomer = customerMode === 'saved' ? (customer?.name || '') : manualCustomer.trim();
   const displayProject = projectMode === 'saved' ? (project?.title || '') : manualProject.trim();
   const terms = [materialsMode === 'labor' ? 'Οι τιμές αφορούν αποκλειστικά την εργασία. Δεν περιλαμβάνεται η προμήθεια υλικών.' : materialsMode === 'both' ? 'Οι τιμές περιλαμβάνουν εργασία και υλικά.' : 'Οι τιμές αφορούν αποκλειστικά τα υλικά.', pricingMode === 'unit' ? 'Η τελική αξία θα προκύψει βάσει πραγματικών επιμετρήσεων και τιμών μονάδας.' : '', 'Οι τιμές είναι καθαρές, χωρίς ΦΠΑ, εκτός αν αναφέρεται διαφορετικά.'].filter(Boolean);
@@ -65,7 +66,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
     if (metaMatch) {
       try {
         const m = JSON.parse(metaMatch[1]);
-        return { savedLines: m.lines || [], savedValidUntil: m.validUntil || '', generalDescription: m.description || '', savedNotes: (m.notes || []).join('\n'), savedDate: m.quoteDate ? greekDate(m.quoteDate) : (quote?.issue_date ? greekDate(quote.issue_date) : '-'), customerName: m.customerName || quote.customer_name || '', projectName: m.projectName || quote.project_name || '', pricingMode: m.pricingMode || quote.pricing_mode || 'total', materialsMode: m.materialsMode || (quote.materials_included ? 'both' : 'labor'), v2: true };
+        return { savedLines: m.lines || [], savedValidUntil: m.validUntil || '', generalDescription: m.description || '', savedNotes: (m.notes || []).join('\n'), savedDate: m.quoteDate ? greekDate(m.quoteDate) : (quote?.issue_date ? greekDate(quote.issue_date) : '-'), customerName: m.customerName || quote.customer_name || '', projectName: m.projectName || quote.project_name || '', pricingMode: m.pricingMode || quote.pricing_mode || 'total', fixedAmount: m.fixedAmount ?? quote.subtotal ?? 0, materialsMode: m.materialsMode || (quote.materials_included ? 'both' : 'labor'), v2: true };
       } catch (e) { console.error('quote metadata:', e); }
     }
     const blocks = raw.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
@@ -208,13 +209,16 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
     if (!displayCustomer || !displayProject || !title.trim() || !lines.some(line => line.description.trim())) {
       alert('Συμπλήρωσε πελάτη, έργο και τουλάχιστον μία εργασία.'); return;
     }
-    if (lines.some(line => line.description.trim() && (line.unitPrice === '' || Number(line.unitPrice) < 0 || (pricingMode !== 'unit' && (line.quantity === '' || Number(line.quantity) <= 0))))) {
+    if (pricingMode === 'fixed' && (fixedAmount === '' || !Number.isFinite(Number(fixedAmount)) || Number(fixedAmount) <= 0)) {
+      alert('Συμπλήρωσε τη συνολική καθαρή αξία του έργου.'); return;
+    }
+    if (pricingMode !== 'fixed' && lines.some(line => line.description.trim() && (line.unitPrice === '' || Number(line.unitPrice) < 0 || (pricingMode === 'total' && (line.quantity === '' || Number(line.quantity) <= 0))))) {
       alert('Συμπλήρωσε σωστά τις τιμές και, όπου χρειάζεται, τις ποσότητες.'); return;
     }
     setSaving(true);
     try {
       const savedLines = lines.filter(x => x.description.trim());
-      const meta = { version: 2, customerName: displayCustomer, projectName: displayProject, quoteDate, validUntil: hasExpiry ? validUntil : '', pricingMode, materialsMode, description: description.trim(), notes: allNotes, lines: savedLines };
+      const meta = { version: 2, customerName: displayCustomer, projectName: displayProject, quoteDate, validUntil: hasExpiry ? validUntil : '', pricingMode, fixedAmount: pricingMode === 'fixed' ? Number(fixedAmount) : null, materialsMode, description: description.trim(), notes: allNotes, lines: savedLines };
       const payload = {
         project_id: projectMode === 'saved' && projectId ? projectId : null,
         customer_id: customerMode === 'saved' && customerId ? customerId : null,
@@ -298,7 +302,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
         </div>
         <div className="quote-form-grid" style={{marginTop:12}}>
           <div><label>Περιλαμβάνονται</label><select value={materialsMode} onChange={e => setMaterialsMode(e.target.value)}><option value="labor">Μόνο εργασίες (χωρίς υλικά)</option><option value="both">Εργασίες και υλικά</option><option value="materials">Μόνο υλικά</option></select></div>
-          <div><label>Τρόπος κοστολόγησης</label><select value={pricingMode} onChange={e => setPricingMode(e.target.value)}><option value="unit">Τιμές μονάδας / επιμέτρηση</option><option value="total">Ποσότητα × τιμή / συνολικό ποσό</option></select></div>
+          <div><label>Τρόπος κοστολόγησης</label><select value={pricingMode} onChange={e => setPricingMode(e.target.value)}><option value="unit">Τιμές ανά μονάδα</option><option value="total">Ποσότητα × Τιμή</option><option value="fixed">Συνολική τιμή έργου</option></select></div>
         </div>
 
         <label>Τίτλος προσφοράς</label>
@@ -307,19 +311,24 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Σύντομη περιγραφή του αντικειμένου της προσφοράς" />
 
         <h3>Είδη / Εργασίες</h3>
+        {pricingMode === 'fixed' && <p style={{fontSize:12,opacity:.8}}>Γράψε τις εργασίες χωρίς τιμές. Η συνολική αξία συμπληρώνεται παρακάτω.</p>}
         <div className="quote-lines" style={{overflowX:'auto'}}>
-          <div className="quote-line quote-line-head" style={{gridTemplateColumns: pricingMode === 'unit' ? '30px minmax(180px,1fr) 120px 130px 38px' : '30px minmax(180px,1fr) 110px 90px 120px 120px 38px', minWidth:pricingMode === 'unit'?650:830}}><span>#</span><span>Περιγραφή</span><span>Μονάδα</span>{pricingMode !== 'unit' && <span>Ποσότητα</span>}<span>Τιμή μονάδας</span>{pricingMode !== 'unit' && <span>Σύνολο</span>}<span></span></div>
-          {lines.map((line,index) => <div className="quote-line" key={index} style={{gridTemplateColumns: pricingMode === 'unit' ? '30px minmax(180px,1fr) 120px 130px 38px' : '30px minmax(180px,1fr) 110px 90px 120px 120px 38px', minWidth:pricingMode === 'unit'?650:830}}>
+          <div className="quote-line quote-line-head" style={{gridTemplateColumns: pricingMode === 'fixed' ? '30px minmax(180px,1fr) 38px' : pricingMode === 'unit' ? '30px minmax(180px,1fr) 120px 130px 38px' : '30px minmax(180px,1fr) 110px 90px 120px 120px 38px', minWidth:pricingMode === 'fixed'?350:pricingMode === 'unit'?650:830}}><span>#</span><span>Περιγραφή</span>{pricingMode !== 'fixed' && <span>Μονάδα</span>}{pricingMode === 'total' && <span>Ποσότητα</span>}{pricingMode !== 'fixed' && <span>Τιμή μονάδας</span>}{pricingMode === 'total' && <span>Σύνολο</span>}<span></span></div>
+          {lines.map((line,index) => <div className="quote-line" key={index} style={{gridTemplateColumns: pricingMode === 'fixed' ? '30px minmax(180px,1fr) 38px' : pricingMode === 'unit' ? '30px minmax(180px,1fr) 120px 130px 38px' : '30px minmax(180px,1fr) 110px 90px 120px 120px 38px', minWidth:pricingMode === 'fixed'?350:pricingMode === 'unit'?650:830}}>
             <span>{index+1}</span><input value={line.description} onChange={e => updateLine(index,'description',e.target.value)} placeholder="Εργασία / υλικό" />
-            <select value={line.unit} onChange={e => updateLine(index,'unit',e.target.value)}>{unitOptions.map(x => <option key={x} value={x}>{x}</option>)}</select>
-            {pricingMode !== 'unit' && <input type="number" min="0" step="0.01" value={line.quantity} onChange={e => updateLine(index,'quantity',e.target.value)} placeholder="Ποσότητα" />}
-            <input type="number" min="0" step="0.01" value={line.unitPrice} onChange={e => updateLine(index,'unitPrice',e.target.value)} placeholder="0,00" />
-            {pricingMode !== 'unit' && <b>{euro(Number(line.quantity || 0)*Number(line.unitPrice || 0))}</b>}
+            {pricingMode !== 'fixed' && <select value={line.unit} onChange={e => updateLine(index,'unit',e.target.value)}>{unitOptions.map(x => <option key={x} value={x}>{x}</option>)}</select>}
+            {pricingMode === 'total' && <input type="number" min="0" step="0.01" value={line.quantity} onChange={e => updateLine(index,'quantity',e.target.value)} placeholder="Ποσότητα" />}
+            {pricingMode !== 'fixed' && <input type="number" min="0" step="0.01" value={line.unitPrice} onChange={e => updateLine(index,'unitPrice',e.target.value)} placeholder="0,00" />}
+            {pricingMode === 'total' && <b>{euro(Number(line.quantity || 0)*Number(line.unitPrice || 0))}</b>}
             <button className="quote-remove" onClick={() => removeLine(index)} disabled={lines.length===1}>×</button>
           </div>)}
         </div>
         <button onClick={() => setLines([...lines,emptyLine()])}>＋ Προσθήκη είδους</button>
 
+        {pricingMode === 'fixed' && <div style={{margin:'18px 0',maxWidth:370}}>
+          <label>Συνολική καθαρή αξία έργου (€)</label>
+          <input type="number" min="0" step="0.01" value={fixedAmount} onChange={e => setFixedAmount(e.target.value)} placeholder="π.χ. 4600" />
+        </div>}
         <div className="quote-bottom-grid">
           <div>
             <label>Σημειώσεις / Όροι</label>
@@ -447,16 +456,16 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
 
               {parsed.savedLines.length > 0 && (
                 <table className="td-quote-table">
-                  <thead><tr><th>#</th><th>Περιγραφή</th><th>Μονάδα</th>{parsed.pricingMode !== 'unit' && <th>Ποσότητα</th>}<th>Τιμή Μονάδας</th>{parsed.pricingMode !== 'unit' && <th>Σύνολο</th>}</tr></thead>
+                  <thead><tr><th>#</th><th>Περιγραφή</th>{parsed.pricingMode !== 'fixed' && <th>Μονάδα</th>}{parsed.pricingMode === 'total' && <th>Ποσότητα</th>}{parsed.pricingMode !== 'fixed' && <th>Τιμή Μονάδας</th>}{parsed.pricingMode === 'total' && <th>Σύνολο</th>}</tr></thead>
                   <tbody>
                     {parsed.savedLines.map((line, index) => (
                       <tr key={index}>
                         <td>{index + 1}</td>
                         <td>{line.description}</td>
-                        <td>{line.unit || '-'}</td>
-                         {parsed.pricingMode !== 'unit' && <td>{line.quantity}</td>}
-                         <td>{euro(line.unitPrice)}</td>
-                         {parsed.pricingMode !== 'unit' && <td>{euro(Number(line.quantity || 0) * Number(line.unitPrice || 0))}</td>}
+                        {parsed.pricingMode !== 'fixed' && <td>{line.unit || '-'}</td>}
+                        {parsed.pricingMode === 'total' && <td>{line.quantity}</td>}
+                        {parsed.pricingMode !== 'fixed' && <td>{euro(line.unitPrice)}</td>}
+                        {parsed.pricingMode === 'total' && <td>{euro(Number(line.quantity || 0) * Number(line.unitPrice || 0))}</td>}
                       </tr>
                     ))}
                   </tbody>
@@ -466,7 +475,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
               {parsed.pricingMode !== 'unit' && <div className="td-quote-summary">
                 <div></div>
                 <div>
-                  <p><span>Σύνολο</span><b>{euro(savedQuotePreview.subtotal)}</b></p>
+                  <p><span>{parsed.pricingMode === 'fixed' ? 'Συνολική καθαρή αξία προσφοράς' : 'Σύνολο'}</span><b>{euro(savedQuotePreview.subtotal)}</b></p>
                   {Number(savedQuotePreview.vat || 0) !== 0 && <p><span>ΦΠΑ 24%</span><b>{euro(savedQuotePreview.vat)}</b></p>}
                   {Number(savedQuotePreview.withholding || 0) !== 0 && <p><span>Παρακράτηση 3%</span><b>-{euro(savedQuotePreview.withholding)}</b></p>}
                   <p className="final"><span>Τελικό Ποσό</span><b>{euro(savedQuotePreview.payable)}</b></p>
@@ -531,17 +540,17 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
               {description && <p>{description}</p>}
             </div>
             <table className="td-quote-table">
-              <thead><tr><th>#</th><th>Περιγραφή</th><th>Μονάδα</th>{pricingMode !== 'unit' && <th>Ποσότητα</th>}<th>Τιμή Μονάδας</th>{pricingMode !== 'unit' && <th>Σύνολο</th>}</tr></thead>
+              <thead><tr><th>#</th><th>Περιγραφή</th>{pricingMode !== 'fixed' && <th>Μονάδα</th>}{pricingMode === 'total' && <th>Ποσότητα</th>}{pricingMode !== 'fixed' && <th>Τιμή Μονάδας</th>}{pricingMode === 'total' && <th>Σύνολο</th>}</tr></thead>
               <tbody>
                 {lines.filter((x) => x.description.trim()).map((line, index) => (
-                  <tr key={index}><td>{index + 1}</td><td>{line.description}</td><td>{line.unit}</td>{pricingMode !== 'unit' && <td>{line.quantity}</td>}<td>{euro(line.unitPrice)}</td>{pricingMode !== 'unit' && <td>{euro(Number(line.quantity || 0) * Number(line.unitPrice || 0))}</td>}</tr>
+                  <tr key={index}><td>{index + 1}</td><td>{line.description}</td>{pricingMode !== 'fixed' && <td>{line.unit}</td>}{pricingMode === 'total' && <td>{line.quantity}</td>}{pricingMode !== 'fixed' && <td>{euro(line.unitPrice)}</td>}{pricingMode === 'total' && <td>{euro(Number(line.quantity || 0) * Number(line.unitPrice || 0))}</td>}</tr>
                 ))}
               </tbody>
             </table>
             {pricingMode !== 'unit' && <div className="td-quote-summary">
               <div></div>
               <div>
-                <p><span>Σύνολο</span><b>{euro(subtotal)}</b></p>
+                <p><span>{pricingMode === 'fixed' ? 'Συνολική καθαρή αξία προσφοράς' : 'Σύνολο'}</span><b>{euro(subtotal)}</b></p>
                 {vatEnabled && <p><span>ΦΠΑ 24%</span><b>{euro(vat)}</b></p>}
                 {withholdingEnabled && <p><span>Παρακράτηση 3%</span><b>-{euro(withholding)}</b></p>}
                 <p className="final"><span>Τελικό Ποσό</span><b>{euro(total)}</b></p>
