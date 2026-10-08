@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 const emptyLine = () => ({ description: '', quantity: '', unit: 'm²', unitPrice: '' });
 const unitOptions = ['m²', 'm (τρέχον)', 'm³', 'τεμ.', 'kg', 'tn', 'ώρα', 'ημέρα', 'σετ', 'κατ’ αποκοπή'];
@@ -41,7 +41,6 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
   const customer = customers.find((x) => String(x.id) === String(customerId));
   const project = projects.find((x) => String(x.id) === String(projectId));
   const customerProjects = projects.filter((x) => !x.is_deleted && (!customerId || String(x.customer_id) === String(customerId)));
-  const quoteNumber = useMemo(() => `ΠΡ-${new Date().getFullYear()}-${String((quotes?.length || 0) + 1).padStart(3, '0')}`, [quotes]);
   const subtotal = pricingMode === 'fixed' ? Number(fixedAmount || 0) : lines.reduce((sum, line) => sum + (pricingMode === 'unit' ? 0 : Number(line.quantity || 0) * Number(line.unitPrice || 0)), 0);
   const displayCustomer = customerMode === 'saved' ? (customer?.name || '') : manualCustomer.trim();
   const displayProject = projectMode === 'saved' ? (project?.title || '') : manualProject.trim();
@@ -112,7 +111,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
 <html lang="el">
 <head>
 <meta charset="utf-8" />
-<title>${quoteNumber}</title>
+<title>Προσφορά Εργασιών TD MANI</title>
 <style>
   @page { size: A4 portrait; margin: 0; }
   * { box-sizing: border-box; }
@@ -207,7 +206,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
 
   async function saveQuote() {
     if (!displayCustomer || !displayProject || !title.trim() || !lines.some(line => line.description.trim())) {
-      alert('Συμπλήρωσε πελάτη, έργο και τουλάχιστον μία εργασία.'); return;
+      alert('Συμπλήρωσε πελάτη, περιοχή και τουλάχιστον μία εργασία.'); return;
     }
     if (pricingMode === 'fixed' && (fixedAmount === '' || !Number.isFinite(Number(fixedAmount)) || Number(fixedAmount) <= 0)) {
       alert('Συμπλήρωσε τη συνολική καθαρή αξία του έργου.'); return;
@@ -237,7 +236,9 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
         job_type: vatEnabled ? 'invoice' : 'cash',
         status: 'pending'
       };
-      const { error } = await supabase.from('quotes').insert([{ quote_number: quoteNumber, ...payload }]);
+      // Μοναδικό εσωτερικό αναγνωριστικό, χωρίς εμφανή αρίθμηση προσφοράς.
+      const internalQuoteKey = `internal-${crypto.randomUUID()}`;
+      const { error } = await supabase.from('quotes').insert([{ quote_number: internalQuoteKey, ...payload }]);
       if (error) throw error;
       await onSaved?.();
       alert('Η προσφορά αποθηκεύτηκε.');
@@ -287,15 +288,14 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
       <section className="card page-section quotes-section quote-studio no-print">
         <div className="quote-studio-head">
           <div><h2>📄 Νέα Προσφορά</h2><p>Δημιούργησε επαγγελματική προσφορά TD MANI και εξήγαγέ την σε PDF.</p></div>
-          <span className="quote-number-chip">{quoteNumber}</span>
         </div>
 
         <div className="quote-form-grid">
           <div><label>Πελάτης</label><select value={customerMode} onChange={e => setCustomerMode(e.target.value)}><option value="manual">Ελεύθερη καταχώρηση</option><option value="saved">Από πελάτες ERP</option></select>
             {customerMode === 'manual' ? <input value={manualCustomer} onChange={e => setManualCustomer(e.target.value)} placeholder="Επωνυμία / Ονοματεπώνυμο" /> : <select value={customerId} onChange={e => { setCustomerId(e.target.value); setProjectId(''); }}><option value="">Διάλεξε πελάτη</option>{customers.filter(x => !x.is_deleted).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select>}
           </div>
-          <div><label>Έργο</label><select value={projectMode} onChange={e => setProjectMode(e.target.value)}><option value="manual">Ελεύθερη καταχώρηση</option><option value="saved">Από έργα ERP</option></select>
-            {projectMode === 'manual' ? <input value={manualProject} onChange={e => setManualProject(e.target.value)} placeholder="π.χ. ΧΥΤΗ Μήλου" /> : <select value={projectId} onChange={e => setProjectId(e.target.value)}><option value="">Διάλεξε έργο</option>{customerProjects.map(x => <option key={x.id} value={x.id}>{x.title}</option>)}</select>}
+          <div><label>Περιοχή</label><select value={projectMode} onChange={e => setProjectMode(e.target.value)}><option value="manual">Ελεύθερη καταχώρηση</option><option value="saved">Από έργα ERP</option></select>
+            {projectMode === 'manual' ? <input value={manualProject} onChange={e => setManualProject(e.target.value)} placeholder="Περιοχή" /> : <select value={projectId} onChange={e => setProjectId(e.target.value)}><option value="">Διάλεξε έργο</option>{customerProjects.map(x => <option key={x.id} value={x.id}>{x.title}</option>)}</select>}
           </div>
           <div><label>Ημερομηνία</label><input type="date" value={quoteDate} onChange={e => setQuoteDate(e.target.value)} /></div>
           <div><label className="quote-check"><input type="checkbox" checked={hasExpiry} onChange={e => setHasExpiry(e.target.checked)} /> Ημερομηνία λήξης</label>{hasExpiry && <input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} />}</div>
@@ -367,8 +367,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
             <table className="td-quote-table saved-quotes-table" style={{ width: '100%', minWidth: '760px' }}>
               <thead>
                 <tr>
-                  <th>Αρ. Προσφοράς</th>
-                  <th>Πελάτης</th>
+                                    <th>Πελάτης</th>
                   <th>Έργο</th>
                   <th>Περιγραφή</th>
                   <th>Ποσό</th>
@@ -381,7 +380,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                   const savedCustomer = getCustomerForProject(quote.project_id);
                   return (
                     <tr key={quote.id}>
-                      <td><b>{quote.quote_number || '-'}</b></td>
+
                       <td>{quote.customer_name || savedCustomer?.name || '-'}</td>
                       <td>{quote.project_name || savedProject?.title || '-'}</td>
                       <td>{quote.work_type || '-'}</td>
@@ -428,7 +427,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                   <div className="td-quote-hand">Χτίζουμε<br />το μέλλον σας!</div>
                   <div className="td-quote-meta">
                     <h2>ΠΡΟΣΦΟΡΑ</h2>
-                    <p><b>Αρ. Προσφοράς:</b> {savedQuotePreview.quote_number || '-'}</p>
+
                     <p><b>Ημερομηνία:</b> {parsed.savedDate}</p>
                     <p><b>Ισχύει έως:</b> {parsed.savedValidUntil ? greekDate(parsed.savedValidUntil) : 'Χωρίς λήξη'}</p>
                   </div>
@@ -443,7 +442,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                   {savedCustomer?.phone && <p>Τηλέφωνο: {savedCustomer.phone}</p>}
                 </div>
                 <div>
-                  <small>ΕΡΓΟ</small>
+                  <small>ΠΕΡΙΟΧΗ</small>
                   <h3>{parsed.projectName || savedProject?.title || '-'}</h3>
                   {(savedProject?.address || savedProject?.area) && <p>{savedProject.address || savedProject.area}</p>}
                 </div>
@@ -515,7 +514,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                 <div className="td-quote-hand">Χτίζουμε<br />το μέλλον σας!</div>
                 <div className="td-quote-meta">
                   <h2>ΠΡΟΣΦΟΡΑ</h2>
-                  <p><b>Αρ. Προσφοράς:</b> {quoteNumber}</p>
+
                   <p><b>Ημερομηνία:</b> {greekDate(quoteDate)}</p>
                   <p><b>Ισχύει έως:</b> {hasExpiry ? greekDate(validUntil) : 'Χωρίς λήξη'}</p>
                 </div>
@@ -530,7 +529,7 @@ export default function QuotesStudio({ customers = [], projects = [], quotes = [
                 {customerMode === 'saved' && customer?.phone && <p>Τηλέφωνο: {customer.phone}</p>}
               </div>
               <div>
-                <small>ΕΡΓΟ</small>
+                <small>ΠΕΡΙΟΧΗ</small>
                 <h3>{displayProject || '-'}</h3>
                 {projectMode === 'saved' && (project?.address || project?.area) && <p>{project.address || project.area}</p>}
               </div>
