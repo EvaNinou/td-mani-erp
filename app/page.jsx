@@ -73,6 +73,9 @@ export default function Home() {
 
   const [selectedProject, setSelectedProject] = useState(null);
   const [activeProjectTab, setActiveProjectTab] = useState('overview');
+  const [showProjectQuickPayment, setShowProjectQuickPayment] = useState(false);
+  const [projectQuickPayment, setProjectQuickPayment] = useState({ amount: '', payment_date: '', method: 'Τράπεζα', customer_invoice_id: '', notes: '' });
+  const [projectQuickPaymentSaving, setProjectQuickPaymentSaving] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [selectedCustomerReport, setSelectedCustomerReport] = useState(null);
   const [selectedSupplierReport, setSelectedSupplierReport] = useState(null);
@@ -1151,6 +1154,38 @@ async function saveCustomer() {
     loadProjects();
   }
 
+  async function saveProjectQuickPayment() {
+    if (!selectedProject || projectQuickPaymentSaving) return;
+    const amount = Number(String(projectQuickPayment.amount).replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0) return alert('Συμπλήρωσε έγκυρο ποσό είσπραξης.');
+    if (!projectQuickPayment.payment_date) return alert('Συμπλήρωσε ημερομηνία είσπραξης.');
+    const invoiceId = projectQuickPayment.customer_invoice_id || null;
+    const invoice = invoiceId ? customerInvoices.find((item) => item.id === invoiceId && item.project_id === selectedProject.id) : null;
+    if (invoiceId && !invoice) return alert('Το τιμολόγιο δεν ανήκει σε αυτό το έργο.');
+    if (invoice && amount > getCustomerInvoiceBalance(invoice) + 0.005) return alert('Το ποσό υπερβαίνει το υπόλοιπο του τιμολογίου.');
+    setProjectQuickPaymentSaving(true);
+    try {
+      const { error } = await supabase.from('payments').insert([{
+        project_id: selectedProject.id,
+        customer_invoice_id: invoiceId,
+        amount,
+        payment_date: projectQuickPayment.payment_date,
+        method: projectQuickPayment.method,
+        payment_type: 'income',
+        notes: projectQuickPayment.notes || ''
+      }]);
+      if (error) throw error;
+      await loadPayments();
+      setProjectQuickPayment({ amount: '', payment_date: '', method: 'Τράπεζα', customer_invoice_id: '', notes: '' });
+      setShowProjectQuickPayment(false);
+      setActiveProjectTab('payments');
+    } catch (error) {
+      alert('Δεν αποθηκεύτηκε η είσπραξη: ' + (error?.message || 'Άγνωστο σφάλμα'));
+    } finally {
+      setProjectQuickPaymentSaving(false);
+    }
+  }
+
   async function savePayment() {
     if (!newPayment.customer_id || !newPayment.project_id || !newPayment.amount) {
       alert('Διάλεξε πελάτη, έργο και βάλε ποσό πληρωμής');
@@ -2158,6 +2193,39 @@ async function saveCustomer() {
               <button onClick={() => setActiveProjectTab('progress')}>📈 Άνοιγμα προόδου</button>
             </div>
           </div>
+        </section>
+
+        <section className="card no-print">
+          <h2>⚡ Γρήγορες ενέργειες έργου</h2>
+          <div className="erp-nav" style={{ position: 'static', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <button onClick={() => { setShowProjectQuickPayment((open) => !open); setProjectQuickPayment({ amount: '', payment_date: new Date().toLocaleDateString('en-CA'), method: 'Τράπεζα', customer_invoice_id: '', notes: '' }); }}>💶 {showProjectQuickPayment ? 'Κλείσιμο είσπραξης' : 'Νέα είσπραξη'}</button>
+            <button onClick={() => setActiveProjectTab('invoices')}>🧾 Τιμολόγια έργου</button>
+            <button onClick={() => setActiveProjectTab('expenses')}>📦 Έξοδα έργου</button>
+            <button onClick={() => setActiveProjectTab('quotes')}>📄 Προσφορές έργου</button>
+          </div>
+          {showProjectQuickPayment && (
+            <div className="line" style={{ marginTop: 14, padding: 16 }}>
+              <h3>Νέα είσπραξη — {selectedProject.title}</h3>
+              <p>Πελάτης: <b>{getCustomerName(selectedProject.customer_id)}</b></p>
+              <label>Σύνδεση με τιμολόγιο (προαιρετικά)</label>
+              <select value={projectQuickPayment.customer_invoice_id} onChange={(e) => setProjectQuickPayment({ ...projectQuickPayment, customer_invoice_id: e.target.value })}>
+                <option value="">Χωρίς τιμολόγιο / Προκαταβολή</option>
+                {projectCustomerInvoicesList.filter((invoice) => getCustomerInvoiceBalance(invoice) > 0.005).map((invoice) => (
+                  <option key={invoice.id} value={invoice.id}>{invoice.invoice_number || 'Χωρίς αριθμό'} — Υπόλοιπο {formatCurrency(getCustomerInvoiceBalance(invoice))}</option>
+                ))}
+              </select>
+              <label>Ποσό είσπραξης (€)</label>
+              <input type="number" min="0.01" step="0.01" placeholder="Ποσό (€)" value={projectQuickPayment.amount} onChange={(e) => setProjectQuickPayment({ ...projectQuickPayment, amount: e.target.value })} />
+              <label>Ημερομηνία είσπραξης</label>
+              <input type="date" value={projectQuickPayment.payment_date} onChange={(e) => setProjectQuickPayment({ ...projectQuickPayment, payment_date: e.target.value })} />
+              <label>Τρόπος είσπραξης</label>
+              <select value={projectQuickPayment.method} onChange={(e) => setProjectQuickPayment({ ...projectQuickPayment, method: e.target.value })}>
+                {['Τράπεζα', 'Μετρητά', 'IRIS', 'POS', 'Επιταγή'].map((method) => <option key={method} value={method}>{method}</option>)}
+              </select>
+              <textarea placeholder="Σημειώσεις (προαιρετικά)" value={projectQuickPayment.notes} onChange={(e) => setProjectQuickPayment({ ...projectQuickPayment, notes: e.target.value })} />
+              <button onClick={saveProjectQuickPayment} disabled={projectQuickPaymentSaving}>{projectQuickPaymentSaving ? 'Αποθήκευση...' : '✓ Αποθήκευση είσπραξης'}</button>
+            </div>
+          )}
         </section>
 
         <section className="card no-print">
