@@ -8,6 +8,8 @@ const greekDate = (value) => value ? new Date(`${value}T12:00:00`).toLocaleDateS
 const num = (value) => Number(value || 0);
 const roundMoney = (v) => Math.round((num(v) + Number.EPSILON) * 100) / 100;
 const agreedTotal = (days, rate, hours, overtimeRate) => roundMoney(num(days) * num(rate) + num(hours) * num(overtimeRate));
+// Stable A-Z order for Latin-script employee names, regardless of edits or database row order.
+const employeeNameCompare = (a, b) => String(a || '').trim().localeCompare(String(b || '').trim(), 'en', { sensitivity: 'base', numeric: true });
 
 function Status({ total, paid, dueDate }) {
 const balance = Math.max(num(total) - num(paid), 0);
@@ -50,7 +52,7 @@ useEffect(() => { window.localStorage.setItem('tdmani-payroll-selected-month', p
 
 async function loadEmployees() {
 const { data, error } = await supabase.from('employees').select('*').order('full_name');
-if (!error) setEmployees(data || []);
+if (!error) setEmployees([...(data || [])].sort((a, b) => employeeNameCompare(a.full_name, b.full_name) || String(a.id).localeCompare(String(b.id))));
 }
 
 const periodLabel = (ym) => {
@@ -59,7 +61,9 @@ const [y,m] = ym.split('-');
 return `${m}/${y}`;
 };
 
-const monthRows = payrollObligations.filter((x) => !x.is_deleted && x.period === periodLabel(payrollMonth));
+const monthRows = payrollObligations
+  .filter((x) => !x.is_deleted && x.period === periodLabel(payrollMonth))
+  .sort((a, b) => employeeNameCompare(a.employee_name, b.employee_name) || String(a.id).localeCompare(String(b.id)));
 
 const supplierPaid = (invoiceId) => supplierPayments
 .filter((p) => !p.is_deleted && String(p.supplier_invoice_id || '') === String(invoiceId))
