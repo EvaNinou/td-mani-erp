@@ -36,6 +36,9 @@ onRefresh
 const [tab, setTab] = useState('payroll');
 const [saving, setSaving] = useState(false);
 const [employees, setEmployees] = useState([]);
+ const [payrollView, setPayrollView] = useState('monthly');
+ const [employeeSearch, setEmployeeSearch] = useState('');
+ const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
 const [payrollMonth, setPayrollMonth] = useState(new Date().toISOString().slice(0, 7));
 const monthNames = ['Ιανουάριος','Φεβρουάριος','Μάρτιος','Απρίλιος','Μάιος','Ιούνιος','Ιούλιος','Αύγουστος','Σεπτέμβριος','Οκτώβριος','Νοέμβριος','Δεκέμβριος'];
 const [selectedYear, selectedMonth] = payrollMonth.split('-');
@@ -58,7 +61,10 @@ const { data, error } = await supabase.from('employees').select('*').order('full
 if (!error) setEmployees([...(data || [])].sort((a, b) => employeeNameCompare(a.full_name, b.full_name) || String(a.id).localeCompare(String(b.id))));
 }
 
-const periodLabel = (ym) => {
+const selectedEmployee = employees.find(e => String(e.id) === String(selectedEmployeeId));
+ const filteredEmployees = employees.filter(e => String(e.full_name || '').toLocaleLowerCase().includes(employeeSearch.trim().toLocaleLowerCase()));
+
+ const periodLabel = (ym) => {
 if (!ym) return '';
 const [y,m] = ym.split('-');
 return `${m}/${y}`;
@@ -122,6 +128,7 @@ setSaving(false);
 if (result.error) return alert(result.error.message);
 setEmployeeForm({ id: null, full_name: '', iban: '', bank_amount: '', cash_amount: '', daily_rate: '', overtime_rate: '12', notes: '', is_active: true });
 await loadEmployees();
+ setSelectedEmployeeId(null);
 }
 
 function editEmployee(emp) {
@@ -310,7 +317,8 @@ return (
 .payroll-month-select{min-width:145px!important;background:#222224;color:#eee6da;border:1px solid #48423a;border-radius:9px;padding:9px}
 .payroll-compact th{padding:8px 6px;font-size:11px;vertical-align:middle}.payroll-compact td{padding:7px 6px;font-size:12px;vertical-align:middle;line-height:1.25}.payroll-compact .pay-small-btn{padding:5px 7px;margin:2px}.payroll-compact .iban{font-size:10px;white-space:normal;overflow-wrap:anywhere}.payroll-compact td:last-child{min-width:100px}.employee-field{display:flex;flex-direction:column;gap:5px;min-width:0}.employee-field label{font-size:11px;font-weight:700;color:#e4c783}.employee-field input{min-width:0;width:100%;box-sizing:border-box;border:1px solid #48423a;border-radius:10px;padding:11px;background:#222224;color:#eee6da}
 
-@media(max-width:800px){.employee-grid{grid-template-columns:1fr}.payroll-toolbar{align-items:stretch}.payroll-toolbar-left{display:grid;grid-template-columns:1fr}.payroll-toolbar input{width:100%}.pay-head{display:block}.pay-total{margin-top:12px}.pay-cards,.pay-form{grid-template-columns:1fr}.pay-form textarea{grid-column:auto}.payments-studio{padding:12px 10px}.pay-head h1{font-size:24px}}
+.payroll-view-header{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:22px;flex-wrap:wrap}.payroll-view-actions{display:flex;gap:9px;flex-wrap:wrap}.employee-directory{min-height:380px}.employee-directory-toolbar{display:flex;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}.employee-directory-toolbar input{flex:1;min-width:220px;max-width:470px;background:#222224;color:#eee6da;border:1px solid #48423a;border-radius:10px;padding:11px}.employee-directory-table td{padding:14px 12px}.employee-profile-extras{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:14px}.employee-profile-extras .employee-field{flex:1;min-width:220px}.employee-profile-extras textarea{background:#222224;color:#eee6da;border:1px solid #48423a;border-radius:10px;padding:11px;width:100%;box-sizing:border-box;min-height:65px}.employee-active{display:flex;align-items:center;gap:7px}.employee-history{margin-top:22px}.employee-history h3{color:#e4c783}
+ @media(max-width:800px){.employee-grid{grid-template-columns:1fr}.payroll-toolbar{align-items:stretch}.payroll-toolbar-left{display:grid;grid-template-columns:1fr}.payroll-toolbar input{width:100%}.pay-head{display:block}.pay-total{margin-top:12px}.pay-cards,.pay-form{grid-template-columns:1fr}.pay-form textarea{grid-column:auto}.payments-studio{padding:12px 10px}.pay-head h1{font-size:24px}}
 `}</style>
 
 <div className="pay-head">
@@ -331,9 +339,19 @@ return (
 </div>
 
 {tab === 'payroll' && <div className="pay-panel">
-<h2>Μισθοδοσία</h2>
-
-<div className="employee-box">
+<div className="payroll-view-header">
+ <div><h2 style={{margin:'0 0 5px'}}>{payrollView === 'monthly' ? 'Μισθοδοσία' : selectedEmployee ? 'Καρτέλα υπαλλήλου' : 'Υπάλληλοι'}</h2><span style={{fontSize:12,color:'#a9a094'}}>{payrollView === 'monthly' ? 'Μηνιαία κατάσταση εργασίας και πληρωμών' : 'Διαχείριση προσωπικού TD MANI'}</span></div>
+ <div className="payroll-view-actions"><button className={`pay-small-btn ${payrollView === 'monthly' ? 'done' : ''}`} onClick={()=>{setPayrollView('monthly');setSelectedEmployeeId(null)}}>📅 Μισθοδοσία</button><button className={`pay-small-btn ${payrollView === 'employees' ? 'done' : ''}`} onClick={()=>{setPayrollView('employees');setSelectedEmployeeId(null)}}>👷 Υπάλληλοι ({employees.length}) →</button></div>
+ </div>
+ {payrollView === 'employees' && <div className="employee-directory">
+ {!selectedEmployeeId ? <>
+ <div className="employee-directory-toolbar"><input aria-label="Αναζήτηση υπαλλήλου" placeholder="🔎 Αναζήτηση υπαλλήλου..." value={employeeSearch} onChange={e=>setEmployeeSearch(e.target.value)}/><button className="pay-primary" onClick={()=>{setEmployeeForm({id:null,full_name:'',iban:'',bank_amount:'',cash_amount:'',daily_rate:'',overtime_rate:'12',notes:'',is_active:true});setSelectedEmployeeId('new')}}>＋ Νέος υπάλληλος</button></div>
+ <div className="pay-table-wrap"><table className="pay-table employee-directory-table"><thead><tr><th>Ονοματεπώνυμο</th><th>Ημερομίσθιο 8ώρου</th><th>Επιπλέον ώρα</th><th>Κατάσταση</th><th>Ενέργεια</th></tr></thead><tbody>
+ {filteredEmployees.map(emp=><tr key={emp.id}><td><b>{emp.full_name}</b></td><td>{euro(emp.daily_rate)}</td><td>{euro(emp.overtime_rate)}</td><td>{emp.is_active===false?'Ανενεργός':'Ενεργός'}</td><td><button className="pay-small-btn" onClick={()=>{editEmployee(emp);setSelectedEmployeeId(emp.id)}}>✏️ Άνοιγμα καρτέλας →</button></td></tr>)}
+ {!filteredEmployees.length&&<tr><td colSpan="5">Δεν βρέθηκαν υπάλληλοι.</td></tr>}
+ </tbody></table></div>
+ </> : <><button className="pay-small-btn" style={{marginBottom:18}} onClick={()=>{setSelectedEmployeeId(null);setEmployeeForm({id:null,full_name:'',iban:'',bank_amount:'',cash_amount:'',daily_rate:'',overtime_rate:'12',notes:'',is_active:true})}}>← Πίσω στους υπαλλήλους</button>
+ <div className="employee-box">
 <h3>👷 Καρτέλες εργαζομένων</h3>
 <div className="employee-grid">
 <div className="employee-field"><label>Ονοματεπώνυμο</label><input placeholder="Ονοματεπώνυμο" value={employeeForm.full_name} onChange={e=>setEmployeeForm({...employeeForm,full_name:e.target.value})}/></div>
@@ -343,12 +361,12 @@ return (
 <div className="employee-field"><label>Επιπλέον ώρα (€)</label><input type="number" min="0" step="0.01" placeholder="π.χ. 12" value={employeeForm.overtime_rate} onChange={e=>setEmployeeForm({...employeeForm,overtime_rate:e.target.value})}/></div>
 <button className="pay-primary" style={{alignSelf:'end',minHeight:42}} disabled={saving} onClick={saveEmployee}>{employeeForm.id?'Αποθήκευση':'Νέος εργαζόμενος'}</button>
 </div>
-<div className="employee-list">
-{employees.map(emp=><button key={emp.id} className="employee-chip" onClick={()=>editEmployee(emp)}>✏️ {emp.full_name} {emp.iban && <span className="iban"> · {emp.iban}</span>}</button>)}
-{!employees.length && <span style={{color:'#8f8981'}}>Δεν υπάρχουν ακόμη εργαζόμενοι.</span>}
-</div>
-</div>
-
+<div className="employee-profile-extras"><div className="employee-field"><label>Σημειώσεις</label><textarea value={employeeForm.notes} onChange={e=>setEmployeeForm({...employeeForm,notes:e.target.value})} placeholder="Σημειώσεις εργαζομένου"/></div><label className="employee-active"><input type="checkbox" checked={employeeForm.is_active!==false} onChange={e=>setEmployeeForm({...employeeForm,is_active:e.target.checked})}/> Ενεργός υπάλληλος</label></div>
+ </div>
+ {selectedEmployee && <div className="employee-history"><h3>📋 Ιστορικό μισθοδοσίας</h3><div className="pay-table-wrap"><table className="pay-table"><thead><tr><th>Περίοδος</th><th>Ημέρες</th><th>Συμφωνημένο</th><th>Νόμιμα καθαρά</th><th>Υπόλοιπο</th><th>Κατάσταση</th></tr></thead><tbody>{payrollObligations.filter(x=>!x.is_deleted&&String(x.employee_id)===String(selectedEmployee.id)).sort((a,b)=>String(b.period||'').localeCompare(String(a.period||''))).map(x=>{const agreed=agreedTotal(x.work_days,x.daily_rate,x.overtime_hours,x.overtime_rate);const paid=payrollPaidTotal(x,agreed);return <tr key={x.id}><td>{x.period}</td><td>{num(x.work_days)}</td><td>{euro(agreed)}</td><td>{euro(x.bank_amount)}</td><td>{euro(paymentBalance(agreed,paid))}</td><td><Status total={agreed} paid={paid}/></td></tr>})}{!payrollObligations.some(x=>!x.is_deleted&&String(x.employee_id)===String(selectedEmployee.id))&&<tr><td colSpan="6">Δεν υπάρχουν καταχωρισμένες μισθοδοσίες.</td></tr>}</tbody></table></div></div>}
+ </>}
+ </div>}
+ {payrollView === 'monthly' && <>
 <p style={{color:'#c8bfae',fontSize:12,margin:'-5px 0 18px'}}>Στην καρτέλα αποθηκεύεται το μεροκάματο. Η νόμιμη καθαρή μισθοδοσία καταχωρίζεται ανά μήνα. Η διαφορά υπολογίζεται για έλεγχο και δεν αποτελεί αυτομάτως ποσό καταβολής μετρητών.</p>
 <div className="payroll-toolbar">
 <div className="payroll-toolbar-left">
@@ -367,6 +385,7 @@ return (
              : <tr key={x.id}><td>{x.employee_name}<div className="iban">{emp?.iban||'-'}</div></td><td>{num(x.work_days)}</td><td>{euro(x.daily_rate)}</td><td>{num(x.overtime_hours)}</td><td>{euro(x.overtime_rate)}</td><td><b>{euro(agreed)}</b></td><td>{euro(x.bank_amount)}</td><td style={{color:difference>0?'#e4c783':'#a8dfbd'}}><b>{euro(difference)}</b></td><td>{euro(paid)}</td><td>{euro(paymentBalance(agreed,paid))}</td><td><Status total={agreed} paid={paid} dueDate={x.due_date}/></td><td style={{maxWidth:180,whiteSpace:'normal'}}>{x.notes||'-'}</td><td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}><button title="Πληρωμή τράπεζας" className={`pay-small-btn ${x.bank_paid?'done':''}`} onClick={()=>togglePayroll(x,'bank_paid')}>🏦 {x.bank_paid?'✓':'○'}</button> <button title="Επιβεβαίωση Έξτρα" disabled={extraDue(agreed,x.bank_amount)<=0} className={`pay-small-btn ${x.extra_paid?'done':''}`} onClick={()=>togglePayroll(x,'extra_paid')}>💰 {x.extra_paid?'✓':'○'}</button> <button title="Επεξεργασία ημερών, ωρών και νόμιμων καθαρών" className="pay-small-btn" onClick={()=>setEditingPayroll({...x})}>✏️</button> <button title="Διαγραφή" className="pay-small-btn" onClick={()=>deletePayroll(x)}>🗑️</button></div></td></tr>})}
            {!monthRows.length && <tr><td colSpan="13">Δεν υπάρχει μισθοδοσία για {periodLabel(payrollMonth)}. Πάτησε «Δημιουργία μισθοδοσίας μήνα».</td></tr>}
          </tbody></table></div>
+ </>}
 </div>}
 
 {tab === 'suppliers' && <div className="pay-panel">
