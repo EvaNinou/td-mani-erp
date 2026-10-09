@@ -9,6 +9,8 @@ const num = (value) => Number(value || 0);
 const roundMoney = (v) => Math.round((num(v) + Number.EPSILON) * 100) / 100;
 const agreedTotal = (days, rate, hours, overtimeRate) => roundMoney(num(days) * num(rate) + num(hours) * num(overtimeRate));
 const paymentBalance = (agreed, paid) => Math.max(roundMoney(num(agreed) - num(paid)), 0);
+const extraDue = (agreed, bank) => Math.max(roundMoney(num(agreed) - num(bank)), 0);
+const payrollPaidTotal = (x, agreed) => roundMoney((x.bank_paid ? num(x.bank_amount) : 0) + (x.extra_paid ? extraDue(agreed, x.bank_amount) : 0));
 // Stable A-Z order for Latin-script employee names, regardless of edits or database row order.
 const employeeNameCompare = (a, b) => String(a || '').trim().localeCompare(String(b || '').trim(), 'en', { sensitivity: 'base', numeric: true });
 
@@ -76,9 +78,7 @@ const openSupplierInvoices = useMemo(() => supplierInvoices
 .map((invoice) => ({ ...invoice, balance: Math.max(num(invoice.total_amount) - invoice.paid, 0) }))
 .filter((invoice) => invoice.balance > 0.009), [supplierInvoices, supplierPayments]);
 
-const payrollTotal = (x) => num(x.bank_amount) + num(x.cash_amount);
-const payrollPaid = (x) => (x.bank_paid ? num(x.bank_amount) : 0) + (x.cash_paid ? num(x.cash_amount) : 0);
-const payrollOpen = monthRows.reduce((s, x) => s + Math.max(payrollTotal(x) - payrollPaid(x), 0), 0);
+const payrollOpen = monthRows.reduce((s, x) => { const agreed = agreedTotal(x.work_days, x.daily_rate, x.overtime_hours, x.overtime_rate); return s + paymentBalance(agreed, payrollPaidTotal(x, agreed)); }, 0);
 const supplierOpen = openSupplierInvoices.reduce((s, x) => s + x.balance, 0);
 const publicOpen = publicObligations.filter((x) => !x.is_deleted).reduce((s, x) => s + Math.max(num(x.amount) - num(x.paid_amount), 0), 0);
 const grandTotal = payrollOpen + supplierOpen + publicOpen;
@@ -147,6 +147,7 @@ bank_amount: num(e.bank_amount),
 cash_amount: num(e.cash_amount),
 work_days: 0, overtime_hours: 0, daily_rate: num(e.daily_rate), overtime_rate: num(e.overtime_rate || 12),
 bank_paid: false,
+extra_paid: false,
 cash_paid: false,
 notes: e.notes || ''
 }));
@@ -159,6 +160,11 @@ await onRefresh?.();
 }
 
 async function togglePayroll(row, field) {
+if (field === 'extra_paid' && !row.extra_paid) {
+  const agreed = agreedTotal(row.work_days, row.daily_rate, row.overtime_hours, row.overtime_rate);
+  if (extraDue(agreed, row.bank_amount) <= 0) return alert('Δεν υπάρχει θετικό Έξτρα για επιβεβαίωση.');
+  if (!confirm('Επιβεβαιώνεις ότι το Έξτρα έχει καταβληθεί και τακτοποιηθεί νόμιμα στη μισθοδοσία;')) return;
+}
 const { error } = await supabase.from('payroll_obligations').update({ [field]: !row[field] }).eq('id', row.id);
 if (error) return alert(error.message);
 await onRefresh?.();
@@ -166,7 +172,10 @@ await onRefresh?.();
 
 async function savePayrollEdit() {
 if (!editingPayroll) return;
+const old = payrollObligations.find(x => x.id === editingPayroll.id);
+const changedPay = old && ['bank_amount','work_days','overtime_hours','daily_rate','overtime_rate'].some(k => num(editingPayroll[k]) !== num(old[k]));
 const { error } = await supabase.from('payroll_obligations').update({
+...(changedPay ? { extra_paid: false } : {}),
 bank_amount: num(editingPayroll.bank_amount),
 cash_amount: num(editingPayroll.cash_amount),
 work_days: num(editingPayroll.work_days),
@@ -195,12 +204,14 @@ const rows = monthRows.map((x, i) => {
   const agreed = agreedTotal(x.work_days, x.daily_rate, x.overtime_hours, x.overtime_rate);
   return { ...x, no: i + 1, iban: emp?.iban || '-', bank, agreed,
     extra: roundMoney(agreed - bank), paidBank: x.bank_paid ? bank : 0,
-    bankBalance: x.bank_paid ? 0 : bank, paymentBalance: paymentBalance(agreed, x.bank_paid ? bank : 0) };
+    paidExtra: x.extra_paid ? extraDue(agreed, bank) : 0,
+    bankBalance: x.bank_paid ? 0 : bank, paymentBalance: paymentBalance(agreed, payrollPaidTotal(x, agreed)) };
 });
 const totalAgreed = rows.reduce((s,x)=>s+x.agreed,0);
 const totalBank = rows.reduce((s,x)=>s+x.bank,0);
 const totalExtra = rows.reduce((s,x)=>s+x.extra,0);
 const paidBank = rows.reduce((s,x)=>s+x.paidBank,0);
+ const paidExtra = rows.reduce((s,x)=>s+x.paidExtra,0);
 const openBank = rows.reduce((s,x)=>s+x.bankBalance,0);
 const openPayments = rows.reduce((s,x)=>s+x.paymentBalance,0);
 const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -216,12 +227,12 @@ table{width:100%;border-collapse:collapse;border:1px solid #d8d0c4}th{background
 <div class="header"><div class="brand"><img class="logo" src="/tdmani-logo-gold.png" onerror="this.style.display='none'"><div><div class="brandname">TD MANI</div><div class="subtitle">ΟΙΚΟΔΟΜΙΚΕΣ ΕΡΓΑΣΙΕΣ</div></div></div><div class="company"><b>TD MANI E.E.</b><br>Πλάκες, Μήλος 84800<br>ΑΦΜ: 801853358<br>Τηλ.: 697 814 1512<br>taulant.m@yahoo.com</div></div>
 <h1>ΜΙΣΘΟΔΟΤΙΚΗ ΚΑΤΑΣΤΑΣΗ</h1><div class="meta"><div><b>Περίοδος:</b> ${esc(period)}</div><div><b>Ημερομηνία εκτύπωσης:</b> ${printDate}</div></div>
 <div class="summary"><div class="card"><span>Συμφωνημένες αμοιβές</span><b>${euro(totalAgreed)}</b></div><div class="card"><span>Νόμιμα καθαρά / Τράπεζα</span><b>${euro(totalBank)}</b></div><div class="card"><span>Έξτρα (διαφορά)</span><b>${euro(totalExtra)}</b></div><div class="card"><span>Υπόλοιπο πληρωμής</span><b>${euro(openPayments)}</b></div></div>
-<table><thead><tr><th>#</th><th>Εργαζόμενος</th><th>IBAN</th><th>Ημέρες</th><th>Ημερομίσθιο</th><th>Επιπλ. ώρες</th><th>€/ώρα</th><th>Συμφωνημένο σύνολο</th><th>Νόμιμα καθαρά / Τράπεζα</th><th>Έξτρα*</th><th>Τράπεζα πληρώθηκε;</th><th>Υπόλοιπο πληρωμής</th><th>Σημειώσεις</th></tr></thead><tbody>
-${rows.map(x=>`<tr><td class="center">${x.no}</td><td><b>${esc(x.employee_name)}</b></td><td class="iban">${esc(x.iban)}</td><td class="center">${num(x.work_days)}</td><td class="money">${euro(x.daily_rate)}</td><td class="center">${num(x.overtime_hours)}</td><td class="money">${euro(x.overtime_rate)}</td><td class="money"><b>${euro(x.agreed)}</b></td><td class="money">${euro(x.bank)}</td><td class="money">${euro(x.extra)}</td><td class="center ${x.bank_paid?'ok':'no'}">${x.bank_paid?'ΝΑΙ':'ΟΧΙ'}</td><td class="money">${euro(x.paymentBalance)}</td><td class="notes">${esc(x.notes||'-')}</td></tr>`).join('')}
-<tr class="totals"><td colspan="7">ΣΥΝΟΛΑ</td><td class="money">${euro(totalAgreed)}</td><td class="money">${euro(totalBank)}</td><td class="money">${euro(totalExtra)}</td><td></td><td class="money">${euro(openPayments)}</td><td></td></tr></tbody></table>
-<div class="bottom"><div class="box"><div class="boxtitle">ΣΥΝΟΨΗ ΤΡΑΠΕΖΙΚΩΝ ΠΛΗΡΩΜΩΝ</div><div class="boxbody"><div class="sumrow"><span>Νόμιμα καθαρά / Τράπεζα</span><b>${euro(totalBank)}</b></div><div class="sumrow"><span>Επιβεβαιωμένες τραπεζικές πληρωμές</span><b>${euro(paidBank)}</b></div><div class="sumrow"><span>Υπόλοιπο τράπεζας</span><b>${euro(openBank)}</b></div><div class="sumrow"><span>Υπόλοιπο συμφωνημένης αμοιβής</span><b>${euro(openPayments)}</b></div></div></div>
+<table><thead><tr><th>#</th><th>Εργαζόμενος</th><th>IBAN</th><th>Ημέρες</th><th>Ημερομίσθιο</th><th>Επιπλ. ώρες</th><th>€/ώρα</th><th>Συμφωνημένο σύνολο</th><th>Νόμιμα καθαρά / Τράπεζα</th><th>Έξτρα*</th><th>Τράπεζα πληρώθηκε;</th><th>Έξτρα πληρώθηκε;</th><th>Υπόλοιπο πληρωμής</th><th>Σημειώσεις</th></tr></thead><tbody>
+${rows.map(x=>`<tr><td class="center">${x.no}</td><td><b>${esc(x.employee_name)}</b></td><td class="iban">${esc(x.iban)}</td><td class="center">${num(x.work_days)}</td><td class="money">${euro(x.daily_rate)}</td><td class="center">${num(x.overtime_hours)}</td><td class="money">${euro(x.overtime_rate)}</td><td class="money"><b>${euro(x.agreed)}</b></td><td class="money">${euro(x.bank)}</td><td class="money">${euro(x.extra)}</td><td class="center ${x.bank_paid?'ok':'no'}">${x.bank_paid?'ΝΑΙ':'ΟΧΙ'}</td><td class="center ${x.extra_paid?'ok':'no'}">${x.extra_paid?'ΝΑΙ':'ΟΧΙ'}</td><td class="money">${euro(x.paymentBalance)}</td><td class="notes">${esc(x.notes||'-')}</td></tr>`).join('')}
+<tr class="totals"><td colspan="7">ΣΥΝΟΛΑ</td><td class="money">${euro(totalAgreed)}</td><td class="money">${euro(totalBank)}</td><td class="money">${euro(totalExtra)}</td><td></td><td></td><td class="money">${euro(openPayments)}</td><td></td></tr></tbody></table>
+<div class="bottom"><div class="box"><div class="boxtitle">ΣΥΝΟΨΗ ΤΡΑΠΕΖΙΚΩΝ ΠΛΗΡΩΜΩΝ</div><div class="boxbody"><div class="sumrow"><span>Νόμιμα καθαρά / Τράπεζα</span><b>${euro(totalBank)}</b></div><div class="sumrow"><span>Επιβεβαιωμένες τραπεζικές πληρωμές</span><b>${euro(paidBank)}</b></div><div class="sumrow"><span>Υπόλοιπο τράπεζας</span><b>${euro(openBank)}</b></div><div class="sumrow"><span>Επιβεβαιωμένα Έξτρα</span><b>${euro(paidExtra)}</b></div><div class="sumrow"><span>Υπόλοιπο συμφωνημένης αμοιβής</span><b>${euro(openPayments)}</b></div></div></div>
 <div class="box"><div class="boxtitle">ΠΑΡΑΤΗΡΗΣΕΙΣ</div><div class="boxbody observations">${esc(rows.filter(x=>x.notes).map(x=>`${x.employee_name}: ${x.notes}`).join('\n')||'-')}</div></div></div>
-<p>* Το «Έξτρα» είναι υπολογιζόμενη διαφορά συμφωνημένης αμοιβής και νόμιμων καθαρών αποδοχών, για έλεγχο και μισθολογική τακτοποίηση. Δεν αποτελεί απόδειξη ή εντολή πληρωμής μετρητών. Το «Υπόλοιπο πληρωμής» είναι η μη καλυμμένη διαφορά από το συμφωνημένο σύνολο και απαιτεί έλεγχο και νόμιμη μισθολογική τακτοποίηση. Παλαιά καταχωρισμένα ποσά μετρητών δεν συμπεριλαμβάνονται στην παρούσα αναφορά.</p><div class="footer"><span>TD MANI E.E. · Οικοδομικές Εργασίες</span><span>Μισθοδοτική Κατάσταση ${esc(period)}</span></div>
+<p>Η επιβεβαίωση Έξτρα καταγράφει την ολοκλήρωση μισθολογικής τακτοποίησης και καταβολής, όχι αυτόματα καταβολή μετρητών. <br/>* Το «Έξτρα» είναι υπολογιζόμενη διαφορά συμφωνημένης αμοιβής και νόμιμων καθαρών αποδοχών, για έλεγχο και μισθολογική τακτοποίηση. Δεν αποτελεί απόδειξη ή εντολή πληρωμής μετρητών. Το «Υπόλοιπο πληρωμής» είναι η μη καλυμμένη διαφορά από το συμφωνημένο σύνολο και απαιτεί έλεγχο και νόμιμη μισθολογική τακτοποίηση. Παλαιά καταχωρισμένα ποσά μετρητών δεν συμπεριλαμβάνονται στην παρούσα αναφορά.</p><div class="footer"><span>TD MANI E.E. · Οικοδομικές Εργασίες</span><span>Μισθοδοτική Κατάσταση ${esc(period)}</span></div>
 <script>window.onload=()=>setTimeout(()=>window.print(),350)<\/script></body></html>`;
 const w=window.open('','_blank','width=1300,height=900'); if(!w)return alert('Επίτρεψε τα αναδυόμενα παράθυρα για να ανοίξει η αναφορά.'); w.document.open();w.document.write(html);w.document.close();
 }
@@ -349,11 +360,11 @@ return (
 </div>
 
          <div className="pay-table-wrap"><table className="pay-table payroll-compact" style={{minWidth:1200}}><thead><tr><th>Εργαζόμενος</th><th>Ημέρες</th><th>Μεροκάματο</th><th>Επιπλ. ώρες</th><th>€/ώρα</th><th>Συμφωνημένο σύνολο</th><th>Νόμιμα καθαρά / Τράπεζα</th><th>Έξτρα</th><th>Πληρωμένο</th><th>Υπόλοιπο πληρωμής</th><th>Κατάσταση</th><th>Σημειώσεις</th><th>Ενέργειες</th></tr></thead><tbody>
-           {monthRows.map(x=>{const emp=employees.find(e=>String(e.id)===String(x.employee_id));const edit=editingPayroll?.id===x.id;const row=edit?editingPayroll:x;const agreed=agreedTotal(row.work_days,row.daily_rate,row.overtime_hours,row.overtime_rate);const difference=roundMoney(agreed-num(row.bank_amount));const paid=x.bank_paid?num(x.bank_amount):0;return edit ?
+           {monthRows.map(x=>{const emp=employees.find(e=>String(e.id)===String(x.employee_id));const edit=editingPayroll?.id===x.id;const row=edit?editingPayroll:x;const agreed=agreedTotal(row.work_days,row.daily_rate,row.overtime_hours,row.overtime_rate);const difference=roundMoney(agreed-num(row.bank_amount));const paid=payrollPaidTotal(x,agreed);return edit ?
              <tr key={x.id} className="edit-row"><td>{x.employee_name}</td>
                {['work_days','daily_rate','overtime_hours','overtime_rate'].map(field=><td key={field}><input className="edit-input" type="number" min="0" step={field==='work_days'||field==='overtime_hours'?'0.5':'0.01'} value={editingPayroll[field]??0} onChange={e=>setEditingPayroll({...editingPayroll,[field]:e.target.value})}/></td>)}
                <td>{euro(agreed)}</td><td><input className="edit-input" type="number" min="0" step="0.01" value={editingPayroll.bank_amount??0} onChange={e=>setEditingPayroll({...editingPayroll,bank_amount:e.target.value})}/></td><td>{euro(difference)}</td><td colSpan="3">Η διαφορά δεν σημαίνει πληρωμή μετρητών.</td><td><input className="edit-input" placeholder="Σημειώσεις" value={editingPayroll.notes||''} onChange={e=>setEditingPayroll({...editingPayroll,notes:e.target.value})}/></td><td><button className="pay-small-btn done" disabled={saving} onClick={savePayrollEdit}>✓ Αποθήκευση</button> <button className="pay-small-btn" onClick={()=>setEditingPayroll(null)}>✕</button></td></tr>
-             : <tr key={x.id}><td>{x.employee_name}<div className="iban">{emp?.iban||'-'}</div></td><td>{num(x.work_days)}</td><td>{euro(x.daily_rate)}</td><td>{num(x.overtime_hours)}</td><td>{euro(x.overtime_rate)}</td><td><b>{euro(agreed)}</b></td><td>{euro(x.bank_amount)}</td><td style={{color:difference>0?'#e4c783':'#a8dfbd'}}><b>{euro(difference)}</b></td><td>{euro(paid)}</td><td>{euro(paymentBalance(agreed,paid))}</td><td><Status total={agreed} paid={paid} dueDate={x.due_date}/></td><td style={{maxWidth:180,whiteSpace:'normal'}}>{x.notes||'-'}</td><td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}><button title="Πληρωμή τράπεζας" className={`pay-small-btn ${x.bank_paid?'done':''}`} onClick={()=>togglePayroll(x,'bank_paid')}>🏦 {x.bank_paid?'✓':'○'}</button> <button title="Επεξεργασία ημερών, ωρών και νόμιμων καθαρών" className="pay-small-btn" onClick={()=>setEditingPayroll({...x})}>✏️</button> <button title="Διαγραφή" className="pay-small-btn" onClick={()=>deletePayroll(x)}>🗑️</button></div></td></tr>})}
+             : <tr key={x.id}><td>{x.employee_name}<div className="iban">{emp?.iban||'-'}</div></td><td>{num(x.work_days)}</td><td>{euro(x.daily_rate)}</td><td>{num(x.overtime_hours)}</td><td>{euro(x.overtime_rate)}</td><td><b>{euro(agreed)}</b></td><td>{euro(x.bank_amount)}</td><td style={{color:difference>0?'#e4c783':'#a8dfbd'}}><b>{euro(difference)}</b></td><td>{euro(paid)}</td><td>{euro(paymentBalance(agreed,paid))}</td><td><Status total={agreed} paid={paid} dueDate={x.due_date}/></td><td style={{maxWidth:180,whiteSpace:'normal'}}>{x.notes||'-'}</td><td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}><button title="Πληρωμή τράπεζας" className={`pay-small-btn ${x.bank_paid?'done':''}`} onClick={()=>togglePayroll(x,'bank_paid')}>🏦 {x.bank_paid?'✓':'○'}</button> <button title="Επιβεβαίωση Έξτρα" disabled={extraDue(agreed,x.bank_amount)<=0} className={`pay-small-btn ${x.extra_paid?'done':''}`} onClick={()=>togglePayroll(x,'extra_paid')}>💰 {x.extra_paid?'✓':'○'}</button> <button title="Επεξεργασία ημερών, ωρών και νόμιμων καθαρών" className="pay-small-btn" onClick={()=>setEditingPayroll({...x})}>✏️</button> <button title="Διαγραφή" className="pay-small-btn" onClick={()=>deletePayroll(x)}>🗑️</button></div></td></tr>})}
            {!monthRows.length && <tr><td colSpan="13">Δεν υπάρχει μισθοδοσία για {periodLabel(payrollMonth)}. Πάτησε «Δημιουργία μισθοδοσίας μήνα».</td></tr>}
          </tbody></table></div>
 </div>}
