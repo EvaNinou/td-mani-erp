@@ -3,7 +3,18 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 function isValidDate(value) {
-  return /^\d{2}\/\d{2}\/\d{4}$/.test(value || '');
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value || '')) {
+    return false;
+  }
+
+  const [day, month, year] = value.split('/').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
 }
 
 export async function GET(request) {
@@ -30,32 +41,36 @@ export async function GET(request) {
       return NextResponse.json(
         {
           ok: false,
-          error: 'Χρειάζονται dateFrom και dateTo σε μορφή dd/MM/yyyy.'
+          error: 'Οι ημερομηνίες πρέπει να είναι σε μορφή dd/MM/yyyy.'
         },
         { status: 400 }
       );
     }
 
     const params = new URLSearchParams({
+      mark: '0',
       dateFrom,
       dateTo
     });
 
     const optionalParams = [
-      'counterVatNumber',
       'entityVatNumber',
+      'counterVatNumber',
       'invType',
+      'maxMark',
       'nextPartitionKey',
       'nextRowKey'
     ];
 
-    optionalParams.forEach((key) => {
+    for (const key of optionalParams) {
       const value = searchParams.get(key);
-      if (value) params.set(key, value);
-    });
+      if (value) {
+        params.set(key, value);
+      }
+    }
 
     const myDataUrl =
-      `https://mydatapi.aade.gr/myDATA/RequestMyIncome?${params.toString()}`;
+      `https://mydatapi.aade.gr/myDATA/RequestTransmittedDocs?${params.toString()}`;
 
     const response = await fetch(myDataUrl, {
       method: 'GET',
@@ -67,22 +82,26 @@ export async function GET(request) {
       cache: 'no-store'
     });
 
-    const xml = await response.text();
+    const body = await response.text();
 
     if (!response.ok) {
-      console.error('myDATA income error:', response.status);
+      console.error(
+        'myDATA RequestTransmittedDocs error:',
+        response.status,
+        body.slice(0, 1000)
+      );
 
       return NextResponse.json(
         {
           ok: false,
           status: response.status,
-          error: 'Η ΑΑΔΕ δεν δέχτηκε το αίτημα εσόδων myDATA.'
+          error: `Η ΑΑΔΕ απέρριψε την ανάκτηση εσόδων (HTTP ${response.status}).`
         },
         { status: response.status }
       );
     }
 
-    return new NextResponse(xml, {
+    return new NextResponse(body, {
       status: 200,
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
