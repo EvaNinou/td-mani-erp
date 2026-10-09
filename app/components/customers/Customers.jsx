@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from 'react';
+
 export default function Customers({
     editingCustomerId,
     newCustomer,
@@ -46,8 +48,93 @@ export default function Customers({
     getProjectDocuments,
     editDocument
 }) {
+  const [view, setView] = useState('list');
+  const [focusedCustomerId, setFocusedCustomerId] = useState(null);
+  const [localSearch, setLocalSearch] = useState('');
+  const activeCustomers = useMemo(() => customers.filter(isActiveItem).sort((a,b) =>
+    String(a.name || '').localeCompare(String(b.name || ''), 'el', { sensitivity: 'base' })
+  ), [customers, isActiveItem]);
+  const visibleCustomers = activeCustomers.filter(c =>
+    String(c.name || '').toLocaleLowerCase('el').includes(localSearch.toLocaleLowerCase('el')) ||
+    String(c.afm || '').includes(localSearch)
+  );
+  const focusedCustomer = customers.find(c => c.id === focusedCustomerId);
+  useEffect(() => { if (editingCustomerId) setView('new-customer'); }, [editingCustomerId]);
+  useEffect(() => { if (editingProjectId) setView('new-project'); }, [editingProjectId]);
+  const openCustomer = (customer) => { setFocusedCustomerId(customer.id); setView('customer'); };
+  const startProject = (customerId) => {
+    if (customerId && !editingProjectId) setNewProject(prev => ({ ...prev, customer_id: customerId }));
+    setView('new-project');
+  };
+  const backToList = () => { setView('list'); setSelectedProject(null); };
+  const openProject = (project) => { setFocusedCustomerId(project.customer_id); setSelectedProject(project); setActiveProjectTab('overview'); setView('project'); };
+  const panel = { background: 'rgba(255,255,255,.035)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 12, padding: 16 };
+  const flexRow = { display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' };
   return (
     <>
+<section className="card page-section customers-section" style={{marginBottom:16}}>
+  <div style={flexRow}>
+    <div><h2 style={{margin:'0 0 5px'}}>👥 Πελάτες & Έργα</h2><small>Οργάνωση πελατών, έργων και οικονομικών στοιχείων</small></div>
+    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+      <button onClick={backToList}>👥 Πελάτες</button>
+      <button onClick={() => setView('new-customer')}>＋ Νέος πελάτης</button>
+      <button onClick={() => startProject()}>＋ Νέο έργο</button>
+    </div>
+  </div>
+</section>
+{view === 'list' && <section className="card page-section customers-section">
+  <div style={flexRow}><h2>Κατάλογος πελατών</h2><span>{activeCustomers.length} πελάτες</span></div>
+  <input placeholder="🔎 Αναζήτηση ονόματος ή ΑΦΜ..." value={localSearch} onChange={e => setLocalSearch(e.target.value)}/>
+  <div style={{display:'grid',gap:10,marginTop:16}}>
+    {visibleCustomers.length === 0 && <p>Δεν βρέθηκαν πελάτες.</p>}
+    {visibleCustomers.map(customer => (
+      <div key={customer.id} style={panel}>
+        <div style={flexRow}>
+          <div><strong>{customer.name}</strong><div style={{opacity:.7,fontSize:12,marginTop:6}}>ΑΦΜ: {customer.afm || '—'} · {getCustomerProjects(customer.id).length} έργα</div></div>
+          <button onClick={() => openCustomer(customer)}>Άνοιγμα καρτέλας →</button>
+        </div>
+      </div>
+    ))}
+  </div>
+</section>}
+{view === 'customer' && focusedCustomer && <section className="card page-section customers-section">
+  <button onClick={backToList}>← Όλοι οι πελάτες</button>
+  <div style={{...flexRow,marginTop:16}}>
+    <div><h2>{focusedCustomer.name}</h2><p>ΑΦΜ: {focusedCustomer.afm || '—'} · Τηλέφωνο: {focusedCustomer.phone || '—'}</p><p>Περιοχή: {focusedCustomer.area || '—'}</p><p>{focusedCustomer.notes || ''}</p></div>
+    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+      <button onClick={() => setSelectedCustomerReport(focusedCustomer)}>📄 PDF Αναφορά</button>
+      <button onClick={() => { editCustomer(focusedCustomer); setView('new-customer'); }}>✏️ Επεξεργασία</button>
+      <button onClick={() => { if(window.confirm('Να διαγραφεί ο πελάτης;')) {deleteItem('customers', focusedCustomer.id); backToList();} }}>🗑 Διαγραφή</button>
+    </div>
+  </div>
+  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,margin:'16px 0'}}>
+    {[
+      ['Συμφωνημένα',getCustomerTotals(focusedCustomer.id).agreed],
+      ['Πληρωμένα',getCustomerTotals(focusedCustomer.id).paid],
+      ['Έξοδα',getCustomerTotals(focusedCustomer.id).expenses],
+      ['Εκτιμώμενο κέρδος',getCustomerTotals(focusedCustomer.id).balance]
+    ].map(([label,value]) => <div key={label} style={panel}><small>{label}</small><h3 style={{marginBottom:0}}>{Number(value || 0).toLocaleString('el-GR')} €</h3></div>)}
+  </div>
+  <div style={flexRow}><h3>Έργα πελάτη</h3><button onClick={() => startProject(focusedCustomer.id)}>＋ Νέο έργο για τον πελάτη</button></div>
+  <div style={{display:'grid',gap:10}}>
+    {getCustomerProjects(focusedCustomer.id).filter(isActiveItem).length === 0 && <p>Δεν υπάρχουν έργα για αυτόν τον πελάτη.</p>}
+    {getCustomerProjects(focusedCustomer.id).filter(isActiveItem).map(project => (
+      <div key={project.id} style={panel}>
+        <div style={flexRow}>
+          <div><strong>{project.title}</strong><p style={{margin:'6px 0'}}>📍 {project.area || project.address || '—'} · {getProjectStatusLabel(project.status)}</p>
+          <small>Συμφωνία: {Number(project.agreed_amount || 0).toLocaleString('el-GR')} € · Πληρωμές: {Number(getProjectPaid(project.id) || 0).toLocaleString('el-GR')} €</small></div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <button onClick={() => openProject(project)}>👁 Άνοιγμα έργου</button>
+            <button onClick={() => { editProject(project); setView('new-project'); }}>✏️</button>
+            <button onClick={() => { if(window.confirm('Να διαγραφεί το έργο;')) deleteItem('projects',project.id); }}>🗑</button>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+</section>}
+{view === 'new-customer' && <>
+  <button onClick={() => setView(focusedCustomer ? 'customer' : 'list')}>← Επιστροφή</button>
 <section className="card page-section customers-section">
   <h2>{editingCustomerId ? 'Επεξεργασία Πελάτη' : 'Νέος Πελάτης'}</h2>
   <input placeholder="Όνομα πελάτη" value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} />
@@ -58,6 +145,9 @@ export default function Customers({
   <button onClick={saveCustomer}>{editingCustomerId ? 'Αποθήκευση αλλαγών πελάτη' : 'Αποθήκευση πελάτη'}</button>
 </section>
 
+</>}
+{view === 'new-project' && <>
+  <button onClick={() => setView(focusedCustomer ? 'customer' : 'list')}>← Επιστροφή</button>
 <section className="card page-section customers-section">
   <h2>{editingProjectId ? 'Επεξεργασία Έργου' : 'Νέο Έργο'}</h2>
   <select value={newProject.customer_id} onChange={(e) => setNewProject({ ...newProject, customer_id: e.target.value })}>
@@ -77,98 +167,10 @@ export default function Customers({
   <button onClick={saveProject}>{editingProjectId ? 'Αποθήκευση αλλαγών έργου' : 'Αποθήκευση έργου'}</button>
 </section>
 
-<section className="card page-section customers-section">
-  <h2>Πελάτες & Έργα</h2>
-
-  <input
-    placeholder="Αναζήτηση πελάτη..."
-    value={customerSearch}
-    onChange={(e) => setCustomerSearch(e.target.value)}
-  />
-
-  <input
-    placeholder="Αναζήτηση έργου / περιοχής / διεύθυνσης..."
-    value={projectSearch}
-    onChange={(e) => setProjectSearch(e.target.value)}
-  />
-
-  {customers.filter(isActiveItem).length === 0 ? (
-    <p>Δεν υπάρχουν πελάτες ακόμα.</p>
-  ) : customers.filter(isActiveItem).filter(customerMatchesSearch).length === 0 ? (
-    <p>Δεν βρέθηκαν πελάτες ή έργα με αυτή την αναζήτηση.</p>
-  ) : (
-    customers.filter(isActiveItem).filter(customerMatchesSearch).map((customer) => {
-      const customerProjects = getVisibleCustomerProjects(customer.id);
-      const customerTotals = getCustomerTotals(customer.id);
-      const isOpen = openCustomerId === customer.id;
-
-      return (
-        <div key={customer.id} className="line">
-          <div onClick={() => setOpenCustomerId(isOpen ? null : customer.id)}>
-            <p><b>{isOpen ? '▼' : '▶'} {customer.name}</b></p>
-            <p>ΑΦΜ: {customer.afm || '-'}</p>
-            <p>{customer.phone}</p>
-            <p>{customer.area}</p>
-            <small>{customer.notes}</small>
-            <p>Έργα: {getCustomerProjects(customer.id).length}</p>
-            <p>Συμφωνημένα: {customerTotals.agreed}€</p>
-            <p>Πληρωμένα: {customerTotals.paid}€</p>
-            <p>Έξοδα: {customerTotals.expenses}€</p>
-            <p><b>Εκτιμώμενο κέρδος: {customerTotals.balance}€</b></p>
-          </div>
-
-          <button onClick={() => setSelectedCustomerReport(customer)}>📄 Export PDF Αναφορά</button>
-          <button onClick={() => editCustomer(customer)}>✏️ Επεξεργασία πελάτη</button>
-          <button onClick={() => deleteItem('customers', customer.id)}>🗑 Διαγραφή πελάτη</button>
-
-          {isOpen && (
-            <div>
-              <h3>Έργα πελάτη</h3>
-
-              {customerProjects.length === 0 ? (
-                <p>Δεν υπάρχουν έργα για αυτόν τον πελάτη με αυτή την αναζήτηση.</p>
-              ) : (
-                customerProjects.map((project) => {
-                  const paid = getProjectPaid(project.id);
-                  const agreed = Number(project.agreed_amount || 0);
-                  const projectExpenses = getProjectExpenses(project.id);
-                  const balance = agreed - projectExpenses;
-
-                  return (
-                    <div key={project.id} className="line" style={getProjectStatusStyle(project.status)}>
-                      <p><b>{project.title}</b></p>
-                      <p>Πελάτης: {getCustomerName(project.customer_id)}</p>
-                      <p>Περιοχή: {project.area || '-'}</p>
-                      <p>Status: <b>{getProjectStatusLabel(project.status)}</b></p>
-                      <p>Συμφωνία: {agreed}€</p>
-                      <p>Πληρώθηκε: {paid}€</p>
-                      <p>Έξοδα: {projectExpenses}€</p>
-                      <p><b>Εκτιμώμενο κέρδος: {balance}€</b></p>
-
-                      <div className="line">
-                        <p>Progress πληρωμών: <b>{getProjectProgress(project.id)}%</b></p>
-                        <div style={{ width: '100%', height: '10px', background: 'rgba(255,255,255,0.10)', borderRadius: '999px', overflow: 'hidden' }}>
-                          <div style={{ width: `${getProjectProgress(project.id)}%`, height: '100%', background: 'linear-gradient(135deg, #d6a84f, #7a551d)' }} />
-                        </div>
-                      </div>
-
-                      <button onClick={() => { setSelectedProject(project); setActiveProjectTab('overview'); }}>👁 Άνοιγμα έργου</button>
-                      <button onClick={() => editProject(project)}>✏️ Επεξεργασία έργου</button>
-                      <button onClick={() => deleteItem('projects', project.id)}>🗑 Διαγραφή έργου</button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </div>
-      );
-    })
-  )}
-</section>
-
-{selectedProject && (
+</>}
+{view === 'project' && selectedProject && (
   <section className="card print-area page-section customers-section">
+    <button onClick={() => { setSelectedProject(null); setView('customer'); }}>← Πίσω στον πελάτη</button>
     <div className="pdf-header">
       <div className="logo pdf-logo">TD</div>
       <div>
@@ -265,10 +267,9 @@ export default function Customers({
     )}
 
     <button onClick={() => window.print()}>📄 Export / Print PDF Ανάλυσης</button>
-    <button onClick={() => setSelectedProject(null)}>Κλείσιμο ανάλυσης</button>
+    <button onClick={() => { setSelectedProject(null); setView('customer'); }}>← Πίσω στον πελάτη</button>
   </section>
 )}
     </>
   );
 }
-
