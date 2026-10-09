@@ -475,108 +475,103 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
     }
   }
 
+  function parseIncomeInvoice(invoice) {
+    const counterpart = firstNode(invoice, 'counterpart');
+    const header = firstNode(invoice, 'invoiceHeader');
+    const summary = firstNode(invoice, 'invoiceSummary');
+    const mark = getText(invoice, 'mark');
+    const uid = getText(invoice, 'uid');
+    return {
+      id: mark || uid || `${getText(header, 'issueDate')}-${getText(header, 'series')}-${getText(header, 'aa')}`,
+      mark,
+      minMark: mark,
+      maxMark: mark,
+      counterVatNumber: getText(counterpart, 'vatNumber'),
+      customerName: getText(counterpart, 'name') || getText(counterpart, 'companyName'),
+      issueDate: getText(header, 'issueDate'),
+      invType: getText(header, 'invoiceType'),
+      series: getText(header, 'series'),
+      aa: getText(header, 'aa'),
+      netValue: Number(getText(summary, 'totalNetValue') || 0),
+      vatAmount: Number(getText(summary, 'totalVatAmount') || 0),
+      grossValue: Number(getText(summary, 'totalGrossValue') || 0),
+      count: '1',
+    };
+  }
+
   async function loadIncome() {
     try {
       setIncomeLoading(true);
       setIncomeError('');
+      setIncomeLoaded(false);
       setIncomeSelected(null);
       if (dateFrom > dateTo) throw new Error('Η αρχική ημερομηνία πρέπει να είναι πριν από την τελική.');
-      const response = await fetch(`/api/mydata/income?dateFrom=${encodeURIComponent(toApiDate(dateFrom))}&dateTo=${encodeURIComponent(toApiDate(dateTo))}`, { cache: 'no-store' });
-      const body = await response.text();
-      if (!response.ok) {
-        let message = 'Αποτυχία ανάκτησης εσόδων.';
-        try { message = JSON.parse(body)?.error || message; } catch {}
-        throw new Error(message);
+
+      const all = [];
+      let nextPartitionKey = '';
+      let nextRowKey = '';
+      const visited = new Set();
+
+      for (let page = 0; page < 100; page++) {
+        const params = new URLSearchParams({
+          dateFrom: toApiDate(dateFrom),
+          dateTo: toApiDate(dateTo),
+        });
+        if (nextPartitionKey && nextRowKey) {
+          params.set('nextPartitionKey', nextPartitionKey);
+          params.set('nextRowKey', nextRowKey);
+        }
+        const response = await fetch(`/api/mydata/income?${params.toString()}`, { cache: 'no-store' });
+        const body = await response.text();
+        if (!response.ok) {
+          let message = 'Αποτυχία ανάκτησης εσόδων.';
+          try { message = JSON.parse(body)?.error || message; } catch {}
+          throw new Error(message);
+        }
+        const xml = parseXmlBody(body);
+        const invoices = Array.from(xml.getElementsByTagNameNS('*', 'invoice'));
+        all.push(...invoices.map(parseIncomeInvoice));
+
+        const continuation = firstNode(xml, 'continuationToken');
+        const nextP = getText(continuation, 'nextPartitionKey') || getText(xml, 'nextPartitionKey');
+        const nextR = getText(continuation, 'nextRowKey') || getText(xml, 'nextRowKey');
+        if (!nextP || !nextR) break;
+        const token = `${nextP}:${nextR}`;
+        if (visited.has(token)) throw new Error('Η ΑΑΔΕ επέστρεψε επαναλαμβανόμενη σελίδα.');
+        visited.add(token);
+        nextPartitionKey = nextP;
+        nextRowKey = nextR;
+        if (page === 99) throw new Error('Η ανάκτηση ξεπέρασε τις 100 σελίδες. Δοκίμασε μικρότερη περίοδο.');
       }
-      const xml = parseXmlBody(body);
-      const bookInfos = Array.from(xml.getElementsByTagNameNS('*', 'bookInfo'));
-      const groups = bookInfos.map((node, index) => ({
-        id: `${getText(node, 'minMark') || getText(node, 'maxMark') || index}-${getText(node, 'counterVatNumber')}-${getText(node, 'issueDate')}`,
-        counterVatNumber: getText(node, 'counterVatNumber'),
-        issueDate: getText(node, 'issueDate'),
-        invType: getText(node, 'invType'),
-        netValue: Number(getText(node, 'netValue') || 0),
-        vatAmount: Number(getText(node, 'vatAmount') || 0),
-        grossValue: Number(getText(node, 'grossValue') || 0),
-        count: getText(node, 'count') || '1',
-        minMark: getText(node, 'minMark'),
-        maxMark: getText(node, 'maxMark'),
-      }));
-      const expanded = await Promise.all(groups.map(async (group) => {
-        const expected = Number(group.count || 1);
-        if (expected <= 1 || !group.minMark || !group.maxMark || group.minMark === group.maxMark) return [group];
-        try {
-          const r = await fetch(`/api/mydata/document?minMark=${encodeURIComponent(group.minMark)}&maxMark=${encodeURIComponent(group.maxMark)}`, { cache: 'no-store' });
-          if (!r.ok) return [group];
-          const x = parseXmlBody(await r.text());
-          const invoices = Array.from(x.getElementsByTagNameNS('*', 'invoice'));
-          const docs = invoices.map((invoice) => {
-            const counterpart = firstNode(invoice, 'counterpart');
-            const header = firstNode(invoice, 'invoiceHeader');
-            const summary = firstNode(invoice, 'invoiceSummary');
-            const mark = getText(invoice, 'mark');
-            return {
-              id: mark,
-              mark,
-              minMark: mark,
-              maxMark: mark,
-              counterVatNumber: getText(counterpart, 'vatNumber'),
-              customerName: getText(counterpart, 'name') || getText(counterpart, 'companyName'),
-              issueDate: getText(header, 'issueDate'),
-              invType: getText(header, 'invoiceType'),
-              series: getText(header, 'series'),
-              aa: getText(header, 'aa'),
-              netValue: Number(getText(summary, 'totalNetValue') || 0),
-              vatAmount: Number(getText(summary, 'totalVatAmount') || 0),
-              grossValue: Number(getText(summary, 'totalGrossValue') || 0),
-              count: '1',
-            };
-          }).filter((doc) =>
-            (!group.counterVatNumber || doc.counterVatNumber === group.counterVatNumber) &&
-            (!group.issueDate || doc.issueDate === group.issueDate) &&
-            (!group.invType || doc.invType === group.invType)
-          );
-          return docs.length === expected ? docs : [group];
-        } catch { return [group]; }
-      }));
-      setIncomeDocuments(expanded.flat().sort((a, b) => String(b.issueDate).localeCompare(String(a.issueDate))));
+
+      const unique = Array.from(new Map(all.map((doc) => [doc.id, doc])).values());
+      unique.sort((a, b) => String(b.issueDate).localeCompare(String(a.issueDate)));
+      setIncomeDocuments(unique);
       setIncomeLoaded(true);
     } catch (err) {
       setIncomeError(err?.message || 'Άγνωστο σφάλμα εσόδων.');
       setIncomeDocuments([]);
-    } finally { setIncomeLoading(false); }
+    } finally {
+      setIncomeLoading(false);
+    }
   }
 
-  async function showIncomeDocument(doc) {
-    const mark = doc.mark || (doc.count === '1' ? doc.minMark || doc.maxMark : '');
-    if (!mark) {
-      setIncomeError('Η εγγραφή περιλαμβάνει περισσότερα παραστατικά και δεν έχει ξεχωριστό MARK.');
-      return;
-    }
-    try {
-      setIncomeError('');
-      const r = await fetch(`/api/mydata/document?mark=${encodeURIComponent(mark)}`, { cache: 'no-store' });
-      const body = await r.text();
-      if (!r.ok) throw new Error('Δεν ήταν δυνατή η ανάκτηση του παραστατικού.');
-      const xml = parseXmlBody(body);
-      const invoice = firstNode(xml, 'invoice');
-      if (!invoice) throw new Error('Δεν βρέθηκε το παραστατικό.');
-      const counterpart = firstNode(invoice, 'counterpart');
-      const header = firstNode(invoice, 'invoiceHeader');
-      const summary = firstNode(invoice, 'invoiceSummary');
-      setIncomeSelected({
-        mark: getText(invoice, 'mark') || mark,
-        customerVat: getText(counterpart, 'vatNumber'),
-        customerName: getText(counterpart, 'name') || getText(counterpart, 'companyName'),
-        date: getText(header, 'issueDate'),
-        series: getText(header, 'series'),
-        aa: getText(header, 'aa'),
-        type: getText(header, 'invoiceType'),
-        net: Number(getText(summary, 'totalNetValue') || 0),
-        vat: Number(getText(summary, 'totalVatAmount') || 0),
-        gross: Number(getText(summary, 'totalGrossValue') || 0),
-      });
-    } catch (err) { setIncomeError(err.message); }
+  function showIncomeDocument(doc) {
+    // The transmitted-documents response already includes invoice details.
+    // RequestDocs is for received documents, so do not use it for income.
+    setIncomeError('');
+    setIncomeSelected({
+      mark: doc.mark || '-',
+      customerVat: doc.counterVatNumber,
+      customerName: doc.customerName,
+      date: doc.issueDate,
+      series: doc.series,
+      aa: doc.aa,
+      type: doc.invType,
+      net: doc.netValue,
+      vat: doc.vatAmount,
+      gross: doc.grossValue,
+    });
   }
 
   const visibleIncome = incomeDocuments.filter((doc) =>
@@ -944,7 +939,7 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
             <p>Καθαρή: {money(incomeSelected.net)} • ΦΠΑ: {money(incomeSelected.vat)} • <b>Σύνολο: {money(incomeSelected.gross)}</b></p>
             <button type="button" onClick={() => setIncomeSelected(null)}>✕ Κλείσιμο</button>
           </div>}
-          <p><small>Η ανάκτηση είναι μόνο για προβολή. Η σύνδεση με έργα και οι εισπράξεις θα προστεθούν σε επόμενο βήμα. Ορισμένες εγγραφές της ΑΑΔΕ μπορεί να είναι συγκεντρωτικές.</small></p>
+          <p><small>Η ανάκτηση είναι μόνο για προβολή. Η σύνδεση με έργα και οι εισπράξεις θα προστεθούν σε επόμενο βήμα.</small></p>
         </div>
       ) : (
       <>
