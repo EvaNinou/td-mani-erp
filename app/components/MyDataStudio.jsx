@@ -90,6 +90,7 @@ function parseDetailedInvoiceForList(invoice, fallback = {}) {
 }
 
 export default function MyDataStudio({ supabase, suppliers = [], inventory = [], onInventoryChanged }) {
+  const [activeCategory, setActiveCategory] = useState('expenses');
   const [dateFrom, setDateFrom] = useState(firstDayOfMonthInput());
   const [dateTo, setDateTo] = useState(todayInput());
   const [documents, setDocuments] = useState([]);
@@ -769,8 +770,8 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
     <section className="card mydata-section">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
-          <h2>🔄 myDATA — Έξοδα</h2>
-          <p>Παραστατικά εξόδων που λαμβάνονται απευθείας από την ΑΑΔΕ.</p>
+          <h2>🔄 myDATA</h2>
+          <p>Επίλεξε Έσοδα ή Έξοδα για να δεις τα αντίστοιχα παραστατικά.</p>
         </div>
         <small>
           {lastUpdate
@@ -779,6 +780,24 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
         </small>
       </div>
 
+      <div style={{ display: 'flex', gap: 12, margin: '18px 0', flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => { setActiveCategory('income'); setSelectedDocument(null); setDetailsError(''); }}
+          style={{ flex: '1 1 180px', padding: '16px', border: activeCategory === 'income' ? '2px solid #c59a43' : '1px solid #555', background: activeCategory === 'income' ? '#3b3120' : '#26262b', borderRadius: 12 }}>
+          💰 ΕΣΟΔΑ
+        </button>
+        <button type="button" onClick={() => { setActiveCategory('expenses'); setSelectedDocument(null); setDetailsError(''); }}
+          style={{ flex: '1 1 180px', padding: '16px', border: activeCategory === 'expenses' ? '2px solid #c59a43' : '1px solid #555', background: activeCategory === 'expenses' ? '#3b3120' : '#26262b', borderRadius: 12 }}>
+          🧾 ΕΞΟΔΑ
+        </button>
+      </div>
+      {activeCategory === 'income' ? (
+        <div className="line" style={{ padding: 20 }}>
+          <h3>💰 Τιμολόγια Εσόδων</h3>
+          <p>Εδώ θα εμφανίζονται τα εκδοθέντα τιμολόγια από το myDATA, όταν συνδέσουμε την ανάκτηση εσόδων.</p>
+          <p><small>Τα έξοδα συνεχίζουν να λειτουργούν κανονικά. Δεν έχουν εισαχθεί ακόμη τιμολόγια εσόδων.</small></p>
+        </div>
+      ) : (
+      <>
       <div className="grid">
         <label>
           Από
@@ -1075,6 +1094,8 @@ export default function MyDataStudio({ supabase, suppliers = [], inventory = [],
             </div>
           )}
         </div>
+      )}
+      </>
       )}
     </section>
   );
